@@ -15,6 +15,7 @@ import pandas as pd
 
 from efinance_cli.fund_compat import get_base_info
 from efinance_cli.registry import get_command_spec
+from tests.cli_regression_support import print_observation
 
 
 def build_payload(
@@ -59,6 +60,7 @@ class FundCompatTest(unittest.TestCase):
         mock_fetch.return_value = build_payload("588510", "测试基金A", "0.14", "1.0014")
 
         result = get_base_info(["588510"])
+        print_observation("单基金兼容层输出", result.to_string())
 
         self.assertIsInstance(result, pd.Series)
         self.assertEqual(result["基金代码"], "588510")
@@ -78,6 +80,7 @@ class FundCompatTest(unittest.TestCase):
         ]
 
         result = get_base_info(["588510", "161725"])
+        print_observation("多基金兼容层输出", result.to_string(index=False))
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertEqual(result.shape, (2, 8))
@@ -90,4 +93,8 @@ class FundCompatTest(unittest.TestCase):
         """注册中心应把 `fund.get_base_info` 绑定到本地兼容实现。"""
 
         spec = get_command_spec("fund", "get_base_info")
+        print_observation(
+            "fund.get_base_info 注册回调",
+            {"callback_name": spec.callback.__name__, "is_local_compat": spec.callback is get_base_info},
+        )
         self.assertIs(spec.callback, get_base_info)

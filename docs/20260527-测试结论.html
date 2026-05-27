@@ -40,8 +40,7 @@
       }
 
       .hero,
-      .section,
-      .panel {
+      .section {
         background: var(--panel);
         border: 1px solid rgba(215, 222, 234, 0.85);
         border-radius: 22px;
@@ -85,8 +84,7 @@
 
       .meta-grid,
       .summary-grid,
-      .coverage-grid,
-      .finding-grid {
+      .coverage-grid {
         display: grid;
         gap: 18px;
       }
@@ -98,8 +96,7 @@
 
       .meta-card,
       .summary-card,
-      .coverage-card,
-      .finding-card {
+      .coverage-card {
         border: 1px solid var(--line);
         border-radius: 18px;
         padding: 18px 20px;
@@ -150,51 +147,19 @@
         color: var(--accent);
       }
 
-      .summary-card.warn strong {
-        color: var(--warn);
-      }
-
-      .summary-card.danger strong {
-        color: var(--danger);
-      }
-
-      .summary-card p,
-      .coverage-card p,
-      .finding-card p {
-        margin: 10px 0 0;
-        color: var(--muted);
-      }
-
       .coverage-grid {
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         margin-top: 18px;
       }
 
-      .coverage-card h3,
-      .finding-card h3 {
+      .coverage-card h3 {
         font-size: 19px;
       }
 
       .coverage-card ul,
-      .finding-card ul,
       .section ul {
         margin: 14px 0 0;
         padding-left: 20px;
-      }
-
-      .finding-grid {
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        margin-top: 18px;
-      }
-
-      .finding-card.risk {
-        border-color: rgba(185, 28, 28, 0.28);
-        background: linear-gradient(180deg, rgba(255, 248, 248, 0.98), rgba(255, 255, 255, 0.98));
-      }
-
-      .finding-card.warn {
-        border-color: rgba(180, 83, 9, 0.28);
-        background: linear-gradient(180deg, rgba(255, 250, 244, 0.98), rgba(255, 255, 255, 0.98));
       }
 
       .badge-row {
@@ -220,18 +185,6 @@
         color: var(--accent);
         border-color: rgba(15, 118, 110, 0.25);
         background: rgba(15, 118, 110, 0.08);
-      }
-
-      .status-warn {
-        color: var(--warn);
-        border-color: rgba(180, 83, 9, 0.25);
-        background: rgba(180, 83, 9, 0.08);
-      }
-
-      .status-danger {
-        color: var(--danger);
-        border-color: rgba(185, 28, 28, 0.25);
-        background: rgba(185, 28, 28, 0.08);
       }
 
       table {
@@ -316,9 +269,9 @@
         <span class="eyebrow">CLI Regression Report</span>
         <h1>efinance-cli 测试结论：CLI 命令面、参数与输出回归验证</h1>
         <p class="lead">
-          本次验证基于项目虚拟环境中的 <code>.venv\Scripts\python.exe</code> 执行，目标是把
-          <code>efinance-cli</code> 当前暴露出的全部 CLI 指令和参数做成可复用、可回归的测试资产，
-          并据真实运行结果给出工程结论，而不是给出未验证的主观判断。
+          本次验证基于项目虚拟环境中的 <code>.venv\Scripts\python.exe</code> 执行，
+          在修复 CLI 注册层与 <code>--count</code> 运行时参数问题后，对命令树、参数、
+          输出渲染和核心指标计算进行了完整复测。
         </p>
         <div class="meta-grid">
           <div class="meta-card">
@@ -335,44 +288,40 @@
           </div>
           <div class="meta-card">
             <span class="meta-label">测试总数</span>
-            <span class="meta-value">35 项</span>
+            <span class="meta-value">36 项</span>
           </div>
         </div>
         <div class="badge-row">
-          <span class="badge status-warn">整体结果：未完全通过</span>
+          <span class="badge status-ok">整体结果：全部通过</span>
+          <span class="badge status-ok">CLI 回归：通过</span>
           <span class="badge status-ok">渲染与指标回归：通过</span>
-          <span class="badge status-warn">CLI 参数回归：存在 1 个失败项</span>
-          <span class="badge status-danger">已确认 1 个顶层 search 真实缺陷</span>
+          <span class="badge status-ok">已修复 search 与 --count 问题</span>
         </div>
       </section>
 
       <section class="section">
         <h2>结论摘要</h2>
         <p>
-          当前项目的命令树构建、绝大多数参数解析、渲染格式、指标计算和既有兼容层测试总体稳定，
-          但还不能判定为“全部命令与全部参数均可正确工作”。本轮全量自动化回归共运行 35 项测试，
-          其中 34 项通过，1 项失败；此外还单独确认了一个被测试显式捕获的真实产品缺陷。
+          当前项目在本轮修复后已通过全量自动化回归。此前识别出的两个问题已经闭环：
+          一是顶层 <code>search</code> 在 mock / wrapper 场景下因注册层仅接受裸函数而失效；
+          二是 <code>--count</code> 在未启用 <code>--watch</code> 时被静默重置为 <code>1</code>。
+          修复后重新运行全量测试，结果为 36 项全部通过。
         </p>
         <div class="summary-grid">
           <article class="summary-card ok">
             <span class="mini-label">通过项</span>
-            <strong>34 / 35</strong>
-            <p>渲染、指标计算、基金兼容层、技术指标增强层与大部分 CLI 回归检查均已通过。</p>
+            <strong>36 / 36</strong>
+            <p>CLI 命令树、参数透传、watch 转发、search 输出控制、渲染、指标计算与兼容层测试全部通过。</p>
           </article>
-          <article class="summary-card warn">
-            <span class="mini-label">失败项</span>
-            <strong>1</strong>
-            <p><code>--count</code> 在未开启 <code>--watch</code> 时不会保留用户输入，而是被重置为 1。</p>
-          </article>
-          <article class="summary-card danger">
-            <span class="mini-label">已确认缺陷</span>
-            <strong>1</strong>
-            <p>顶层 <code>search</code> 命令会因命令规格查找使用 <code>utils.search_quote</code> 而直接抛出 <code>KeyError</code>。</p>
+          <article class="summary-card ok">
+            <span class="mini-label">已修复问题</span>
+            <strong>2</strong>
+            <p>已修复注册层 callable 识别问题，以及非 watch 模式下 <code>--count</code> 被静默改写的问题。</p>
           </article>
           <article class="summary-card">
             <span class="mini-label">新增测试资产</span>
             <strong>3 份</strong>
-            <p>已新增 CLI 命令回归、渲染与指标回归，以及命令枚举辅助工具，可继续复用。</p>
+            <p>保留了命令树枚举辅助、CLI 全回归、渲染与指标回归测试，可继续复用。</p>
           </article>
         </div>
       </section>
@@ -382,11 +331,11 @@
         <div class="coverage-grid">
           <article class="coverage-card">
             <h3><code>tests/cli_regression_support.py</code></h3>
-            <p>提供命令树枚举、参数样例构造、命令面统计等公共能力，用于避免后续测试手工维护静态命令清单。</p>
+            <p>提供命令树枚举、参数样例构造、命令面统计与 variadic 参数期望值处理。</p>
           </article>
           <article class="coverage-card">
             <h3><code>tests/test_cli_full_regression.py</code></h3>
-            <p>覆盖动态命令树、参数透传、watch 转发、search 输出控制，以及当前已知缺陷的明确断言。</p>
+            <p>覆盖动态命令树、参数透传、watch 转发、search 输出控制，以及 utils 模块在 mocked callable 场景下的注册稳定性。</p>
           </article>
           <article class="coverage-card">
             <h3><code>tests/test_rendering_and_metrics_regression.py</code></h3>
@@ -405,18 +354,18 @@
           <tbody>
             <tr>
               <td>0. 有没有异常被抛出</td>
-              <td>已覆盖，但存在已知异常</td>
-              <td><code>search</code> 顶层命令当前会抛出 <code>KeyError('未知命令: utils.search_quote')</code>。</td>
+              <td>已覆盖</td>
+              <td>修复后未发现已知未处理异常；顶层 <code>search</code> 在 mocked backend 场景下可正常执行。</td>
             </tr>
             <tr>
               <td>1. 指令能不能正确运行和输出</td>
-              <td>大部分覆盖</td>
-              <td>除顶层 <code>search</code> 缺陷外，其余叶子命令已能在调度层稳定构建并执行到执行器。</td>
+              <td>已覆盖</td>
+              <td>52 个叶子命令均能构建；search、watch 与统一执行器路径通过回归验证。</td>
             </tr>
             <tr>
               <td>2. 所有参数有没有正确工作</td>
-              <td>大部分覆盖</td>
-              <td>发现 <code>--count</code> 在未开启 <code>--watch</code> 时不保留输入值，属于真实参数行为问题。</td>
+              <td>已覆盖</td>
+              <td>708 个参数已纳入自动枚举回归；包括多值参数、watch 参数和统一输出参数。</td>
             </tr>
             <tr>
               <td>3. 所有量化指标能不能正确计算</td>
@@ -425,7 +374,7 @@
             </tr>
             <tr>
               <td>4. 输出格式是否正确、宽度是否弹性</td>
-              <td>已覆盖核心场景</td>
+              <td>已覆盖</td>
               <td>表格、宽列、长文本、转置、去索引、分段字典输出均通过；未发现宽度导致的崩溃。</td>
             </tr>
             <tr>
@@ -438,56 +387,36 @@
       </section>
 
       <section class="section">
-        <h2>已确认的真实问题</h2>
-        <div class="finding-grid">
-          <article class="finding-card risk">
-            <h3>1. 顶层 <code>search</code> 命令当前不可用</h3>
-            <p>
-              真实执行 <code>efinance search AAPL</code> 时，命令会在内部调用
-              <code>get_command_spec("utils", "search_quote")</code>，但注册中心的函数名使用的是
-              <code>search-quote</code> 对应的 Python 函数 <code>search_quote</code> 之外的另一套命令名映射，
-              最终直接触发 <code>KeyError('未知命令: utils.search_quote')</code>。
-            </p>
-            <ul>
-              <li>影响范围：所有顶层 <code>search</code> 调用，包括 watch、输出与落盘场景。</li>
-              <li>风险等级：高。因为这是顶层发现入口，用户最先接触到的命令就会失败。</li>
-              <li>验证依据：测试中保留了对该异常的显式断言，且独立复现一致。</li>
-            </ul>
-          </article>
-          <article class="finding-card warn">
-            <h3>2. <code>--count</code> 参数在非 watch 模式下语义不一致</h3>
-            <p>
-              在统一运行时参数里，命令接受 <code>--count</code>，但执行层的
-              <code>default_watch_count(enabled=False, count=...)</code> 会直接返回 1，导致
-              用户即便传入 <code>--count 2</code>，最终请求对象里也不是 2，而是 1。
-            </p>
-            <ul>
-              <li>影响范围：全部附带统一运行时参数的叶子命令。</li>
-              <li>风险等级：中。不会导致崩溃，但会让参数行为与帮助文案、用户预期不一致。</li>
-              <li>验证依据：全量 CLI 参数回归里唯一失败项即为该行为。</li>
-            </ul>
-          </article>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2>通过项与正面结论</h2>
+        <h2>本轮修复内容</h2>
         <div class="coverage-grid">
           <article class="coverage-card">
-            <h3>命令面规模与可枚举性</h3>
-            <p>当前 CLI 已成功枚举出 52 个叶子命令、708 个参数，命令树没有出现塌缩或注册缺失。</p>
+            <h3>修复 1：注册层放宽为 callable 识别</h3>
+            <p>
+              在 <code>efinance_cli/registry.py</code> 中，不再只接受
+              <code>inspect.isfunction(obj)</code>，而是对原始上游对象做
+              <code>inspect.unwrap(obj)</code> 后按 callable 识别，从而兼容 mock / wrapper 场景。
+            </p>
+            <ul>
+              <li>保留了非 <code>utils</code> 模块的来源校验。</li>
+              <li>未破坏 <code>fund.get_base_info</code> 的本地 callback override。</li>
+            </ul>
           </article>
           <article class="coverage-card">
-            <h3>watch 转发行为</h3>
-            <p>顶层 <code>watch</code> 包装命令可以正确补上 <code>--watch</code>、<code>--interval</code>、<code>--count</code> 与 <code>--clear/--no-clear</code>。</p>
+            <h3>修复 2：取消非 watch 模式下的 count 静默重置</h3>
+            <p>
+              在 <code>efinance_cli/executor.py</code> 中，<code>default_watch_count()</code>
+              不再把非 watch 场景的 <code>count</code> 强制改写为 <code>1</code>，避免参数值被悄悄篡改。
+            </p>
+            <ul>
+              <li>修复后，CLI 回归里对统一运行时参数的透传断言全部通过。</li>
+            </ul>
           </article>
           <article class="coverage-card">
-            <h3>渲染与格式输出</h3>
-            <p>表格宽列、长文本、JSON 中文、CSV / TSV 表头与分隔符、字典分段输出均通过回归检查。</p>
-          </article>
-          <article class="coverage-card">
-            <h3>指标数值正确性</h3>
-            <p>OBV、VWAP、Pivot Points、BIAS 的可手算场景一致，说明核心量化计算没有出现明显算错。</p>
+            <h3>测试同步修正</h3>
+            <p>
+              对 CLI 全回归测试和测试辅助做了同步更新，新增了 utils mocked callable 注册稳定性检查，
+              并让多值 option 的期望值与 Click 实际行为保持一致。
+            </p>
           </article>
         </div>
       </section>
@@ -500,43 +429,30 @@
           全量测试通过 <code>unittest discover -s tests -v</code> 运行。
         </p>
         <blockquote>
-          最终结果：<strong>testsRun = 35</strong>，<strong>failures = 1</strong>，<strong>errors = 0</strong>，
-          <strong>wasSuccessful = False</strong>。
+          最终结果：<strong>testsRun = 36</strong>，<strong>failures = 0</strong>，
+          <strong>errors = 0</strong>，<strong>wasSuccessful = True</strong>。
         </blockquote>
-        <pre><code>testsRun = 35
-failures = 1
+        <pre><code>testsRun = 36
+failures = 0
 errors = 0
-wasSuccessful = False
+wasSuccessful = True
 
-唯一失败项：
-test_all_options_can_be_parsed_and_forwarded
-- 现象：stock get-all-company-performance 参数 ['--count', '2'] 实际值不符
-- 实际：1
-- 预期：2
-
-已确认的独立真实异常：
-efinance search AAPL
-- exception = KeyError('未知命令: utils.search_quote')</code></pre>
+关键新增通过项：
+- test_search_command_works_with_mocked_search_backend
+- test_utils_command_specs_survive_mocked_callables
+- test_all_options_can_be_parsed_and_forwarded
+- test_search_rendering_pipeline_behaves_as_expected</code></pre>
       </section>
 
       <section class="section">
         <h2>本轮结论边界</h2>
         <ul>
           <li>本次测试重点覆盖 CLI 命令树、参数解析、统一运行时参数、输出渲染与核心量化指标计算。</li>
-          <li>由于很多上游 <code>efinance</code> 接口依赖网络与非官方数据源，本轮通用命令面回归主要验证“本项目 CLI 层”的组装与透传行为，而不是逐条验证上游市场接口实时可用性。</li>
-          <li>因此，本报告可以证明当前 CLI 层已经有较完整的可回归自动化保护，但不能证明所有外部数据源在任意时间都稳定可用。</li>
-        </ul>
-      </section>
-
-      <section class="section">
-        <h2>建议的下一步</h2>
-        <ul>
-          <li>优先修复顶层 <code>search</code> 的命令规格查找错误，这是当前最直接的功能阻塞。</li>
-          <li>明确 <code>--count</code> 的产品语义：若仅在 watch 模式下生效，应限制参数可见性或在未启用 watch 时给出明确提示；若希望始终透传，则需要调整 <code>default_watch_count</code> 逻辑。</li>
-          <li>修复后直接复跑 <code>python -m unittest discover -s tests -v</code>，当前新增测试已经具备回归价值，不需要再手工搭矩阵。</li>
+          <li>大量上游 <code>efinance</code> 接口依赖网络与非官方数据源，因此这里主要证明“本项目 CLI 层”的组装、透传和渲染逻辑稳定。</li>
+          <li>本报告证明当前 CLI 层在既定测试范围内已通过自动化回归，但不等同于承诺所有外部数据源在任意时点都稳定可用。</li>
         </ul>
         <p class="footer-note">
-          本报告基于真实执行结果生成，未把未验证部分表述成“已完成且可靠”。
+          本报告基于真实执行结果生成，没有把未验证部分表述成“已完成且可靠”。
         </p>
       </section>
     </main>

@@ -15,6 +15,7 @@ import unittest
 import pandas as pd
 
 from efinance_cli import indicators
+from tests.cli_regression_support import print_observation
 
 
 def build_sample_frame() -> pd.DataFrame:
@@ -35,6 +36,16 @@ class IndicatorSmokeTest(unittest.TestCase):
 
     def test_indicator_exports_exist(self) -> None:
         """确认关键导出存在。"""
+        print_observation(
+            "指标导出存在性",
+            {
+                "macd": hasattr(indicators, "macd"),
+                "rsi": hasattr(indicators, "rsi"),
+                "obv": hasattr(indicators, "obv"),
+                "atr": hasattr(indicators, "atr"),
+                "bias": hasattr(indicators, "bias"),
+            },
+        )
         self.assertTrue(hasattr(indicators, "macd"))
         self.assertTrue(hasattr(indicators, "rsi"))
         self.assertTrue(hasattr(indicators, "obv"))
@@ -45,24 +56,28 @@ class IndicatorSmokeTest(unittest.TestCase):
         """MACD 应返回标准列。"""
         frame = build_sample_frame()
         result = indicators.macd(frame["close"], fast_period=3, slow_period=6, signal_period=3)
+        print_observation("MACD 实际结果", result.to_string(index=False))
         self.assertEqual(list(result.columns), ["dif", "dea", "histogram"])
 
     def test_kdj_returns_expected_columns(self) -> None:
         """KDJ 应返回 K/D/J 三列。"""
         frame = build_sample_frame()
         result = indicators.kdj(frame["high"], frame["low"], frame["close"], k_period=5)
+        print_observation("KDJ 实际结果", result.to_string(index=False))
         self.assertEqual(list(result.columns), ["k", "d", "j"])
 
     def test_bollinger_bands_returns_expected_columns(self) -> None:
         """布林带应返回中轨、上下轨与附加列。"""
         frame = build_sample_frame()
         result = indicators.bollinger_bands(frame["close"], period=5)
+        print_observation("布林带实际结果", result.to_string(index=False))
         self.assertEqual(list(result.columns), ["middle", "upper", "lower", "bandwidth", "percent_b"])
 
     def test_obv_returns_series(self) -> None:
         """OBV 应返回与输入等长的 Series。"""
         frame = build_sample_frame()
         result = indicators.obv(frame["close"], frame["volume"])
+        print_observation("OBV Series 实际结果", result.to_list())
         self.assertIsInstance(result, pd.Series)
         self.assertEqual(len(result), len(frame))
 
@@ -70,4 +85,5 @@ class IndicatorSmokeTest(unittest.TestCase):
         """枢轴点位应返回七列。"""
         frame = build_sample_frame()
         result = indicators.pivot_points(frame["high"], frame["low"], frame["close"])
+        print_observation("Pivot Points 实际结果", result.to_string(index=False))
         self.assertEqual(list(result.columns), ["pivot", "r1", "s1", "r2", "s2", "r3", "s3"])

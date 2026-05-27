@@ -1,8 +1,8 @@
 """命令执行与循环刷新管线。
 
-这里采用模板化执行流程：一次调用始终经过“参数标准化 -> 第三方函数调用 ->
-结果渲染 -> 输出/落盘”这条固定骨架。循环刷新只是在外层重复这条骨架，
-不会侵入每个业务命令的内部实现。
+该模块负责把一次 CLI 调用稳定地串成固定流程：参数标准化、第三方函数调用、
+结果增强、渲染与输出。`watch` 只是对同一执行骨架做重复调度，不应把刷新逻辑
+侵入到各个业务命令内部。
 """
 
 from __future__ import annotations
@@ -128,7 +128,5 @@ def split_runtime_options(raw_kwargs: dict[str, Any]) -> tuple[dict[str, Any], d
 
 
 def default_watch_count(enabled: bool, count: int | None) -> int | None:
-    """根据是否开启 watch 计算默认刷新次数。"""
-    if not enabled:
-        return 1
+    """计算 watch 的刷新次数配置。"""
     return count

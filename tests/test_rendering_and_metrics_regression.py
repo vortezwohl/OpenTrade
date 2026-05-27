@@ -16,6 +16,7 @@ import pandas as pd
 from efinance_cli import indicators
 from efinance_cli.models import OutputOptions
 from efinance_cli.rendering import render_csv, render_json, render_table, render_value
+from tests.cli_regression_support import print_observation
 
 
 def build_wide_frame() -> pd.DataFrame:
@@ -47,6 +48,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
 
         frame = build_wide_frame()
         text = render_table(frame, OutputOptions())
+        print_observation("默认表格渲染", text)
         self.assertIn("证券代码", text)
         self.assertIn("平安银行", text)
         self.assertGreaterEqual(len(text.splitlines()), 3)
@@ -56,6 +58,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
 
         frame = build_wide_frame()
         text = render_table(frame, OutputOptions(full=True))
+        print_observation("full 表格渲染", text)
         self.assertIn("用于验证表格列宽裁剪与完整输出切换行为的长文本字段", text)
 
     def test_transpose_and_no_index_rendering(self) -> None:
@@ -63,6 +66,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
 
         frame = build_wide_frame()[["证券代码", "证券名称"]]
         text = render_table(frame, OutputOptions(transpose=True, no_index=True))
+        print_observation("转置且隐藏索引渲染", text)
         self.assertIn("000001", text)
         self.assertIn("600519", text)
         self.assertNotIn("证券代码", text.splitlines()[0])
@@ -72,6 +76,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
 
         frame = build_wide_frame()
         text = render_json(frame)
+        print_observation("JSON 渲染", text)
         payload = json.loads(text)
         self.assertEqual(payload[0]["证券代码"], "000001")
         self.assertEqual(payload[1]["证券名称"], "贵州茅台")
@@ -82,6 +87,8 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         frame = build_wide_frame()[["证券代码", "证券名称"]]
         csv_text = render_csv(frame, OutputOptions(no_index=True))
         tsv_text = render_csv(frame, OutputOptions(no_index=True), sep="\t")
+        print_observation("CSV 渲染", csv_text)
+        print_observation("TSV 渲染", tsv_text)
 
         self.assertTrue(csv_text.startswith("证券代码,证券名称"))
         self.assertIn("000001,平安银行", csv_text)
@@ -93,6 +100,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
 
         frame = build_wide_frame()
         text = render_value(frame, OutputOptions(format_name="table", limit=1))
+        print_observation("limit=1 渲染", text)
         self.assertIn("平安银行", text)
         self.assertNotIn("贵州茅台", text)
 
@@ -101,6 +109,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
 
         frame = build_wide_frame()[["证券代码"]]
         text = render_table({"第一组": frame.head(1), "第二组": frame.tail(1)}, OutputOptions())
+        print_observation("字典分段渲染", text)
         self.assertIn("== 第一组 ==", text)
         self.assertIn("== 第二组 ==", text)
 
@@ -111,6 +120,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         volume = pd.Series([100, 120, 80, 50, 200])
         result = indicators.obv(close, volume)
         expected = pd.Series([0, 120, 40, 40, 240], dtype="float64")
+        print_observation("OBV 实际结果", result.to_list())
         pd.testing.assert_series_equal(result.reset_index(drop=True), expected, check_names=False)
 
     def test_vwap_matches_cumulative_weighted_average(self) -> None:
@@ -122,6 +132,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         volume = pd.Series([100, 200, 100])
         result = indicators.vwap(high, low, close, volume)
         expected = pd.Series([10.0, 10.6666666667, 11.0])
+        print_observation("VWAP 实际结果", result.round(6).to_list())
         pd.testing.assert_series_equal(
             result.round(6).reset_index(drop=True),
             expected.round(6),
@@ -136,6 +147,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         close = pd.Series([9.0])
         result = indicators.pivot_points(high, low, close)
         row = result.iloc[0]
+        print_observation("Pivot Points 实际结果", row.to_dict())
 
         self.assertEqual(row["pivot"], 9.0)
         self.assertEqual(row["r1"], 10.0)
@@ -151,6 +163,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         values = pd.Series([10.0, 11.0, 12.0])
         result = indicators.bias(values, period=3)
         expected_last = (12.0 - 11.0) / 11.0 * 100
+        print_observation("BIAS 实际结果", result.to_list())
         self.assertAlmostEqual(result.iloc[-1], expected_last)
 
     def test_output_width_stress_does_not_raise(self) -> None:
@@ -164,6 +177,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
             }
         )
         text = render_table(frame, OutputOptions())
+        print_observation("宽度压力渲染", text)
         self.assertIsInstance(text, str)
         self.assertGreater(len(text), 0)
 

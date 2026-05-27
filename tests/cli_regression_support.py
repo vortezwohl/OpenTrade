@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import namedtuple
 from dataclasses import dataclass
 from pathlib import Path
+from pprint import pformat
 from typing import Iterator
 
 import click
@@ -62,14 +63,7 @@ def build_cli() -> click.Group:
 
 
 def collect_leaf_commands(cli: click.MultiCommand | None = None) -> list[LeafCommand]:
-    """递归收集全部叶子命令。
-
-    Args:
-        cli: 可选的根命令对象；不传时会现建一棵命令树。
-
-    Returns:
-        所有可直接执行的叶子命令列表。
-    """
+    """递归收集全部叶子命令。"""
 
     root = cli or build_cli()
     if isinstance(root, click.Group):
@@ -102,11 +96,7 @@ def count_all_parameters(leaf_commands: list[LeafCommand] | None = None) -> int:
 
 
 def build_required_tokens(leaf: LeafCommand) -> list[str]:
-    """为一条命令构造最小必填参数。
-
-    这里优先满足 Click 的解析要求。由于大多数回归测试会在执行层打桩，因此并不依赖这
-    些样例值满足真实市场接口语义，只要求它们能稳定通过参数解析与请求组装流程。
-    """
+    """为一条命令构造最小必填参数。"""
 
     if leaf.path == ("watch",):
         return ["watch", "common", "get-latest-quote", "105.AAPL"]
@@ -119,12 +109,7 @@ def build_required_tokens(leaf: LeafCommand) -> list[str]:
 
 
 def build_option_cases(parameter: click.Option, base_dir: Path) -> list[tuple[list[str], object]]:
-    """为单个选项参数构造若干测试用例。
-
-    Returns:
-        由 ``(命令行片段, 预期值)`` 组成的列表。布尔参数如果同时暴露了正反两个 flag，
-        会分别给出两组样例，以便验证两个入口都能按预期工作。
-    """
+    """为单个选项参数构造若干测试用例。"""
 
     option_tokens: list[tuple[list[str], object]] = []
     primary = list(parameter.opts)
@@ -171,11 +156,11 @@ def _sample_option_value(parameter: click.Option, base_dir: Path) -> str:
         return str(base_dir / "command-output.txt")
     if name == "encoding":
         return "utf-8"
-    if name in {"format_name"}:
+    if name == "format_name":
         return "json"
-    if name in {"indicator_level"}:
+    if name == "indicator_level":
         return "full"
-    if name in {"interval"}:
+    if name == "interval":
         return "0.25"
     if name in {"limit", "count", "count_refresh", "count_refresh_alias", "result_count"}:
         return "2"
@@ -215,6 +200,8 @@ def _coerce_expected_value(parameter: click.Option, raw_value: str) -> object:
     """把命令行字符串样例转换为断言用的 Python 值。"""
 
     param_type = parameter.type
+    if parameter.multiple:
+        return (raw_value,)
     if isinstance(param_type, click.Choice):
         return raw_value
     if isinstance(param_type, click.types.IntParamType):
@@ -222,3 +209,13 @@ def _coerce_expected_value(parameter: click.Option, raw_value: str) -> object:
     if isinstance(param_type, click.types.FloatParamType):
         return float(raw_value)
     return raw_value
+
+
+def print_observation(title: str, value: object) -> None:
+    """打印测试过程中的实际输出，便于人工查看。"""
+
+    print(f"\n===== {title} =====")
+    if isinstance(value, str):
+        print(value if value else "<empty>")
+        return
+    print(pformat(value, sort_dicts=False))

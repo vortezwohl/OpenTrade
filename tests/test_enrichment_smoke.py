@@ -8,6 +8,7 @@ import pandas as pd
 
 from efinance_cli.enrichment.indicators import enrich_history_frame
 from efinance_cli.enrichment.levels import normalize_indicator_level
+from tests.cli_regression_support import print_observation
 
 
 def build_ohlcv_frame() -> pd.DataFrame:
@@ -29,6 +30,14 @@ class EnrichmentSmokeTest(unittest.TestCase):
 
     def test_level_aliases(self) -> None:
         """数字等级别名应能映射为规范名。"""
+        print_observation(
+            "指标等级别名映射",
+            {
+                "1": normalize_indicator_level("1"),
+                "2": normalize_indicator_level("2"),
+                "3": normalize_indicator_level("3"),
+            },
+        )
         self.assertEqual(normalize_indicator_level("1"), "basic")
         self.assertEqual(normalize_indicator_level("2"), "advanced")
         self.assertEqual(normalize_indicator_level("3"), "full")
@@ -37,6 +46,8 @@ class EnrichmentSmokeTest(unittest.TestCase):
         """基础等级应补充核心指标列。"""
         frame = build_ohlcv_frame()
         enriched = enrich_history_frame(frame, "basic")
+        print_observation("basic 增强列", list(enriched.columns))
+        print_observation("basic 增强尾行", enriched.tail(1).to_string(index=False))
         for column in [
             "ma5",
             "ma10",
@@ -58,6 +69,8 @@ class EnrichmentSmokeTest(unittest.TestCase):
         """进阶等级应补充扩展指标列。"""
         frame = build_ohlcv_frame()
         enriched = enrich_history_frame(frame, "advanced")
+        print_observation("advanced 增强列", list(enriched.columns))
+        print_observation("advanced 增强尾行", enriched.tail(1).to_string(index=False))
         for column in [
             "roc12",
             "bias6",
@@ -74,6 +87,8 @@ class EnrichmentSmokeTest(unittest.TestCase):
         """全量等级应补充完整指标列。"""
         frame = build_ohlcv_frame()
         enriched = enrich_history_frame(frame, "full")
+        print_observation("full 增强列", list(enriched.columns))
+        print_observation("full 增强尾行", enriched.tail(1).to_string(index=False))
         for column in [
             "tenkan",
             "kijun",

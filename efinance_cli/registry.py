@@ -134,14 +134,15 @@ def build_command_specs(module_name: str) -> list[CommandSpec]:
         if name not in allowed:
             continue
         obj = getattr(module, name)
-        if not inspect.isfunction(obj):
-            continue
-        module_path = getattr(obj, "__module__", "")
-        if module_name != "utils" and not module_path.startswith(module.__name__):
-            continue
         key = (module_name, name)
         callback = CALLBACK_OVERRIDES.get(key, obj)
-        doc = inspect.getdoc(obj) or ""
+        inspected_obj = inspect.unwrap(obj)
+        if not callable(inspected_obj):
+            continue
+        module_path = getattr(inspected_obj, "__module__", "")
+        if module_name != "utils" and not module_path.startswith(module.__name__):
+            continue
+        doc = inspect.getdoc(callback) or inspect.getdoc(inspected_obj) or ""
         help_text = FUNCTION_HELP_OVERRIDES.get(key) or doc.splitlines()[0] if doc else f"{module_name}.{name}"
         specs.append(
             CommandSpec(
