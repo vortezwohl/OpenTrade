@@ -13,7 +13,7 @@ from typing import Any
 
 import pandas as pd
 
-from .models import OutputOptions
+from efinance_cli.models import OutputOptions
 
 
 def render_value(value: Any, options: OutputOptions) -> str:

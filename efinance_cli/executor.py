@@ -14,9 +14,9 @@ from typing import Any
 
 import click
 
-from .introspection import build_parameter_specs, coerce_parameter_value
-from .models import InvocationRequest, InvocationResult
-from .rendering import render_value
+from efinance_cli.introspection import build_parameter_specs, coerce_parameter_value
+from efinance_cli.models import InvocationRequest, InvocationResult
+from efinance_cli.rendering import render_value
 
 
 class CommandExecutor:

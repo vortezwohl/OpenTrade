@@ -13,10 +13,26 @@ from typing import Any
 import click
 import pandas as pd
 
-from .executor import CommandExecutor, build_request_kwargs, default_watch_count, split_runtime_options
-from .introspection import apply_click_parameters, build_parameter_specs
-from .models import CommandSpec, InvocationRequest, InvocationResult, OutputOptions, WatchOptions
-from .registry import MODULE_HELP_TEXT, build_command_specs, get_command_spec, list_module_names
+from efinance_cli.executor import (
+    CommandExecutor,
+    build_request_kwargs,
+    default_watch_count,
+    split_runtime_options,
+)
+from efinance_cli.introspection import apply_click_parameters, build_parameter_specs
+from efinance_cli.models import (
+    CommandSpec,
+    InvocationRequest,
+    InvocationResult,
+    OutputOptions,
+    WatchOptions,
+)
+from efinance_cli.registry import (
+    MODULE_HELP_TEXT,
+    build_command_specs,
+    get_command_spec,
+    list_module_names,
+)
 
 
 def create_root_command() -> click.Group:
