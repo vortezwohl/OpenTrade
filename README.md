@@ -1,5 +1,3 @@
-# efinance-cli
-
 <div align="center">
   <h1>efinance-cli</h1>
   <p><strong>Turn <code>efinance</code> into a terminal interface that is easier for humans and agents to reuse</strong></p>
