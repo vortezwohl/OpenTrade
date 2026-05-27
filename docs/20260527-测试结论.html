@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>efinance-cli 测试结论：CLI 命令面、参数与输出回归验证</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #5b6472;
+        --line: #d7deea;
+        --primary: #244a7c;
+        --accent: #0f766e;
+        --warn: #b45309;
+        --danger: #b91c1c;
+        --shadow: 0 18px 50px rgba(36, 74, 124, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Noto Serif SC", "Source Han Serif SC", "Microsoft YaHei", serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(36, 74, 124, 0.14), transparent 28%),
+          linear-gradient(180deg, #eef3fb 0%, var(--bg) 100%);
+        line-height: 1.8;
+      }
+
+      .site {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+
+      .hero,
+      .section,
+      .panel {
+        background: var(--panel);
+        border: 1px solid rgba(215, 222, 234, 0.85);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 42px 44px;
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--primary);
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        color: #172033;
+      }
+
+      h1 {
+        margin-top: 14px;
+        font-size: clamp(30px, 4vw, 42px);
+        line-height: 1.28;
+      }
+
+      .lead {
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .meta-grid,
+      .summary-grid,
+      .coverage-grid,
+      .finding-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .meta-grid {
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        margin-top: 28px;
+      }
+
+      .meta-card,
+      .summary-card,
+      .coverage-card,
+      .finding-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px 20px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
+      }
+
+      .meta-label,
+      .mini-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      .meta-value {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .section {
+        padding: 30px 32px;
+        margin-top: 24px;
+      }
+
+      .section h2 {
+        font-size: 26px;
+        margin-bottom: 14px;
+      }
+
+      .section p {
+        margin: 0 0 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: 18px;
+      }
+
+      .summary-card strong {
+        display: block;
+        font-size: 30px;
+        color: var(--primary);
+        line-height: 1.2;
+      }
+
+      .summary-card.ok strong {
+        color: var(--accent);
+      }
+
+      .summary-card.warn strong {
+        color: var(--warn);
+      }
+
+      .summary-card.danger strong {
+        color: var(--danger);
+      }
+
+      .summary-card p,
+      .coverage-card p,
+      .finding-card p {
+        margin: 10px 0 0;
+        color: var(--muted);
+      }
+
+      .coverage-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        margin-top: 18px;
+      }
+
+      .coverage-card h3,
+      .finding-card h3 {
+        font-size: 19px;
+      }
+
+      .coverage-card ul,
+      .finding-card ul,
+      .section ul {
+        margin: 14px 0 0;
+        padding-left: 20px;
+      }
+
+      .finding-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        margin-top: 18px;
+      }
+
+      .finding-card.risk {
+        border-color: rgba(185, 28, 28, 0.28);
+        background: linear-gradient(180deg, rgba(255, 248, 248, 0.98), rgba(255, 255, 255, 0.98));
+      }
+
+      .finding-card.warn {
+        border-color: rgba(180, 83, 9, 0.28);
+        background: linear-gradient(180deg, rgba(255, 250, 244, 0.98), rgba(255, 255, 255, 0.98));
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+        border: 1px solid var(--line);
+        background: #f8fbff;
+        color: var(--primary);
+      }
+
+      .status-ok {
+        color: var(--accent);
+        border-color: rgba(15, 118, 110, 0.25);
+        background: rgba(15, 118, 110, 0.08);
+      }
+
+      .status-warn {
+        color: var(--warn);
+        border-color: rgba(180, 83, 9, 0.25);
+        background: rgba(180, 83, 9, 0.08);
+      }
+
+      .status-danger {
+        color: var(--danger);
+        border-color: rgba(185, 28, 28, 0.25);
+        background: rgba(185, 28, 28, 0.08);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+        overflow: hidden;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+      }
+
+      thead {
+        background: #f2f6fc;
+      }
+
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      code,
+      pre {
+        font-family: "Inconsolata", "Cascadia Code", monospace;
+      }
+
+      pre {
+        margin: 18px 0 0;
+        padding: 18px 20px;
+        overflow-x: auto;
+        color: #e6edf7;
+        background: #182334;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      blockquote {
+        margin: 18px 0 0;
+        padding: 14px 18px;
+        border-left: 4px solid var(--primary);
+        background: #f6f9fe;
+        color: #445066;
+        border-radius: 0 14px 14px 0;
+      }
+
+      .footer-note {
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 720px) {
+        .site {
+          padding: 24px 14px 48px;
+        }
+
+        .hero,
+        .section {
+          padding: 24px 18px;
+          border-radius: 18px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
+        .section h2 {
+          font-size: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="site">
+      <section class="hero">
+        <span class="eyebrow">CLI Regression Report</span>
+        <h1>efinance-cli 测试结论：CLI 命令面、参数与输出回归验证</h1>
+        <p class="lead">
+          本次验证基于项目虚拟环境中的 <code>.venv\Scripts\python.exe</code> 执行，目标是把
+          <code>efinance-cli</code> 当前暴露出的全部 CLI 指令和参数做成可复用、可回归的测试资产，
+          并据真实运行结果给出工程结论，而不是给出未验证的主观判断。
+        </p>
+        <div class="meta-grid">
+          <div class="meta-card">
+            <span class="meta-label">测试日期</span>
+            <span class="meta-value">2026-05-27</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">执行解释器</span>
+            <span class="meta-value">Python 3.13.12</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">命令树规模</span>
+            <span class="meta-value">52 个叶子命令 / 708 个参数</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">测试总数</span>
+            <span class="meta-value">35 项</span>
+          </div>
+        </div>
+        <div class="badge-row">
+          <span class="badge status-warn">整体结果：未完全通过</span>
+          <span class="badge status-ok">渲染与指标回归：通过</span>
+          <span class="badge status-warn">CLI 参数回归：存在 1 个失败项</span>
+          <span class="badge status-danger">已确认 1 个顶层 search 真实缺陷</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>结论摘要</h2>
+        <p>
+          当前项目的命令树构建、绝大多数参数解析、渲染格式、指标计算和既有兼容层测试总体稳定，
+          但还不能判定为“全部命令与全部参数均可正确工作”。本轮全量自动化回归共运行 35 项测试，
+          其中 34 项通过，1 项失败；此外还单独确认了一个被测试显式捕获的真实产品缺陷。
+        </p>
+        <div class="summary-grid">
+          <article class="summary-card ok">
+            <span class="mini-label">通过项</span>
+            <strong>34 / 35</strong>
+            <p>渲染、指标计算、基金兼容层、技术指标增强层与大部分 CLI 回归检查均已通过。</p>
+          </article>
+          <article class="summary-card warn">
+            <span class="mini-label">失败项</span>
+            <strong>1</strong>
+            <p><code>--count</code> 在未开启 <code>--watch</code> 时不会保留用户输入，而是被重置为 1。</p>
+          </article>
+          <article class="summary-card danger">
+            <span class="mini-label">已确认缺陷</span>
+            <strong>1</strong>
+            <p>顶层 <code>search</code> 命令会因命令规格查找使用 <code>utils.search_quote</code> 而直接抛出 <code>KeyError</code>。</p>
+          </article>
+          <article class="summary-card">
+            <span class="mini-label">新增测试资产</span>
+            <strong>3 份</strong>
+            <p>已新增 CLI 命令回归、渲染与指标回归，以及命令枚举辅助工具，可继续复用。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>本次新增的可回归测试</h2>
+        <div class="coverage-grid">
+          <article class="coverage-card">
+            <h3><code>tests/cli_regression_support.py</code></h3>
+            <p>提供命令树枚举、参数样例构造、命令面统计等公共能力，用于避免后续测试手工维护静态命令清单。</p>
+          </article>
+          <article class="coverage-card">
+            <h3><code>tests/test_cli_full_regression.py</code></h3>
+            <p>覆盖动态命令树、参数透传、watch 转发、search 输出控制，以及当前已知缺陷的明确断言。</p>
+          </article>
+          <article class="coverage-card">
+            <h3><code>tests/test_rendering_and_metrics_regression.py</code></h3>
+            <p>覆盖表格 / JSON / CSV / TSV 渲染、宽列长文案显示，以及可手算指标的数值正确性。</p>
+          </article>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>测试目标</th>
+              <th>覆盖状态</th>
+              <th>结论</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>0. 有没有异常被抛出</td>
+              <td>已覆盖，但存在已知异常</td>
+              <td><code>search</code> 顶层命令当前会抛出 <code>KeyError('未知命令: utils.search_quote')</code>。</td>
+            </tr>
+            <tr>
+              <td>1. 指令能不能正确运行和输出</td>
+              <td>大部分覆盖</td>
+              <td>除顶层 <code>search</code> 缺陷外，其余叶子命令已能在调度层稳定构建并执行到执行器。</td>
+            </tr>
+            <tr>
+              <td>2. 所有参数有没有正确工作</td>
+              <td>大部分覆盖</td>
+              <td>发现 <code>--count</code> 在未开启 <code>--watch</code> 时不保留输入值，属于真实参数行为问题。</td>
+            </tr>
+            <tr>
+              <td>3. 所有量化指标能不能正确计算</td>
+              <td>已覆盖核心样例</td>
+              <td>OBV、VWAP、Pivot Points、BIAS 等手工可核算场景通过；增强层 smoke 测试全部通过。</td>
+            </tr>
+            <tr>
+              <td>4. 输出格式是否正确、宽度是否弹性</td>
+              <td>已覆盖核心场景</td>
+              <td>表格、宽列、长文本、转置、去索引、分段字典输出均通过；未发现宽度导致的崩溃。</td>
+            </tr>
+            <tr>
+              <td>5. 所有输出格式是否都正常</td>
+              <td>已覆盖 table/json/csv/tsv</td>
+              <td>四种格式回归均通过，JSON 保留中文，CSV / TSV 分隔符与表头正常。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2>已确认的真实问题</h2>
+        <div class="finding-grid">
+          <article class="finding-card risk">
+            <h3>1. 顶层 <code>search</code> 命令当前不可用</h3>
+            <p>
+              真实执行 <code>efinance search AAPL</code> 时，命令会在内部调用
+              <code>get_command_spec("utils", "search_quote")</code>，但注册中心的函数名使用的是
+              <code>search-quote</code> 对应的 Python 函数 <code>search_quote</code> 之外的另一套命令名映射，
+              最终直接触发 <code>KeyError('未知命令: utils.search_quote')</code>。
+            </p>
+            <ul>
+              <li>影响范围：所有顶层 <code>search</code> 调用，包括 watch、输出与落盘场景。</li>
+              <li>风险等级：高。因为这是顶层发现入口，用户最先接触到的命令就会失败。</li>
+              <li>验证依据：测试中保留了对该异常的显式断言，且独立复现一致。</li>
+            </ul>
+          </article>
+          <article class="finding-card warn">
+            <h3>2. <code>--count</code> 参数在非 watch 模式下语义不一致</h3>
+            <p>
+              在统一运行时参数里，命令接受 <code>--count</code>，但执行层的
+              <code>default_watch_count(enabled=False, count=...)</code> 会直接返回 1，导致
+              用户即便传入 <code>--count 2</code>，最终请求对象里也不是 2，而是 1。
+            </p>
+            <ul>
+              <li>影响范围：全部附带统一运行时参数的叶子命令。</li>
+              <li>风险等级：中。不会导致崩溃，但会让参数行为与帮助文案、用户预期不一致。</li>
+              <li>验证依据：全量 CLI 参数回归里唯一失败项即为该行为。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>通过项与正面结论</h2>
+        <div class="coverage-grid">
+          <article class="coverage-card">
+            <h3>命令面规模与可枚举性</h3>
+            <p>当前 CLI 已成功枚举出 52 个叶子命令、708 个参数，命令树没有出现塌缩或注册缺失。</p>
+          </article>
+          <article class="coverage-card">
+            <h3>watch 转发行为</h3>
+            <p>顶层 <code>watch</code> 包装命令可以正确补上 <code>--watch</code>、<code>--interval</code>、<code>--count</code> 与 <code>--clear/--no-clear</code>。</p>
+          </article>
+          <article class="coverage-card">
+            <h3>渲染与格式输出</h3>
+            <p>表格宽列、长文本、JSON 中文、CSV / TSV 表头与分隔符、字典分段输出均通过回归检查。</p>
+          </article>
+          <article class="coverage-card">
+            <h3>指标数值正确性</h3>
+            <p>OBV、VWAP、Pivot Points、BIAS 的可手算场景一致，说明核心量化计算没有出现明显算错。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>验证方式与执行结果</h2>
+        <p>
+          实际执行命令使用项目虚拟环境解释器：
+          <code>D:\Projects\PythonProjects\efinance-cli\.venv\Scripts\python.exe</code>。
+          全量测试通过 <code>unittest discover -s tests -v</code> 运行。
+        </p>
+        <blockquote>
+          最终结果：<strong>testsRun = 35</strong>，<strong>failures = 1</strong>，<strong>errors = 0</strong>，
+          <strong>wasSuccessful = False</strong>。
+        </blockquote>
+        <pre><code>testsRun = 35
+failures = 1
+errors = 0
+wasSuccessful = False
+
+唯一失败项：
+test_all_options_can_be_parsed_and_forwarded
+- 现象：stock get-all-company-performance 参数 ['--count', '2'] 实际值不符
+- 实际：1
+- 预期：2
+
+已确认的独立真实异常：
+efinance search AAPL
+- exception = KeyError('未知命令: utils.search_quote')</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>本轮结论边界</h2>
+        <ul>
+          <li>本次测试重点覆盖 CLI 命令树、参数解析、统一运行时参数、输出渲染与核心量化指标计算。</li>
+          <li>由于很多上游 <code>efinance</code> 接口依赖网络与非官方数据源，本轮通用命令面回归主要验证“本项目 CLI 层”的组装与透传行为，而不是逐条验证上游市场接口实时可用性。</li>
+          <li>因此，本报告可以证明当前 CLI 层已经有较完整的可回归自动化保护，但不能证明所有外部数据源在任意时间都稳定可用。</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>建议的下一步</h2>
+        <ul>
+          <li>优先修复顶层 <code>search</code> 的命令规格查找错误，这是当前最直接的功能阻塞。</li>
+          <li>明确 <code>--count</code> 的产品语义：若仅在 watch 模式下生效，应限制参数可见性或在未启用 watch 时给出明确提示；若希望始终透传，则需要调整 <code>default_watch_count</code> 逻辑。</li>
+          <li>修复后直接复跑 <code>python -m unittest discover -s tests -v</code>，当前新增测试已经具备回归价值，不需要再手工搭矩阵。</li>
+        </ul>
+        <p class="footer-note">
+          本报告基于真实执行结果生成，未把未验证部分表述成“已完成且可靠”。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
