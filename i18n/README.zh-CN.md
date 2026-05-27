@@ -1,5 +1,3 @@
-# efinance-cli
-
 <div align="center">
   <h1>efinance-cli</h1>
   <p><strong>把 <code>efinance</code> 变成更适合人和 Agent 反复调用的终端界面</strong></p>
