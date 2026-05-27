@@ -14,6 +14,7 @@ from typing import Any
 
 import click
 
+from efinance_cli.enrichment import enrich_market_data
 from efinance_cli.introspection import build_parameter_specs, coerce_parameter_value
 from efinance_cli.models import InvocationRequest, InvocationResult
 from efinance_cli.rendering import render_value
@@ -26,6 +27,7 @@ class CommandExecutor:
         """执行一次命令请求。"""
         kwargs = self._normalize_kwargs(request)
         value = request.spec.callback(**kwargs)
+        value = enrich_market_data(request, value)
         return InvocationResult(value=value)
 
     def run(self, request: InvocationRequest) -> None:
@@ -109,6 +111,7 @@ def split_runtime_options(raw_kwargs: dict[str, Any]) -> tuple[dict[str, Any], d
         "limit",
         "output_path",
         "encoding",
+        "indicator_level",
         "watch",
         "interval",
         "count",

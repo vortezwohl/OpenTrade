@@ -48,6 +48,7 @@ class OutputOptions:
     limit: int | None = None
     output_path: str | None = None
     encoding: str = "utf-8"
+    indicator_level: str = "basic"
 
 
 @dataclass(slots=True)
