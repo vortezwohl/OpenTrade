@@ -81,6 +81,7 @@ def create_function_command(spec: CommandSpec) -> click.Command:
                 limit=runtime_kwargs["limit"],
                 output_path=runtime_kwargs["output_path"],
                 encoding=runtime_kwargs["encoding"],
+                indicator_level=runtime_kwargs["indicator_level"],
             ),
             watch=WatchOptions(
                 enabled=runtime_kwargs["watch"],
@@ -112,6 +113,7 @@ def attach_runtime_options(command: click.Command) -> None:
         click.Option(["--limit"], type=click.INT, default=None, help="仅输出前 N 行。"),
         click.Option(["--output", "output_path"], type=click.Path(dir_okay=False), default=None, help="把结果写入文件。"),
         click.Option(["--encoding"], type=click.STRING, default="utf-8", show_default=True, help="写文件时使用的编码。"),
+        click.Option(["--indicator-level"], type=click.Choice(["basic", "advanced", "full", "1", "2", "3"]), default="basic", show_default=True, help="技术指标丰富度等级。"),
         click.Option(["--watch"], is_flag=True, default=False, help="开启循环刷新。"),
         click.Option(["--interval"], type=click.FLOAT, default=2.0, show_default=True, help="刷新间隔秒数。"),
         click.Option(["--count"], type=click.INT, default=None, help="刷新次数；不传时持续刷新。"),
@@ -205,6 +207,7 @@ def create_search_command() -> click.Command:
                 limit=limit,
                 output_path=output_path,
                 encoding=encoding,
+                indicator_level="basic",
             ),
             watch=WatchOptions(
                 enabled=watch,
