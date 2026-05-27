@@ -4,7 +4,7 @@
 这样既兼容包脚本方式启动，也兼容模块方式启动。
 """
 
-from .main import main
+from efinance_cli.main import main
 
 
 if __name__ == "__main__":

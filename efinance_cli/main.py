@@ -5,7 +5,18 @@
 子模块中，避免入口文件逐渐演变成难以维护的巨型脚本。
 """
 
-from .app import create_cli
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+if __package__ in {None, ""}:
+    project_root = Path(__file__).resolve().parent.parent
+    project_root_str = str(project_root)
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
+
+from efinance_cli.app import create_cli
 
 
 def main() -> None:

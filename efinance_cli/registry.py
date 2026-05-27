@@ -12,7 +12,7 @@ from typing import Any
 
 import efinance
 
-from .models import CommandSpec
+from efinance_cli.models import CommandSpec
 
 
 MODULE_HELP_TEXT: dict[str, str] = {

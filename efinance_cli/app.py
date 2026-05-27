@@ -4,7 +4,7 @@
 即可获得完整命令树。保持这一层薄，可以减少后续在入口和装配逻辑上的耦合。
 """
 
-from .commands import create_root_command
+from efinance_cli.commands import create_root_command
 
 
 def create_cli():
