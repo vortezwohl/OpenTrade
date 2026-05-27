@@ -1,12 +1,13 @@
 [project]
 name = "efinance-cli"
 version = "0.1.0"
-description = "面向 Agent 的 efinance 命令行终端"
+description = "efinance 命令行终端"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "click>=8.4.1",
     "efinance>=0.5.8",
+    "pandas>=3.0.3",
     "vortezwohl>=0.1.3",
 ]
 

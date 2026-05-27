@@ -41,7 +41,7 @@ def create_root_command() -> click.Group:
     @click.group(context_settings={"help_option_names": ["-h", "--help"]})
     @click.version_option(message="%(version)s")
     def cli() -> None:
-        """面向 Agent 的 efinance 命令行终端。"""
+        """efinance 命令行终端。"""
 
     cli.add_command(create_search_command())
     cli.add_command(create_watch_command())
