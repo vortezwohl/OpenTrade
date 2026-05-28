@@ -153,7 +153,7 @@ class CliFullRegressionTest(unittest.TestCase):
                         msg=f"{leaf.dotted_path} format={format_name} 执行失败:\n{result.output}",
                     )
                     self.assertIn(
-                        f"FORMAT:{leaf.path[0]}.{leaf.command.name.replace('-', '_')}:{format_name}:observation",
+                        f"FORMAT:{rendered_cases[-1][0]}:{format_name}:observation",
                         result.output,
                     )
 
@@ -179,9 +179,10 @@ class CliFullRegressionTest(unittest.TestCase):
             parent=click.Context(self.cli, info_name="cli"),
         )
         watch_context.args = [
-            "common",
-            "get-latest-quote",
-            "--quote-id",
+            "quote",
+            "price",
+            "latest",
+            "--quote-ids",
             "105.AAPL",
             "--format",
             "json",
@@ -199,9 +200,10 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(
             forwarded["args"],
             [
-                "common",
-                "get-latest-quote",
-                "--quote-id",
+                "quote",
+                "price",
+                "latest",
+                "--quote-ids",
                 "105.AAPL",
                 "--format",
                 "json",
@@ -308,8 +310,8 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertAlmostEqual(captured["request"].watch.interval, 0.1)
         self.assertEqual(captured["request"].output.indicator_level, "advanced")
 
-    def test_utils_search_quote_result_count_routes_to_business_parameter_without_runtime_warning(self) -> None:
-        """utils search-quote 应把业务候选数量暴露为 result-count。"""
+    def test_search_result_count_routes_to_business_parameter_without_runtime_warning(self) -> None:
+        """顶层 search 应把业务候选数量暴露为 result-count。"""
         captured = {}
 
         def fake_run(executor_self, request) -> None:
@@ -322,8 +324,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 result = self.runner.invoke(
                     self.cli,
                     [
-                        "utils",
-                        "search-quote",
+                        "search",
                         "--query",
                         "AAPL",
                         "--result-count",
@@ -333,31 +334,36 @@ class CliFullRegressionTest(unittest.TestCase):
                     ],
                 )
 
-        print_observation("utils search-quote result-count 输出", result.output)
+        print_observation("search result-count 输出", result.output)
         print_observation(
-            "utils search-quote 路由结果",
+            "search 路由结果",
             {
-                "business_result_count": captured["request"].kwargs["result_count"],
+                "spec": (
+                    captured["request"].spec.module_name,
+                    captured["request"].spec.function_name,
+                ),
                 "watch_count": captured["request"].watch.count,
                 "warnings": [str(item.message) for item in caught],
             },
         )
         self.assertEqual(result.exit_code, 0, msg=result.output)
-        self.assertEqual(captured["request"].kwargs["result_count"], 1)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("utils", "search_quote"),
+        )
         self.assertIsNone(captured["request"].watch.count)
         self.assertFalse(
             any("parameter --count is used more than once" in str(item.message).lower() for item in caught),
             msg=[str(item.message) for item in caught],
         )
 
-    def test_utils_search_quote_result_count_is_normalized_before_callback(self) -> None:
-        """utils search-quote 的 result-count 在执行前应被归一化为整数。"""
+    def test_search_result_count_is_normalized_before_callback(self) -> None:
+        """顶层 search 的 result-count 在执行前应被归一化为整数。"""
         with patch("efinance.utils.search_quote", return_value=build_search_records()) as mock_search:
             result = self.runner.invoke(
                 self.cli,
                 [
-                    "utils",
-                    "search-quote",
+                    "search",
                     "--query",
                     "AAPL",
                     "--result-count",
@@ -367,8 +373,8 @@ class CliFullRegressionTest(unittest.TestCase):
                 ],
             )
 
-        print_observation("utils search-quote invoke 输出", result.output)
-        print_observation("utils search-quote invoke kwargs", mock_search.call_args.kwargs)
+        print_observation("search invoke 输出", result.output)
+        print_observation("search invoke kwargs", mock_search.call_args.kwargs)
         self.assertEqual(result.exit_code, 0, msg=result.output)
         self.assertEqual(mock_search.call_args.kwargs["count"], 1)
 
@@ -407,13 +413,17 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertTrue(captured["request"].output.full)
         self.assertEqual(captured["request"].output.view_mode, "observation")
 
-    def test_utils_command_specs_survive_mocked_callables(self) -> None:
-        """utils 模块命令规格在 mock / wrapper 场景下不应丢失。"""
+    def test_resolve_and_search_specs_survive_mocked_callables(self) -> None:
+        """search / resolve 相关命令规格在 mock / wrapper 场景下不应丢失。"""
         records = build_search_records()
         with patch("efinance.utils.search_quote", return_value=records):
-            function_names = {spec.function_name for spec in build_command_specs("utils")}
+            function_names = {
+                spec.function_name
+                for spec in build_command_specs("utils")
+                if spec.cli_path[0] in {"search", "resolve", "market"}
+            }
 
-        print_observation("utils 命令规格函数名", sorted(function_names))
+        print_observation("search/resolve 命令规格函数名", sorted(function_names))
         self.assertIn("search_quote", function_names)
 
     def test_command_and_parameter_inventory_is_nontrivial(self) -> None:
