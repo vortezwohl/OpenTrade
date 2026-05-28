@@ -20,10 +20,12 @@ from typing import Any, Iterable
 import pandas as pd
 
 from efinance_cli.enrichment.indicators import enrich_history_frame
-from efinance_cli.enrichment.levels import normalize_indicator_level
+from efinance_cli.enrichment.levels import LEVELS, normalize_indicator_level
 from efinance_cli.enrichment.service import (
     HISTORY_COMMANDS,
     LATEST_COMMANDS,
+    SINGLE_ROW_COMMANDS,
+    REALTIME_LIST_COMMANDS,
     extract_code_from_series,
     fetch_history_for_code,
 )
@@ -133,6 +135,18 @@ TRACE_GROUPS: dict[str, list[str]] = {
     "volume_flow": ["volume", "obv", "volume_ratio_5", "mfi14", "cmf20", "force_index13", "vwap", "vr"],
 }
 
+OBSERVATION_MULTI_HISTORY_COMMANDS: set[tuple[str, str]] = {
+    ("fund", "get_quote_history_multi"),
+}
+
+OBSERVATION_SINGLE_ROW_COMMANDS: set[tuple[str, str]] = set(SINGLE_ROW_COMMANDS)
+
+OBSERVATION_REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
+    ("stock", "get_realtime_quotes"),
+    ("bond", "get_realtime_quotes"),
+    ("futures", "get_realtime_quotes"),
+}
+
 
 def build_observation_output(request: Any, value: Any) -> Any:
     """根据命令与结果构建 observation 输出。
@@ -144,10 +158,14 @@ def build_observation_output(request: Any, value: Any) -> Any:
         return value
 
     command_key = (request.spec.module_name, request.spec.function_name)
-    if command_key in HISTORY_COMMANDS:
+    if command_key in HISTORY_COMMANDS or command_key in OBSERVATION_MULTI_HISTORY_COMMANDS:
         return build_history_observation_output(request, value)
     if command_key in LATEST_COMMANDS:
         return build_latest_observation_output(request, value)
+    if command_key in OBSERVATION_SINGLE_ROW_COMMANDS:
+        return build_single_row_observation_output(request, value)
+    if command_key in OBSERVATION_REALTIME_LIST_COMMANDS:
+        return build_realtime_list_observation_output(request, value)
     return value
 
 
@@ -188,6 +206,28 @@ def build_latest_observation_output(request: Any, value: Any) -> Any:
     return payloads
 
 
+def build_single_row_observation_output(request: Any, value: Any) -> Any:
+    """把单行结果转换为 observation payload。"""
+
+    if isinstance(value, pd.Series):
+        payload = build_payload_from_single_row(request, value)
+        return payload or value
+    if isinstance(value, pd.DataFrame):
+        return build_mapping_payloads_from_rows(request, value, builder=build_payload_from_single_row)
+    return value
+
+
+def build_realtime_list_observation_output(request: Any, value: Any) -> Any:
+    """把实时列表结果转换为多 source observation。"""
+
+    if not isinstance(value, pd.DataFrame):
+        return value
+
+    limited = limit_realtime_observation_frame(request, value)
+    result = build_mapping_payloads_from_rows(request, limited, builder=build_payload_from_single_row)
+    return result if result else value
+
+
 def build_payload_from_history_frame(request: Any, frame: pd.DataFrame) -> ObservationPayload:
     """根据增强后的历史行情表构建 observation payload。"""
 
@@ -213,7 +253,7 @@ def build_payload_from_history_frame(request: Any, frame: pd.DataFrame) -> Obser
 def build_payload_from_latest_row(request: Any, row: pd.Series) -> ObservationPayload | None:
     """根据最新行情行回补历史后构建 observation payload。"""
 
-    code = extract_code_from_series(row)
+    code = resolve_history_lookup_code(request, row)
     if not code:
         return None
 
@@ -228,6 +268,103 @@ def build_payload_from_latest_row(request: Any, row: pd.Series) -> ObservationPa
     if "code" not in payload.meta:
         payload.meta["code"] = code
     return payload
+
+
+def build_payload_from_single_row(request: Any, row: pd.Series) -> ObservationPayload | None:
+    """根据单行结果回补历史后构建 observation payload。"""
+
+    code = resolve_history_lookup_code(request, row)
+    if not code:
+        return None
+
+    level = normalize_indicator_level(request.output.indicator_level)
+    history = fetch_history_for_code(request.spec.module_name, code, level)
+    if history is None or history.empty:
+        return None
+
+    enriched = enrich_history_frame(history, level)
+    payload = build_payload_from_history_frame(request, enriched)
+    latest_quote = extract_latest_quote_fields(row)
+    payload.latest_quote = latest_quote
+    payload.current_metrics = merge_current_metrics(payload.current_metrics, extract_current_metrics(row))
+    payload.meta = merge_meta_with_latest_quote(payload.meta, latest_quote)
+    payload.meta["code"] = code
+    return payload
+
+
+def build_mapping_payloads_from_rows(
+    request: Any,
+    frame: pd.DataFrame,
+    builder: Any,
+) -> dict[str, ObservationPayload]:
+    """把多行结果转换为 source -> observation payload 映射。"""
+
+    payloads: dict[str, ObservationPayload] = {}
+    for idx, row in frame.iterrows():
+        payload = builder(request, row)
+        if payload is None:
+            continue
+        key = resolve_payload_key(payload, row, idx)
+        payloads[str(key)] = payload
+    return payloads
+
+
+def resolve_payload_key(payload: ObservationPayload, row: pd.Series, idx: Any) -> str:
+    """为多 source observation 结果生成稳定 key。"""
+
+    return str(
+        payload.meta.get("code")
+        or payload.meta.get("name")
+        or find_first_present_value(row, ["行情ID", "代码", "股票代码", "债券代码", "期货代码", "基金代码", "名称"])
+        or idx
+    )
+
+
+def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
+    """根据命令上下文解析用于历史回补的标的标识。"""
+
+    module_name = request.spec.module_name
+    if module_name == "common":
+        quote_id = request.kwargs.get("quote_id")
+        if quote_id:
+            return str(quote_id)
+        quote_id_from_row = find_first_present_value(row, ["行情ID"])
+        if quote_id_from_row is not None:
+            return str(quote_id_from_row)
+    if module_name == "futures":
+        quote_id = find_first_present_value(row, ["行情ID"])
+        if quote_id is not None:
+            return str(quote_id)
+    return extract_code_from_series(row)
+
+
+def limit_realtime_observation_frame(request: Any, frame: pd.DataFrame) -> pd.DataFrame:
+    """对 realtime-list observation 应用默认处理上限。"""
+
+    if request.output.limit is not None:
+        return frame.head(request.output.limit)
+    level = normalize_indicator_level(request.output.indicator_level)
+    return frame.head(LEVELS[level].realtime_limit)
+
+
+def merge_current_metrics(base_metrics: dict[str, Any], row_metrics: dict[str, Any]) -> dict[str, Any]:
+    """合并历史回补指标与单行结果中的即时指标。"""
+
+    merged = dict(base_metrics)
+    merged.update({key: value for key, value in row_metrics.items() if value is not None})
+    return merged
+
+
+def merge_meta_with_latest_quote(meta: dict[str, Any], latest_quote: dict[str, Any]) -> dict[str, Any]:
+    """用 latest quote 中可提取的信息补齐 meta。"""
+
+    merged = dict(meta)
+    for key in ("name",):
+        if latest_quote.get(key) is not None:
+            merged[key] = latest_quote[key]
+    if latest_quote.get("date") is not None:
+        merged["as_of"] = latest_quote["date"]
+    return merged
 
 
 def normalize_trace_window(trace_window: int) -> int:

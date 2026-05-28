@@ -239,7 +239,7 @@ def render_observation_mapping(value: dict[Any, Any], options: OutputOptions) ->
     sections: list[str] = []
     for key, item in value.items():
         if isinstance(item, ObservationPayload):
-            sections.append(render_boxed_section("source", [f"name: {key}"]))
+            sections.append(render_boxed_section(f"source.{key}", []))
             sections.append(render_observation_table(item, options))
         else:
             sections.append(f"== {key} ==")

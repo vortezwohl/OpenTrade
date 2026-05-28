@@ -108,6 +108,19 @@ def build_observation_payload() -> ObservationPayload:
     )
 
 
+def build_observation_payload_mapping() -> dict[str, ObservationPayload]:
+    """构造稳定的多 source observation payload 样本。"""
+
+    left = build_observation_payload()
+    right = build_observation_payload()
+    right.meta = {**right.meta, "code": "105.MSFT", "name": "Microsoft"}
+    right.latest_quote = {**right.latest_quote, "code": "105.MSFT", "name": "Microsoft", "close": 421.5}
+    return {
+        "105.AAPL": left,
+        "105.MSFT": right,
+    }
+
+
 class RenderingAndMetricsRegressionTest(unittest.TestCase):
     """覆盖渲染与指标计算的关键回归场景。"""
 
@@ -221,6 +234,22 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         self.assertIn("recent_events,event,event_1", csv_text)
         self.assertIn("macd_dif_crossed_above_macd_dea", csv_text)
         self.assertIn("section\titem_type\titem_id\tgroup\tbar_offset", tsv_text)
+
+    def test_multi_source_observation_table_and_csv_keep_source_boundaries(self) -> None:
+        """多 source observation 应保留 source 分组和 `__source__`。"""
+
+        payloads = build_observation_payload_mapping()
+        table_text = render_table(payloads, OutputOptions())
+        csv_text = render_csv(payloads, OutputOptions(no_index=True))
+        print_observation("multi-source observation table", table_text)
+        print_observation("multi-source observation csv", csv_text)
+
+        self.assertIn("| source.105.AAPL", table_text)
+        self.assertIn("| source.105.MSFT", table_text)
+        self.assertIn("| recent_events", table_text)
+        self.assertIn("__source__", csv_text)
+        self.assertIn("105.AAPL,meta,field,module", csv_text)
+        self.assertIn("105.MSFT,meta,field,module", csv_text)
 
     def test_obv_matches_hand_calculated_values(self) -> None:
         """OBV 应与手工累加结果一致。"""
