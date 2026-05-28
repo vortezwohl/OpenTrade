@@ -29,6 +29,7 @@ from efinance_cli.registry import (
     get_command_spec,
     list_root_group_names,
 )
+from efinance_cli.retry_utils import call_with_network_retry
 
 
 def create_root_command() -> click.Group:
@@ -350,7 +351,8 @@ def create_search_command(command_name: str = "search") -> click.Command:
                 raise click.ClickException(f"Unknown market enum: {market_name}")
 
         def build_frame() -> pd.DataFrame:
-            result = search_quote(
+            result = call_with_network_retry(
+                search_quote,
                 keyword=query,
                 market_type=market_type,
                 count=result_count,

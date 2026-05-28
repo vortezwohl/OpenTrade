@@ -18,6 +18,7 @@ import efinance
 
 from efinance_cli.fund_compat import get_base_info as get_fund_base_info_compat
 from efinance_cli.models import CommandSpec
+from efinance_cli.retry_utils import with_network_retry
 
 
 VISIBLE_ROOT_GROUPS: tuple[str, ...] = (
@@ -251,7 +252,7 @@ def search_quote_compat(
     )
 
 
-CALLBACK_OVERRIDES[("utils", "search_quote")] = search_quote_compat
+CALLBACK_OVERRIDES[("utils", "search_quote")] = with_network_retry(search_quote_compat)
 
 
 def get_module(module_name: str) -> Any:
@@ -289,6 +290,8 @@ def build_command_specs(module_name: str) -> list[CommandSpec]:
         obj = getattr(module, name)
         key = (module_name, name)
         callback = CALLBACK_OVERRIDES.get(key, obj)
+        if callback is obj:
+            callback = with_network_retry(callback)
         inspected_obj = inspect.unwrap(obj)
         if not callable(inspected_obj):
             continue

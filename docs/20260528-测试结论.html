@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>efinance-cli 测试结论：全命令全参数回归与输出可读性检查</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --text: #1f2937;
+        --muted: #5b6472;
+        --line: #d7deea;
+        --primary: #244a7c;
+        --accent: #0f766e;
+        --warn: #b45309;
+        --danger: #b91c1c;
+        --shadow: 0 18px 50px rgba(36, 74, 124, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Noto Serif SC", "Source Han Serif SC", "Microsoft YaHei", serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(36, 74, 124, 0.14), transparent 28%),
+          linear-gradient(180deg, #eef3fb 0%, var(--bg) 100%);
+        line-height: 1.8;
+      }
+
+      .site {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+
+      .hero,
+      .section {
+        background: var(--panel);
+        border: 1px solid rgba(215, 222, 234, 0.85);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 42px 44px;
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--primary);
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        color: #172033;
+      }
+
+      h1 {
+        margin-top: 14px;
+        font-size: clamp(30px, 4vw, 42px);
+        line-height: 1.28;
+      }
+
+      .lead {
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .meta-grid,
+      .summary-grid,
+      .coverage-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .meta-grid {
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        margin-top: 28px;
+      }
+
+      .meta-card,
+      .summary-card,
+      .coverage-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px 20px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
+      }
+
+      .meta-label,
+      .mini-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      .meta-value {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .section {
+        padding: 30px 32px;
+        margin-top: 24px;
+      }
+
+      .section h2 {
+        font-size: 26px;
+        margin-bottom: 14px;
+      }
+
+      .section p {
+        margin: 0 0 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: 18px;
+      }
+
+      .summary-card strong {
+        display: block;
+        font-size: 30px;
+        color: var(--primary);
+        line-height: 1.2;
+      }
+
+      .summary-card.ok strong {
+        color: var(--accent);
+      }
+
+      .summary-card.warn strong {
+        color: var(--warn);
+      }
+
+      .coverage-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        margin-top: 18px;
+      }
+
+      .coverage-card h3 {
+        font-size: 19px;
+      }
+
+      .coverage-card ul,
+      .section ul {
+        margin: 14px 0 0;
+        padding-left: 20px;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+        border: 1px solid var(--line);
+        background: #f8fbff;
+        color: var(--primary);
+      }
+
+      .status-ok {
+        color: var(--accent);
+        border-color: rgba(15, 118, 110, 0.25);
+        background: rgba(15, 118, 110, 0.08);
+      }
+
+      .status-warn {
+        color: var(--warn);
+        border-color: rgba(180, 83, 9, 0.24);
+        background: rgba(180, 83, 9, 0.08);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+        overflow: hidden;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+      }
+
+      thead {
+        background: #f2f6fc;
+      }
+
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      code,
+      pre {
+        font-family: "Inconsolata", "Cascadia Code", monospace;
+      }
+
+      pre {
+        margin: 18px 0 0;
+        padding: 18px 20px;
+        overflow-x: auto;
+        color: #e6edf7;
+        background: #182334;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      blockquote {
+        margin: 18px 0 0;
+        padding: 14px 18px;
+        border-left: 4px solid var(--primary);
+        background: #f6f9fe;
+        color: #445066;
+        border-radius: 0 14px 14px 0;
+      }
+
+      .footer-note {
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 720px) {
+        .site {
+          padding: 24px 14px 48px;
+        }
+
+        .hero,
+        .section {
+          padding: 24px 18px;
+          border-radius: 18px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
+        .section h2 {
+          font-size: 22px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="site">
+      <section class="hero">
+        <span class="eyebrow">CLI Regression Report</span>
+        <h1>efinance-cli 测试结论：全命令全参数回归与输出可读性检查</h1>
+        <p class="lead">
+          本次验证基于项目虚拟环境中的 <code>.venv\Scripts\python.exe</code> 执行，
+          聚焦 CLI 层的命令树、参数注册、帮助页、watch 转发、四种输出格式、
+          observation 结构化输出与核心量化指标计算，不把真实网络波动计入产品缺陷。
+        </p>
+        <div class="meta-grid">
+          <div class="meta-card">
+            <span class="meta-label">测试日期</span>
+            <span class="meta-value">2026-05-28</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">执行解释器</span>
+            <span class="meta-value">Python 3.13.3</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">命令树规模</span>
+            <span class="meta-value">50 个叶子命令 / 774 个参数</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">测试总数</span>
+            <span class="meta-value">56 项</span>
+          </div>
+        </div>
+        <div class="badge-row">
+          <span class="badge status-ok">整体结果：全部通过</span>
+          <span class="badge status-ok">CLI 全回归：通过</span>
+          <span class="badge status-ok">渲染与指标回归：通过</span>
+          <span class="badge status-warn">真实网络链路未做全量在线穷举</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>结论摘要</h2>
+        <p>
+          当前 <code>efinance-cli</code> 在本轮本地全量自动化回归中表现稳定。针对你要求关注的
+          “所有命令、所有参数组合是否正常” 与 “table/json/csv/tsv 输出是否规整易读”，
+          在不依赖真实网络源成功返回的前提下，CLI 装配层、参数解析层、统一执行骨架、结构化输出层与核心指标层均已通过验证。
+        </p>
+        <div class="summary-grid">
+          <article class="summary-card ok">
+            <span class="mini-label">自动化结果</span>
+            <strong>56 / 56</strong>
+            <p>完整 <code>unittest discover -s tests -v</code> 已跑通，无失败、无异常。</p>
+          </article>
+          <article class="summary-card ok">
+            <span class="mini-label">命令面覆盖</span>
+            <strong>50 / 50</strong>
+            <p>全部叶子命令、帮助页入口、四种格式与高频运行时参数组合都已纳入回归。</p>
+          </article>
+          <article class="summary-card warn">
+            <span class="mini-label">可读性结论</span>
+            <strong>1 项次优</strong>
+            <p>普通宽表在极宽列与超长文本场景下虽然不崩溃，但终端观感仍偏横向拉伸，不算美观。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>本轮验证范围</h2>
+        <div class="coverage-grid">
+          <article class="coverage-card">
+            <h3>CLI 命令面与参数面</h3>
+            <ul>
+              <li>全部根命令、分组命令、叶子命令的 <code>--help</code> 可达性。</li>
+              <li>全部叶子命令最小必填参数可执行到调度层。</li>
+              <li>全部 option 参数单参解析与透传。</li>
+              <li>高频运行时参数联合组合解析。</li>
+            </ul>
+          </article>
+          <article class="coverage-card">
+            <h3>输出层与 observation 层</h3>
+            <ul>
+              <li><code>table / json / csv / tsv</code> 四种输出格式。</li>
+              <li>宽列、长文本、转置、去索引、limit 裁剪。</li>
+              <li>single-source 与 multi-source observation。</li>
+              <li>raw 与 observation 双视图路径。</li>
+            </ul>
+          </article>
+          <article class="coverage-card">
+            <h3>指标与增强层</h3>
+            <ul>
+              <li>指标导出存在性与最小 smoke 验证。</li>
+              <li>OBV、VWAP、Pivot Points、BIAS 手工可核算验证。</li>
+              <li>basic / advanced / full 指标增强等级验证。</li>
+              <li>fund 兼容层返回类型验证。</li>
+            </ul>
+          </article>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>关注项</th>
+              <th>覆盖状态</th>
+              <th>测试结论</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>所有命令是否都能运行</td>
+              <td>已覆盖</td>
+              <td>50 个叶子命令在本地 mock / stub 执行链下均可执行到统一调度层，无未处理异常。</td>
+            </tr>
+            <tr>
+              <td>所有命令的所有参数是否能正常解析</td>
+              <td>已覆盖</td>
+              <td>774 个参数位已纳入自动枚举回归，单参透传与高频组合参数均通过。</td>
+            </tr>
+            <tr>
+              <td>帮助页是否完整可达</td>
+              <td>已覆盖</td>
+              <td>根命令、分组命令、叶子命令、<code>search</code> 与 <code>watch</code> 的帮助页均可正常渲染。</td>
+            </tr>
+            <tr>
+              <td>table / json / csv / tsv 是否都正常</td>
+              <td>已覆盖</td>
+              <td>四种格式均通过；JSON 结构稳定，CSV / TSV 默认不泄漏 DataFrame 索引。</td>
+            </tr>
+            <tr>
+              <td>输出是否美观易读</td>
+              <td>已覆盖主要风险</td>
+              <td>observation 风格整体规整；普通宽表在极宽列场景下可用但不够美观，属于可读性次优点。</td>
+            </tr>
+            <tr>
+              <td>量化指标是否能正确计算</td>
+              <td>已覆盖核心样例</td>
+              <td>关键指标的最小可用性、字段结构和部分手工数值核算均已通过。</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2>本轮新增回归补强</h2>
+        <div class="coverage-grid">
+          <article class="coverage-card">
+            <h3><code>tests/test_cli_full_regression.py</code></h3>
+            <p>在原有 CLI 全回归基础上，新增了两类缺口验证。</p>
+            <ul>
+              <li>全部命令与子命令的 <code>--help</code> 页面稳定性。</li>
+              <li>高频运行时参数组合的联合解析，而不只验证单个参数。</li>
+            </ul>
+          </article>
+          <article class="coverage-card">
+            <h3>本轮新增通过项</h3>
+            <ul>
+              <li><code>test_all_command_help_pages_render_successfully</code></li>
+              <li><code>test_runtime_option_bundle_can_be_combined_on_all_leaf_commands</code></li>
+            </ul>
+          </article>
+          <article class="coverage-card">
+            <h3>补强价值</h3>
+            <ul>
+              <li>避免命令树继续扩展后出现帮助页失效却无人察觉。</li>
+              <li>避免参数“单独可解析、组合即冲突”的回归漏洞。</li>
+              <li>提升后续改动时对 CLI 装配层的约束强度。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>输出可读性评估</h2>
+        <p>
+          本轮不只检查“能不能输出”，也检查“输出是否规整”。现阶段的结论分为两部分：
+        </p>
+        <div class="coverage-grid">
+          <article class="coverage-card">
+            <h3>表现良好的部分</h3>
+            <ul>
+              <li><code>observation table</code> 使用 boxed vertical layout，section 边界清晰。</li>
+              <li><code>json</code> 输出结构稳定，中文字段不被转义污染。</li>
+              <li><code>csv / tsv</code> 默认不输出空索引列，机器消费与后续导入更友好。</li>
+              <li>multi-source observation 能保留 <code>source</code> 边界与 <code>__source__</code> 信息。</li>
+            </ul>
+          </article>
+          <article class="coverage-card">
+            <h3>存在次优观感的部分</h3>
+            <ul>
+              <li>普通宽表在极宽列与超长文本压力场景下会横向拉得很长。</li>
+              <li>这种输出虽然不会崩溃，也不会错位报错，但终端人工阅读体验一般。</li>
+              <li><code>observation</code> 的 CSV / TSV 采用 long-form 结构，程序消费友好，但人眼阅读会偏密。</li>
+            </ul>
+          </article>
+          <article class="coverage-card">
+            <h3>判断</h3>
+            <p>
+              因此，本轮对“是否足够美观易读”的结论不是无保留肯定，而是：
+              <strong>大多数结构化输出规整可读；普通宽表仍有优化空间。</strong>
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>执行结果</h2>
+        <p>
+          本轮最终采用项目虚拟环境解释器
+          <code>D:\github-project\efinance-cli\.venv\Scripts\python.exe</code>
+          执行完整测试集合，命令如下：
+        </p>
+        <pre><code>.\.venv\Scripts\python -m unittest discover -s tests -v</code></pre>
+        <blockquote>
+          最终结果：<strong>testsRun = 56</strong>，
+          <strong>failures = 0</strong>，
+          <strong>errors = 0</strong>，
+          <strong>wasSuccessful = True</strong>。
+        </blockquote>
+        <pre><code>关键通过覆盖：
+- CLI 命令树与帮助页回归
+- 全部叶子命令最小执行回归
+- 全部 option 参数透传回归
+- 高频运行时参数组合回归
+- search / watch 包装逻辑回归
+- observation smoke 回归
+- enrichment smoke 回归
+- fund 兼容层回归
+- rendering 与指标回归</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>结论边界与未覆盖点</h2>
+        <ul>
+          <li>本报告证明当前 CLI 层、本地执行骨架、渲染层和核心指标层在自动化覆盖范围内稳定。</li>
+          <li>本轮没有对所有真实上游网络接口做在线全量穷举，因为外部数据源波动不应被误记为 CLI 层缺陷。</li>
+          <li>因此，“所有命令和所有参数组合都运行正常”的结论，严格限定为：在本地命令装配与可控 stub / mock 语义下成立。</li>
+          <li>若后续要补“真实联网链路全量巡检”，建议单独做一套可重试、可记录网络异常的在线巡检脚本，而不是混入当前稳定回归。</li>
+        </ul>
+        <p class="footer-note">
+          本报告基于真实执行结果生成，没有把未验证部分表述成“已完成且可靠”。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

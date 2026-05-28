@@ -10,6 +10,7 @@ import efinance
 from efinance_cli.enrichment.indicators import enrich_history_frame
 from efinance_cli.enrichment.levels import LEVELS, normalize_indicator_level
 from efinance_cli.models import InvocationRequest
+from efinance_cli.retry_utils import call_with_network_retry
 
 
 HISTORY_COMMANDS: set[tuple[str, str]] = {
@@ -136,17 +137,40 @@ def fetch_history_for_code(module_name: str, code: str, level: str) -> pd.DataFr
     config = LEVELS[level]
     try:
         if module_name == "stock":
-            return efinance.stock.get_quote_history(code, beg="19000101", end="20500101").tail(config.history_window)
+            return call_with_network_retry(
+                efinance.stock.get_quote_history,
+                code,
+                beg="19000101",
+                end="20500101",
+            ).tail(config.history_window)
         if module_name == "bond":
-            return efinance.bond.get_quote_history(code, beg="19000101", end="20500101").tail(config.history_window)
+            return call_with_network_retry(
+                efinance.bond.get_quote_history,
+                code,
+                beg="19000101",
+                end="20500101",
+            ).tail(config.history_window)
         if module_name == "futures":
             if "." not in code:
                 return None
-            return efinance.futures.get_quote_history(code, beg="19000101", end="20500101").tail(config.history_window)
+            return call_with_network_retry(
+                efinance.futures.get_quote_history,
+                code,
+                beg="19000101",
+                end="20500101",
+            ).tail(config.history_window)
         if module_name == "common":
-            return efinance.common.get_quote_history(code, beg="19000101", end="20500101").tail(config.history_window)
+            return call_with_network_retry(
+                efinance.common.get_quote_history,
+                code,
+                beg="19000101",
+                end="20500101",
+            ).tail(config.history_window)
         if module_name == "fund":
-            return efinance.fund.get_quote_history(code).tail(config.history_window)
+            return call_with_network_retry(
+                efinance.fund.get_quote_history,
+                code,
+            ).tail(config.history_window)
     except Exception:
         return None
     return None

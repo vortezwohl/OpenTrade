@@ -42,6 +42,115 @@ class CliFullRegressionTest(unittest.TestCase):
         self.cli = create_root_command()
         self.leaf_commands = collect_leaf_commands(self.cli)
 
+    def test_all_command_help_pages_render_successfully(self) -> None:
+        """根命令、分组命令和叶子命令的帮助页都应稳定可达。"""
+        command_paths = [()]
+        command_paths.extend((name,) for name in self.cli.commands)
+        for leaf in self.leaf_commands:
+            for depth in range(1, len(leaf.path) + 1):
+                path = leaf.path[:depth]
+                if path not in command_paths:
+                    command_paths.append(path)
+
+        for path in command_paths:
+            result = self.runner.invoke(self.cli, [*path, "--help"])
+            title = "root --help" if not path else f"{' '.join(path)} --help"
+            print_observation(title, result.output)
+            self.assertEqual(result.exit_code, 0, msg=f"{title} 执行失败:\n{result.output}")
+            self.assertIn("--help", result.output, msg=title)
+
+            if path == ():
+                self.assertIn("Commands:", result.output)
+                self.assertIn("stock", result.output)
+                self.assertIn("search", result.output)
+                continue
+
+            if path == ("watch",):
+                self.assertIn("--interval", result.output)
+                self.assertIn("--clear / --no-clear", result.output)
+                continue
+
+            if path == ("search",):
+                self.assertIn("--query", result.output)
+                self.assertIn("--format", result.output)
+                self.assertIn("local", result.output)
+                continue
+
+            if len(path) == len(next((leaf.path for leaf in self.leaf_commands if leaf.path == path), ())):
+                self.assertIn("--format", result.output)
+                self.assertIn("--indicator-level", result.output)
+                self.assertIn("--watch", result.output)
+
+    def test_runtime_option_bundle_can_be_combined_on_all_leaf_commands(self) -> None:
+        """常用运行时参数组合在全部叶子命令上都应能同时解析。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = str(Path(temp_dir) / "bundle-output.txt")
+            captured_requests = []
+
+            def fake_run(executor_self, request) -> None:
+                captured_requests.append(request)
+                click.echo("BUNDLE_OK")
+
+            runtime_bundle = [
+                "--format",
+                "json",
+                "--full",
+                "--transpose",
+                "--no-index",
+                "--limit",
+                "1",
+                "--output",
+                output_path,
+                "--encoding",
+                "utf-8",
+                "--indicator-level",
+                "full",
+                "--view",
+                "raw",
+                "--trace-window",
+                "8",
+                "--watch",
+                "--interval",
+                "0.1",
+                "--count",
+                "1",
+                "--no-clear",
+            ]
+
+            with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+                for leaf in self.leaf_commands:
+                    if leaf.path[0] in {"search", "watch"}:
+                        continue
+                    argv = build_required_tokens(leaf) + runtime_bundle
+                    result = self.runner.invoke(self.cli, argv)
+                    print_observation(f"{leaf.dotted_path} runtime bundle 输出", result.output)
+                    self.assertEqual(
+                        result.exit_code,
+                        0,
+                        msg=f"{leaf.dotted_path} 运行时组合参数失败:\n{result.output}",
+                    )
+                    self.assertIn("BUNDLE_OK", result.output)
+
+            expected = len(
+                [leaf for leaf in self.leaf_commands if leaf.path[0] not in {"search", "watch"}]
+            )
+            self.assertEqual(len(captured_requests), expected)
+            for request in captured_requests:
+                self.assertEqual(request.output.format_name, "json")
+                self.assertTrue(request.output.full)
+                self.assertTrue(request.output.transpose)
+                self.assertTrue(request.output.no_index)
+                self.assertEqual(request.output.limit, 1)
+                self.assertEqual(request.output.output_path, output_path)
+                self.assertEqual(request.output.encoding, "utf-8")
+                self.assertEqual(request.output.indicator_level, "full")
+                self.assertEqual(request.output.view_mode, "raw")
+                self.assertEqual(request.output.trace_window, 8)
+                self.assertTrue(request.watch.enabled)
+                self.assertEqual(request.watch.interval, 0.1)
+                self.assertEqual(request.watch.count, 1)
+                self.assertFalse(request.watch.clear_screen)
+
     def test_all_leaf_commands_execute_without_unhandled_exception(self) -> None:
         """全部叶子命令在最小参数下都应能执行到调度层。"""
         captured_requests = []

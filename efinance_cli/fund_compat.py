@@ -12,10 +12,10 @@ from typing import Any
 
 import pandas as pd
 import rich
-from retry import retry
 
 from efinance.fund.config import EastmoneyFundHeaders
 from efinance.fund.getter import fund_session
+from efinance_cli.retry_utils import with_network_retry
 
 
 _BASE_INFO_COLUMNS: dict[str, str] = {
@@ -89,6 +89,7 @@ def _build_base_info_series(items: dict[str, Any]) -> pd.Series:
     return pd.Series(cleaned, dtype="object")
 
 
+@with_network_retry
 def _fetch_base_info_payload(fund_code: str) -> dict[str, Any]:
     """请求单只基金的基础信息载荷。
 
@@ -114,7 +115,6 @@ def _fetch_base_info_payload(fund_code: str) -> dict[str, Any]:
     ).json()
 
 
-@retry(tries=3)
 def get_base_info_single(fund_code: str) -> pd.Series:
     """获取单只基金的基础信息。
 
