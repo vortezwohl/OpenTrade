@@ -49,7 +49,7 @@ class OutputOptions:
     output_path: str | None = None
     encoding: str = "utf-8"
     indicator_level: str = "basic"
-    view_mode: str = "raw"
+    view_mode: str = "observation"
     trace_window: int = 32
 
 

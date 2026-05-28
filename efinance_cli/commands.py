@@ -116,7 +116,7 @@ def attach_runtime_options(command: click.Command) -> None:
         click.Option(["--output", "output_path"], type=click.Path(dir_okay=False), default=None, help="把结果写入文件。"),
         click.Option(["--encoding"], type=click.STRING, default="utf-8", show_default=True, help="写文件时使用的编码。"),
         click.Option(["--indicator-level"], type=click.Choice(["basic", "advanced", "full", "1", "2", "3"]), default="basic", show_default=True, help="技术指标丰富度等级。"),
-        click.Option(["--view", "view_mode"], type=click.Choice(["raw", "observation"]), default="raw", show_default=True, help="输出视图模式。"),
+        click.Option(["--view", "view_mode"], type=click.Choice(["raw", "observation"]), default="observation", show_default=True, help="输出视图模式。"),
         click.Option(["--trace-window"], type=click.INT, default=32, show_default=True, help="结构化观察输出的近期 trace bar 数量。"),
         click.Option(["--watch"], is_flag=True, default=False, help="开启循环刷新。"),
         click.Option(["--interval"], type=click.FLOAT, default=2.0, show_default=True, help="刷新间隔秒数。"),
@@ -212,7 +212,7 @@ def create_search_command() -> click.Command:
                 output_path=output_path,
                 encoding=encoding,
                 indicator_level="basic",
-                view_mode="raw",
+                view_mode="observation",
                 trace_window=32,
             ),
             watch=WatchOptions(
