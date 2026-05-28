@@ -178,10 +178,11 @@ class ObservationSmokeTest(unittest.TestCase):
                 [
                     "common",
                     "get-quote-history",
+                    "--symbols",
                     "105.AAPL",
-                    "--beg",
+                    "--start-date",
                     "20260501",
-                    "--end",
+                    "--end-date",
                     "20260528",
                     "--view",
                     "observation",
@@ -217,6 +218,7 @@ class ObservationSmokeTest(unittest.TestCase):
                 [
                     "common",
                     "get-latest-quote",
+                    "--quote-ids",
                     "105.AAPL",
                     "--view",
                     "observation",
@@ -383,7 +385,9 @@ class ObservationSmokeTest(unittest.TestCase):
                 [
                     "fund",
                     "get-quote-history-multi",
+                    "--symbols",
                     "161725",
+                    "--symbols",
                     "005827",
                     "--view",
                     "observation",
@@ -394,7 +398,9 @@ class ObservationSmokeTest(unittest.TestCase):
                 [
                     "fund",
                     "get-quote-history-multi",
+                    "--symbols",
                     "161725",
+                    "--symbols",
                     "005827",
                     "--view",
                     "observation",
@@ -407,7 +413,9 @@ class ObservationSmokeTest(unittest.TestCase):
                 [
                     "fund",
                     "get-quote-history-multi",
+                    "--symbols",
                     "161725",
+                    "--symbols",
                     "005827",
                     "--view",
                     "observation",
@@ -420,7 +428,9 @@ class ObservationSmokeTest(unittest.TestCase):
                 [
                     "fund",
                     "get-quote-history-multi",
+                    "--symbols",
                     "161725",
+                    "--symbols",
                     "005827",
                     "--view",
                     "observation",
@@ -471,7 +481,7 @@ class ObservationSmokeTest(unittest.TestCase):
         with patch("efinance_cli.executor.CommandExecutor.invoke", new=fake_invoke):
             runner = CliRunner()
             cli = create_root_command()
-            result = runner.invoke(cli, ["stock", "get-members", "000300"])
+            result = runner.invoke(cli, ["stock", "get-members", "--symbol", "000300"])
 
         print_observation("generic observation CLI 输出", result.output)
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -496,7 +506,10 @@ class ObservationSmokeTest(unittest.TestCase):
         with patch("efinance_cli.executor.CommandExecutor.invoke", new=fake_invoke):
             runner = CliRunner()
             cli = create_root_command()
-            result = runner.invoke(cli, ["stock", "get-members", "000300", "--view", "raw"])
+            result = runner.invoke(
+                cli,
+                ["stock", "get-members", "--symbol", "000300", "--view", "raw"],
+            )
 
         print_observation("generic raw CLI 输出", result.output)
         self.assertEqual(result.exit_code, 0, msg=result.output)

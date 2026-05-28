@@ -1,9 +1,7 @@
 """Click 命令构建层。
 
-该模块负责把注册中心中的命令描述动态转换为 Click 命令树。这样做的目标是：
-- 尽可能 1:1 暴露 `efinance` 公共 API；
-- 避免为几十个函数手写重复命令；
-- 在统一位置附加表格输出、刷新与导出参数。
+该模块负责把注册中心中的命令描述动态转换为 Click 命令树，并统一附加输出、
+观察视图与刷新控制参数。参数暴露层采用语义化命名，不再直接复刻上游函数签名。
 """
 
 from __future__ import annotations
@@ -99,28 +97,77 @@ def create_function_command(spec: CommandSpec) -> click.Command:
         help=build_help_text(spec),
         context_settings={"ignore_unknown_options": False},
     )
-    command = apply_click_parameters(command, build_parameter_specs(spec.callback))
+    command = apply_click_parameters(
+        command,
+        build_parameter_specs(spec.callback, command_key=(spec.module_name, spec.function_name)),
+    )
     attach_runtime_options(command)
     return command
 
 
 def attach_runtime_options(command: click.Command) -> None:
-    """为命令统一追加运行时选项。"""
+    """为命令统一追加运行时参数。"""
     params = [
-        click.Option(["--format", "format_name"], type=click.Choice(["table", "json", "csv", "tsv"]), default="table", show_default=True, help="输出格式。"),
+        click.Option(
+            ["--format", "format_name"],
+            type=click.Choice(["table", "json", "csv", "tsv"]),
+            default="table",
+            show_default=True,
+            help="输出格式。",
+        ),
         click.Option(["--full"], is_flag=True, default=False, help="完整打印全部列与长文本。"),
         click.Option(["--transpose"], is_flag=True, default=False, help="把结果转置后输出。"),
         click.Option(["--no-index"], is_flag=True, default=False, help="表格输出时不打印索引。"),
         click.Option(["--limit"], type=click.INT, default=None, help="仅输出前 N 行。"),
-        click.Option(["--output", "output_path"], type=click.Path(dir_okay=False), default=None, help="把结果写入文件。"),
-        click.Option(["--encoding"], type=click.STRING, default="utf-8", show_default=True, help="写文件时使用的编码。"),
-        click.Option(["--indicator-level"], type=click.Choice(["basic", "advanced", "full", "1", "2", "3"]), default="advanced", show_default=True, help="技术指标丰富度等级。"),
-        click.Option(["--view", "view_mode"], type=click.Choice(["raw", "observation"]), default="observation", show_default=True, help="输出视图模式。"),
-        click.Option(["--trace-window"], type=click.INT, default=32, show_default=True, help="结构化观察输出的近期 trace bar 数量。"),
+        click.Option(
+            ["--output", "output_path"],
+            type=click.Path(dir_okay=False),
+            default=None,
+            help="把结果写入文件。",
+        ),
+        click.Option(
+            ["--encoding"],
+            type=click.STRING,
+            default="utf-8",
+            show_default=True,
+            help="写文件时使用的编码。",
+        ),
+        click.Option(
+            ["--indicator-level"],
+            type=click.Choice(["basic", "advanced", "full", "1", "2", "3"]),
+            default="advanced",
+            show_default=True,
+            help="技术指标丰富度等级。",
+        ),
+        click.Option(
+            ["--view", "view_mode"],
+            type=click.Choice(["raw", "observation"]),
+            default="observation",
+            show_default=True,
+            help="输出视图模式。",
+        ),
+        click.Option(
+            ["--trace-window"],
+            type=click.INT,
+            default=32,
+            show_default=True,
+            help="结构化观察输出的近期 trace bar 数量。",
+        ),
         click.Option(["--watch"], is_flag=True, default=False, help="开启循环刷新。"),
-        click.Option(["--interval"], type=click.FLOAT, default=2.0, show_default=True, help="刷新间隔秒数。"),
+        click.Option(
+            ["--interval"],
+            type=click.FLOAT,
+            default=2.0,
+            show_default=True,
+            help="刷新间隔秒数。",
+        ),
         click.Option(["--count"], type=click.INT, default=None, help="刷新次数；不传时持续刷新。"),
-        click.Option(["--clear/--no-clear", "clear_screen"], default=True, show_default=True, help="刷新前是否清屏。"),
+        click.Option(
+            ["--clear/--no-clear", "clear_screen"],
+            default=True,
+            show_default=True,
+            help="刷新前是否清屏。",
+        ),
     ]
     command.params.extend(params)
 
@@ -139,27 +186,97 @@ def create_search_command() -> click.Command:
     """创建顶层搜索命令。"""
 
     @click.command(name="search")
-    @click.argument("keyword")
-    @click.option("--market", "market_name", type=click.STRING, default=None, help="市场枚举名，例如 A_stock、Hongkong、US_stock。")
-    @click.option("--result-count", type=click.INT, default=5, show_default=True, help="返回候选数量。")
-    @click.option("--no-cache", is_flag=True, default=False, help="禁用本地搜索缓存。")
-    @click.option("--format", "format_name", type=click.Choice(["table", "json", "csv", "tsv"]), default="table", show_default=True, help="输出格式。")
+    @click.option("--query", required=True, type=click.STRING, help="搜索关键字。")
+    @click.option(
+        "--market",
+        "market_name",
+        type=click.STRING,
+        default=None,
+        help="市场枚举名，例如 A_stock、Hongkong、US_stock。",
+    )
+    @click.option(
+        "--result-count",
+        type=click.INT,
+        default=5,
+        show_default=True,
+        help="返回候选数量。",
+    )
+    @click.option(
+        "--use-local-cache/--no-use-local-cache",
+        "use_local_cache",
+        default=True,
+        show_default=True,
+        help="是否允许使用本地搜索缓存。",
+    )
+    @click.option(
+        "--format",
+        "format_name",
+        type=click.Choice(["table", "json", "csv", "tsv"]),
+        default="table",
+        show_default=True,
+        help="输出格式。",
+    )
     @click.option("--full", is_flag=True, default=False, help="完整打印全部列与长文本。")
     @click.option("--transpose", is_flag=True, default=False, help="把结果转置后输出。")
     @click.option("--no-index", is_flag=True, default=False, help="表格输出时不打印索引。")
     @click.option("--limit", type=click.INT, default=None, help="仅输出前 N 行。")
-    @click.option("--output", "output_path", type=click.Path(dir_okay=False), default=None, help="把结果写入文件。")
-    @click.option("--encoding", type=click.STRING, default="utf-8", show_default=True, help="写文件时使用的编码。")
+    @click.option(
+        "--output",
+        "output_path",
+        type=click.Path(dir_okay=False),
+        default=None,
+        help="把结果写入文件。",
+    )
+    @click.option(
+        "--encoding",
+        type=click.STRING,
+        default="utf-8",
+        show_default=True,
+        help="写文件时使用的编码。",
+    )
+    @click.option(
+        "--indicator-level",
+        type=click.Choice(["basic", "advanced", "full", "1", "2", "3"]),
+        default="advanced",
+        show_default=True,
+        help="技术指标丰富度等级。",
+    )
+    @click.option(
+        "--view",
+        "view_mode",
+        type=click.Choice(["raw", "observation"]),
+        default="observation",
+        show_default=True,
+        help="输出视图模式。",
+    )
+    @click.option(
+        "--trace-window",
+        type=click.INT,
+        default=32,
+        show_default=True,
+        help="结构化观察输出的近期 trace bar 数量。",
+    )
     @click.option("--watch", is_flag=True, default=False, help="开启循环刷新。")
-    @click.option("--interval", type=click.FLOAT, default=2.0, show_default=True, help="刷新间隔秒数。")
-    @click.option("--count", "count_refresh", type=click.INT, default=None, help="刷新次数；不传时持续刷新。")
-    @click.option("--count-refresh", "count_refresh_alias", type=click.INT, default=None, hidden=True)
-    @click.option("--clear/--no-clear", "clear_screen", default=True, show_default=True, help="刷新前是否清屏。")
+    @click.option(
+        "--interval",
+        type=click.FLOAT,
+        default=2.0,
+        show_default=True,
+        help="刷新间隔秒数。",
+    )
+    @click.option("--count", type=click.INT, default=None, help="刷新次数；不传时持续刷新。")
+    @click.option(
+        "--clear/--no-clear",
+        "clear_screen",
+        default=True,
+        show_default=True,
+        help="刷新前是否清屏。",
+    )
     def search_command(
-        keyword: str,
+        query: str,
         market_name: str | None,
         result_count: int,
-        no_cache: bool,
+        use_local_cache: bool,
         format_name: str,
         full: bool,
         transpose: bool,
@@ -167,10 +284,12 @@ def create_search_command() -> click.Command:
         limit: int | None,
         output_path: str | None,
         encoding: str,
+        indicator_level: str,
+        view_mode: str,
+        trace_window: int,
         watch: bool,
         interval: float,
-        count_refresh: int | None,
-        count_refresh_alias: int | None,
+        count: int | None,
         clear_screen: bool,
     ) -> None:
         from efinance.utils import MarketType, search_quote
@@ -181,14 +300,12 @@ def create_search_command() -> click.Command:
             if market_type is None:
                 raise click.ClickException(f"Unknown market enum: {market_name}")
 
-        refresh_count = count_refresh if count_refresh is not None else count_refresh_alias
-
         def build_frame() -> pd.DataFrame:
             result = search_quote(
-                keyword=keyword,
+                keyword=query,
                 market_type=market_type,
                 count=result_count,
-                use_local=not no_cache,
+                use_local=use_local_cache,
             )
             if result is None:
                 return pd.DataFrame(
@@ -210,14 +327,14 @@ def create_search_command() -> click.Command:
                 limit=limit,
                 output_path=output_path,
                 encoding=encoding,
-                indicator_level="advanced",
-                view_mode="observation",
-                trace_window=32,
+                indicator_level=indicator_level,
+                view_mode=view_mode,
+                trace_window=trace_window,
             ),
             watch=WatchOptions(
                 enabled=watch,
                 interval=interval,
-                count=default_watch_count(watch, refresh_count),
+                count=default_watch_count(watch, count),
                 clear_screen=clear_screen,
             ),
         )
@@ -247,7 +364,13 @@ def create_watch_command() -> click.Command:
     )
     @click.option("--interval", type=click.FLOAT, default=2.0, show_default=True, help="刷新间隔秒数。")
     @click.option("--count", type=click.INT, default=None, help="刷新次数；不传时持续刷新。")
-    @click.option("--clear/--no-clear", "clear_screen", default=True, show_default=True, help="刷新前是否清屏。")
+    @click.option(
+        "--clear/--no-clear",
+        "clear_screen",
+        default=True,
+        show_default=True,
+        help="刷新前是否清屏。",
+    )
     @click.pass_context
     def watch_command(
         ctx: click.Context,

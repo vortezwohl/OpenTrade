@@ -1,8 +1,11 @@
-"""把 Python 函数签名映射为 Click 参数。
+"""把 Python 函数签名映射为统一语义化的 Click 参数。
 
-本模块负责做最小可用的签名反射：尽可能根据注解和默认值推导 CLI 选项，
-并把复杂或不稳定的类型统一降级为字符串输入，再在调用前做轻量转换。
-这样可以在保证命令覆盖面的同时，避免为每个函数手写大量重复的参数定义。
+本模块负责两件事：
+1. 从上游 `efinance` 函数签名中提取参数元信息；
+2. 在 CLI 暴露层把内部参数名改写为更稳定、更易记的语义化名称。
+
+这次重构不再追求“尽量贴近上游函数签名”，而是把 CLI 参数面收敛为统一规范。
+因此所有业务参数都通过显式 option 暴露，不再使用必填位置参数。
 """
 
 from __future__ import annotations
@@ -18,9 +21,52 @@ from typing import Any
 import click
 
 
+CommandKey = tuple[str, str]
+
+GLOBAL_CLI_NAME_OVERRIDES: dict[str, str] = {
+    "beg": "start-date",
+    "end": "end-date",
+    "start_date": "start-date",
+    "end_date": "end-date",
+    "keyword": "query",
+    "market_type": "market",
+    "fs": "market",
+    "stock_code": "symbol",
+    "fund_code": "symbol",
+    "bond_code": "symbol",
+    "index_code": "symbol",
+    "code": "symbol",
+    "stock_codes": "symbols",
+    "fund_codes": "symbols",
+    "bond_codes": "symbols",
+    "codes": "symbols",
+    "quote_id": "quote-id",
+    "quote_ids": "quote-ids",
+    "quote_id_list": "quote-ids",
+    "save_dir": "output-dir",
+    "suppress_error": "ignore-errors",
+    "use_local": "use-local-cache",
+    "use_id_cache": "use-id-cache",
+    "ft": "fund-type",
+    "pz": "max-pages",
+    "klt": "timeframe",
+    "fqt": "adjustment",
+    "category": "market-category",
+    "market_name": "market-name",
+    "market_number": "market-id",
+    "drop_duplicate": "deduplicate",
+}
+
+COMMAND_CLI_NAME_OVERRIDES: dict[CommandKey, dict[str, str]] = {
+    ("fund", "get_pdf_reports"): {
+        "max_count": "max-files",
+    },
+}
+
+
 @dataclass(slots=True)
 class ParameterSpec:
-    """描述一个命令参数应如何暴露到 Click。"""
+    """描述一个 CLI 参数的内部名、外部名和类型语义。"""
 
     name: str
     cli_name: str
@@ -31,7 +77,7 @@ class ParameterSpec:
 
     @property
     def is_variadic(self) -> bool:
-        """当前参数是否适合映射为多值参数。"""
+        """判断当前参数是否适合映射为多值 option。"""
         origin = typing.get_origin(self.annotation)
         args = typing.get_args(self.annotation)
         return origin in (list, tuple, set) or any(
@@ -39,23 +85,41 @@ class ParameterSpec:
         )
 
 
-def build_parameter_specs(function: Any) -> list[ParameterSpec]:
-    """从函数签名生成参数描述。"""
+def resolve_cli_name(parameter_name: str, command_key: CommandKey | None = None) -> str:
+    """把内部参数名转换为理想化的 CLI 参数名。"""
+    if command_key is not None:
+        command_overrides = COMMAND_CLI_NAME_OVERRIDES.get(command_key, {})
+        if parameter_name in command_overrides:
+            return command_overrides[parameter_name]
+    if parameter_name == "max_count":
+        return "max-records"
+    if parameter_name in GLOBAL_CLI_NAME_OVERRIDES:
+        return GLOBAL_CLI_NAME_OVERRIDES[parameter_name]
+    return parameter_name.replace("_", "-")
+
+
+def build_parameter_specs(
+    function: Any,
+    command_key: CommandKey | None = None,
+) -> list[ParameterSpec]:
+    """从函数签名生成参数描述列表。"""
     signature = inspect.signature(function)
     try:
         resolved_hints = typing.get_type_hints(function)
     except Exception:
         resolved_hints = {}
+
     specs: list[ParameterSpec] = []
     for parameter in signature.parameters.values():
-        if parameter.kind == inspect.Parameter.VAR_POSITIONAL:
-            continue
-        if parameter.kind == inspect.Parameter.VAR_KEYWORD:
+        if parameter.kind in {
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        }:
             continue
         specs.append(
             ParameterSpec(
                 name=parameter.name,
-                cli_name=parameter.name.replace("_", "-"),
+                cli_name=resolve_cli_name(parameter.name, command_key=command_key),
                 annotation=resolved_hints.get(parameter.name, parameter.annotation),
                 required=parameter.default is inspect._empty,
                 default=None if parameter.default is inspect._empty else parameter.default,
@@ -65,51 +129,37 @@ def build_parameter_specs(function: Any) -> list[ParameterSpec]:
     return specs
 
 
-def apply_click_parameters(command: click.Command, specs: list[ParameterSpec]) -> click.Command:
-    """按签名描述把 Click 参数附着到命令对象上。"""
-    params: list[click.Parameter] = []
-    for spec in reversed(specs):
-        click_param = build_click_parameter(spec)
-        params.insert(0, click_param)
+def apply_click_parameters(
+    command: click.Command,
+    specs: list[ParameterSpec],
+) -> click.Command:
+    """按参数描述把 Click 参数挂载到命令对象上。"""
+    params = [build_click_parameter(spec) for spec in specs]
     command.params = params + command.params
     return command
 
 
 def build_click_parameter(spec: ParameterSpec) -> click.Parameter:
     """构建单个 Click 参数对象。"""
-    param_type = build_click_type(spec.annotation)
-    if spec.required and spec.kind in (
-        inspect.Parameter.POSITIONAL_ONLY,
-        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-    ):
-        return click.Argument(
-            [spec.name],
-            nargs=-1 if spec.is_variadic else 1,
-            type=param_type,
-            required=True,
+    if resolve_base_type(spec.annotation) is bool:
+        return click.Option(
+            [f"--{spec.cli_name}/--no-{spec.cli_name}", spec.name],
+            default=bool(spec.default),
+            show_default=True,
         )
 
-    option_decls = [f"--{spec.cli_name}"]
     kwargs: dict[str, Any] = {
-        "required": False,
+        "required": spec.required,
         "default": spec.default,
-        "show_default": spec.default not in (None, inspect._empty),
-        "type": param_type,
+        "show_default": not spec.required and spec.default not in (None, inspect._empty),
+        "type": build_click_type(spec.annotation),
     }
     if spec.is_variadic:
         kwargs["multiple"] = True
         if spec.default is None:
             kwargs["default"] = ()
-    if resolve_base_type(spec.annotation) is bool and spec.default is False:
-        option_decls.append(f"--no-{spec.cli_name}")
-        return click.Option(
-            option_decls,
-            is_flag=True,
-            flag_value=True,
-            default=False,
-            help=f"切换参数 {spec.name}。",
-        )
-    return click.Option(option_decls, **kwargs)
+
+    return click.Option([f"--{spec.cli_name}", spec.name], **kwargs)
 
 
 def build_click_type(annotation: Any) -> click.ParamType:
@@ -127,7 +177,7 @@ def build_click_type(annotation: Any) -> click.ParamType:
 
 
 def coerce_parameter_value(annotation: Any, value: Any) -> Any:
-    """把 Click 解析出的值转换成实际调用值。"""
+    """把 Click 解析出的值转换成真实调用值。"""
     if value is None:
         return None
 
@@ -168,6 +218,7 @@ def resolve_base_type(annotation: Any) -> Any:
     """获取注解的基础类型。"""
     if annotation in (inspect._empty, Any):
         return str
+
     origin = typing.get_origin(annotation)
     if origin is typing.Union:
         args = [arg for arg in typing.get_args(annotation) if arg is not NoneType]
@@ -178,13 +229,14 @@ def resolve_base_type(annotation: Any) -> Any:
         if any(typing.get_origin(arg) in (list, tuple, set) for arg in args):
             return list
         return resolve_base_type(args[0])
+
     if origin in (list, tuple, set):
         return origin
     return annotation
 
 
 def infer_sequence_item_type(annotation: Any) -> Any:
-    """推断集合类注解内部的元素类型。"""
+    """推断集合类注解中的元素类型。"""
     args = typing.get_args(annotation)
     if not args:
         return str
@@ -211,7 +263,7 @@ def coerce_scalar(expected_type: Any, value: Any) -> Any:
 
 
 def try_parse_structured_string(value: Any) -> Any:
-    """尽量把 JSON 或逗号串解析成结构化对象。"""
+    """尽量把 JSON 风格字符串解析为结构化对象。"""
     if not isinstance(value, str):
         return value
     stripped = value.strip()

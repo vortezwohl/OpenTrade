@@ -5,7 +5,7 @@
 - 全部叶子命令都能构建并执行到调度层；
 - 动态反射出来的参数能被 Click 正确解析并透传；
 - 顶层 `search` 和 `watch` 的包装逻辑稳定可用；
-- 统一运行时参数在修复后不再出现静默改写。
+- 统一运行时参数在重构后不再出现静默改写。
 """
 
 from __future__ import annotations
@@ -17,11 +17,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import click
-import pandas as pd
 from click.testing import CliRunner
 
 from efinance_cli.commands import create_root_command
-from efinance_cli.models import InvocationResult
 from efinance_cli.registry import build_command_specs
 from tests.cli_regression_support import (
     RUNTIME_OUTPUT_OPTION_NAMES,
@@ -39,15 +37,13 @@ class CliFullRegressionTest(unittest.TestCase):
     """覆盖全部 CLI 命令与参数的回归测试。"""
 
     def setUp(self) -> None:
-        """构建测试所需的命令树与运行器。"""
-
+        """构建测试所需的命令树。"""
         self.runner = CliRunner()
         self.cli = create_root_command()
         self.leaf_commands = collect_leaf_commands(self.cli)
 
     def test_all_leaf_commands_execute_without_unhandled_exception(self) -> None:
         """全部叶子命令在最小参数下都应能执行到调度层。"""
-
         captured_requests = []
 
         def fake_run(executor_self, request) -> None:
@@ -67,12 +63,13 @@ class CliFullRegressionTest(unittest.TestCase):
                 )
                 self.assertIn("EXECUTED:", result.output, msg=leaf.dotted_path)
 
-        expected = len([leaf for leaf in self.leaf_commands if leaf.path[0] not in {"search", "watch"}])
+        expected = len(
+            [leaf for leaf in self.leaf_commands if leaf.path[0] not in {"search", "watch"}]
+        )
         self.assertEqual(len(captured_requests), expected)
 
     def test_all_options_can_be_parsed_and_forwarded(self) -> None:
         """全部选项参数都应能被解析，并在需要时透传到请求对象。"""
-
         with tempfile.TemporaryDirectory() as temp_dir:
             base_dir = Path(temp_dir)
             for leaf in self.leaf_commands:
@@ -89,27 +86,25 @@ class CliFullRegressionTest(unittest.TestCase):
                             click.echo("OK")
 
                         with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
-                            argv = build_required_tokens(leaf) + tokens
+                            argv = build_required_tokens(
+                                leaf,
+                                exclude_option_names={parameter.name} if parameter.required else None,
+                            ) + tokens
                             result = self.runner.invoke(self.cli, argv)
-                        print_observation(f"{leaf.dotted_path} 参数 {tokens} CLI 输出", result.output)
 
+                        print_observation(f"{leaf.dotted_path} 参数 {tokens} CLI 输出", result.output)
                         self.assertEqual(
                             result.exit_code,
                             0,
                             msg=f"{leaf.dotted_path} 参数 {tokens} 解析失败:\n{result.output}",
                         )
+
                         request = captured["request"]
                         option_name = parameter.name
-
                         if option_name in RUNTIME_OUTPUT_OPTION_NAMES:
                             actual = getattr(request.output, option_name)
                         elif option_name in RUNTIME_WATCH_OPTION_NAMES:
-                            if option_name == "watch":
-                                mapped_name = "enabled"
-                            elif option_name in {"count_refresh", "count_refresh_alias"}:
-                                mapped_name = "count"
-                            else:
-                                mapped_name = option_name
+                            mapped_name = "enabled" if option_name == "watch" else option_name
                             actual = getattr(request.watch, mapped_name)
                         else:
                             actual = request.kwargs[option_name]
@@ -129,7 +124,6 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_all_leaf_commands_support_four_output_formats(self) -> None:
         """全部叶子命令都应能稳定走通 table/json/csv/tsv 四种输出格式。"""
-
         rendered_cases: list[tuple[str, str, str]] = []
 
         def fake_run(executor_self, request) -> None:
@@ -163,12 +157,14 @@ class CliFullRegressionTest(unittest.TestCase):
                         result.output,
                     )
 
-        expected = len([leaf for leaf in self.leaf_commands if leaf.path[0] not in {"search", "watch"}]) * len(formats)
+        expected = (
+            len([leaf for leaf in self.leaf_commands if leaf.path[0] not in {"search", "watch"}])
+            * len(formats)
+        )
         self.assertEqual(len(rendered_cases), expected)
 
     def test_watch_wrapper_forwards_refresh_flags(self) -> None:
         """顶层 watch 包装命令应向子命令转发刷新参数。"""
-
         forwarded = {}
 
         def fake_main(*args, **kwargs) -> None:
@@ -182,7 +178,14 @@ class CliFullRegressionTest(unittest.TestCase):
             info_name="watch",
             parent=click.Context(self.cli, info_name="cli"),
         )
-        watch_context.args = ["common", "get-latest-quote", "105.AAPL", "--format", "json"]
+        watch_context.args = [
+            "common",
+            "get-latest-quote",
+            "--quote-id",
+            "105.AAPL",
+            "--format",
+            "json",
+        ]
 
         with patch.object(self.cli, "main", new=fake_main):
             with watch_context:
@@ -198,6 +201,7 @@ class CliFullRegressionTest(unittest.TestCase):
             [
                 "common",
                 "get-latest-quote",
+                "--quote-id",
                 "105.AAPL",
                 "--format",
                 "json",
@@ -213,10 +217,9 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_search_command_works_with_mocked_search_backend(self) -> None:
         """顶层 search 在替换后的可调用对象场景下也应能正常工作。"""
-
         records = build_search_records()
         with patch("efinance.utils.search_quote", return_value=records):
-            result = self.runner.invoke(self.cli, ["search", "AAPL"])
+            result = self.runner.invoke(self.cli, ["search", "--query", "AAPL"])
 
         print_observation("search 默认输出", result.output)
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -225,20 +228,22 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_search_rendering_pipeline_behaves_as_expected(self) -> None:
         """search 的输出控制参数应能正常工作。"""
-
         records = build_search_records()
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = Path(temp_dir) / "search-output.json"
             with patch("efinance.utils.search_quote", return_value=records):
-                table_result = self.runner.invoke(self.cli, ["search", "AAPL"])
-                json_result = self.runner.invoke(self.cli, ["search", "AAPL", "--format", "json"])
+                table_result = self.runner.invoke(self.cli, ["search", "--query", "AAPL"])
+                json_result = self.runner.invoke(
+                    self.cli,
+                    ["search", "--query", "AAPL", "--format", "json"],
+                )
                 limited_result = self.runner.invoke(
                     self.cli,
-                    ["search", "AAPL", "--format", "table", "--limit", "1"],
+                    ["search", "--query", "AAPL", "--format", "table", "--limit", "1"],
                 )
                 output_result = self.runner.invoke(
                     self.cli,
-                    ["search", "AAPL", "--format", "json", "--output", str(output_path)],
+                    ["search", "--query", "AAPL", "--format", "json", "--output", str(output_path)],
                 )
                 output_exists = output_path.exists()
                 output_content = output_path.read_text(encoding="utf-8") if output_exists else ""
@@ -247,6 +252,7 @@ class CliFullRegressionTest(unittest.TestCase):
         print_observation("search JSON 输出", json_result.output)
         print_observation("search limit=1 输出", limited_result.output)
         print_observation("search 输出文件内容", output_content)
+
         self.assertEqual(table_result.exit_code, 0, msg=table_result.output)
         self.assertIn("| meta", table_result.output)
         self.assertIn("| result[1]", table_result.output)
@@ -270,7 +276,6 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_search_watch_mode_uses_executor(self) -> None:
         """search 的 watch 模式应切换到统一执行器路径。"""
-
         captured = {}
         records = build_search_records()
 
@@ -284,7 +289,7 @@ class CliFullRegressionTest(unittest.TestCase):
         ):
             result = self.runner.invoke(
                 self.cli,
-                ["search", "AAPL", "--watch", "--count", "2", "--interval", "0.1"],
+                ["search", "--query", "AAPL", "--watch", "--count", "2", "--interval", "0.1"],
             )
 
         print_observation("search watch 输出", result.output)
@@ -304,8 +309,7 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured["request"].output.indicator_level, "advanced")
 
     def test_utils_search_quote_result_count_routes_to_business_parameter_without_runtime_warning(self) -> None:
-        """utils search-quote 应把业务候选数量暴露为 result-count，而不是复用运行时 count。"""
-
+        """utils search-quote 应把业务候选数量暴露为 result-count。"""
         captured = {}
 
         def fake_run(executor_self, request) -> None:
@@ -317,7 +321,16 @@ class CliFullRegressionTest(unittest.TestCase):
             with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
                 result = self.runner.invoke(
                     self.cli,
-                    ["utils", "search-quote", "AAPL", "--result-count", "1", "--format", "json"],
+                    [
+                        "utils",
+                        "search-quote",
+                        "--query",
+                        "AAPL",
+                        "--result-count",
+                        "1",
+                        "--format",
+                        "json",
+                    ],
                 )
 
         print_observation("utils search-quote result-count 输出", result.output)
@@ -339,11 +352,19 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_utils_search_quote_result_count_is_normalized_before_callback(self) -> None:
         """utils search-quote 的 result-count 在执行前应被归一化为整数。"""
-
         with patch("efinance.utils.search_quote", return_value=build_search_records()) as mock_search:
             result = self.runner.invoke(
                 self.cli,
-                ["utils", "search-quote", "AAPL", "--result-count", "1", "--format", "json"],
+                [
+                    "utils",
+                    "search-quote",
+                    "--query",
+                    "AAPL",
+                    "--result-count",
+                    "1",
+                    "--format",
+                    "json",
+                ],
             )
 
         print_observation("utils search-quote invoke 输出", result.output)
@@ -353,7 +374,6 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_transpose_and_no_index_are_forwarded_to_search_executor(self) -> None:
         """search 的输出控制参数应透传给统一执行链。"""
-
         captured = {}
         records = build_search_records()
 
@@ -367,7 +387,7 @@ class CliFullRegressionTest(unittest.TestCase):
         ):
             result = self.runner.invoke(
                 self.cli,
-                ["search", "AAPL", "--transpose", "--no-index", "--full"],
+                ["search", "--query", "AAPL", "--transpose", "--no-index", "--full"],
             )
 
         print_observation("search run 输出", result.output)
@@ -389,7 +409,6 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_utils_command_specs_survive_mocked_callables(self) -> None:
         """utils 模块命令规格在 mock / wrapper 场景下不应丢失。"""
-
         records = build_search_records()
         with patch("efinance.utils.search_quote", return_value=records):
             function_names = {spec.function_name for spec in build_command_specs("utils")}
@@ -399,7 +418,6 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_command_and_parameter_inventory_is_nontrivial(self) -> None:
         """保护命令树规模，避免命令注册意外塌缩。"""
-
         print_observation(
             "命令与参数规模",
             {
@@ -412,7 +430,6 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_watch_without_subcommand_raises_click_exception(self) -> None:
         """watch 缺少子命令时应返回可读错误。"""
-
         result = self.runner.invoke(self.cli, ["watch"])
         print_observation("watch 缺少子命令输出", result.output)
         self.assertNotEqual(result.exit_code, 0)
@@ -420,8 +437,7 @@ class CliFullRegressionTest(unittest.TestCase):
 
     def test_unsupported_market_name_returns_readable_error(self) -> None:
         """search 的非法 market 参数应返回可读错误。"""
-
-        result = self.runner.invoke(self.cli, ["search", "AAPL", "--market", "UNKNOWN"])
+        result = self.runner.invoke(self.cli, ["search", "--query", "AAPL", "--market", "UNKNOWN"])
         print_observation("search 非法 market 输出", result.output)
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("Unknown market enum", result.output)
