@@ -308,13 +308,33 @@ def render_generic_sections_text(
             lines = render_mapping_lines(section.rows[0] if section.rows else {})
             rendered.append(render_boxed_section(section.name, lines))
             continue
-
-        frame = pd.DataFrame(section.rows)
-        if frame.empty:
-            rendered.append(render_boxed_section(section.name, ["<empty>"]))
+        if section.render_hint == "records":
+            rendered.extend(render_record_sections(section, options))
             continue
-        body = render_dataframe(frame, options)
-        rendered.append(render_boxed_section(section.name, body.splitlines()))
+        rendered.append(render_boxed_section(section.name, ["<unsupported render_hint>"]))
+    return rendered
+
+
+def render_record_sections(
+    section: ObservationSection,
+    options: OutputOptions,
+) -> list[str]:
+    """把 observation section 渲染为逐记录纵向文本。"""
+
+    rows = section.rows
+    if options.limit is not None:
+        rows = rows[: options.limit]
+    if not rows:
+        return [render_boxed_section(section.name, ["<empty>"])]
+
+    rendered: list[str] = []
+    for index, row in enumerate(rows, start=1):
+        rendered.append(
+            render_boxed_section(
+                f"{section.name}[{index}]",
+                render_mapping_lines(row),
+            )
+        )
     return rendered
 
 

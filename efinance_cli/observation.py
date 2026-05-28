@@ -442,7 +442,7 @@ def build_generic_sections(value: Any) -> list[ObservationSection]:
     """根据结果类型构建通用 observation sections。"""
 
     if isinstance(value, pd.DataFrame):
-        return [ObservationSection(name="result", rows=normalize_dataframe_rows(value), render_hint="table")]
+        return [ObservationSection(name="result", rows=normalize_dataframe_rows(value), render_hint="records")]
     if isinstance(value, pd.Series):
         return [ObservationSection(name="result", rows=[normalize_mapping(value.to_dict())], render_hint="kv")]
     if isinstance(value, dict):
@@ -454,7 +454,7 @@ def build_generic_sections(value: Any) -> list[ObservationSection]:
                     ObservationSection(
                         name=section_name,
                         rows=normalize_dataframe_rows(item),
-                        render_hint="table",
+                        render_hint="records",
                     )
                 )
                 continue
@@ -481,7 +481,7 @@ def build_generic_sections(value: Any) -> list[ObservationSection]:
                     ObservationSection(
                         name=section_name,
                         rows=normalize_sequence_rows(item),
-                        render_hint="table",
+                        render_hint="records",
                     )
                 )
                 continue
@@ -492,9 +492,9 @@ def build_generic_sections(value: Any) -> list[ObservationSection]:
                     render_hint="kv",
                 )
             )
-        return sections or [ObservationSection(name="result", rows=[], render_hint="table")]
+        return sections or [ObservationSection(name="result", rows=[], render_hint="records")]
     if isinstance(value, (list, tuple, set)):
-        return [ObservationSection(name="result", rows=normalize_sequence_rows(value), render_hint="table")]
+        return [ObservationSection(name="result", rows=normalize_sequence_rows(value), render_hint="records")]
     return [ObservationSection(name="result", rows=[{"value": normalize_scalar(value)}], render_hint="kv")]
 
 

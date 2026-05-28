@@ -249,7 +249,7 @@ class CliFullRegressionTest(unittest.TestCase):
         print_observation("search 输出文件内容", output_content)
         self.assertEqual(table_result.exit_code, 0, msg=table_result.output)
         self.assertIn("| meta", table_result.output)
-        self.assertIn("| result", table_result.output)
+        self.assertIn("| result[1]", table_result.output)
         self.assertIn("Apple Inc.", table_result.output)
         self.assertIn("105.AAPL", table_result.output)
 

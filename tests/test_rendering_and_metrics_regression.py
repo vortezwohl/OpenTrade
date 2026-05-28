@@ -293,7 +293,7 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
                         {"code": "AAPL", "name": "Apple Inc.", "value": 1},
                         {"code": "MSFT", "name": "Microsoft", "value": 2},
                     ],
-                    render_hint="table",
+                    render_hint="records",
                 )
             ],
         )
@@ -306,7 +306,8 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         print_observation("generic observation csv", csv_text)
         print_observation("generic observation tsv", tsv_text)
 
-        self.assertIn("| result", table_text)
+        self.assertIn("| result[1]", table_text)
+        self.assertIn("| result[2]", table_text)
         self.assertIn("Apple Inc.", table_text)
         self.assertIn('"sections"', json_text)
         self.assertIn('"name": "result"', json_text)

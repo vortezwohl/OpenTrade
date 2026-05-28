@@ -113,7 +113,7 @@ class ObservationSection:
 
     name: str
     rows: list[dict[str, Any]]
-    render_hint: str = "table"
+    render_hint: str = "records"
 
 
 @dataclass(slots=True)
