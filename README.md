@@ -9,6 +9,7 @@
     <a href="https://pandas.pydata.org/"><img alt="Pandas" src="https://img.shields.io/badge/DataFrame-pandas-1D4ED8"></a>
   </p>
   <p>
+    <a href="#installation">Installation</a> ·
     <a href="#30-second-start">30-second start</a> ·
     <a href="#us-stock-examples">US stock examples</a> ·
     <a href="#command-map">Command map</a> ·
@@ -35,6 +36,22 @@
     </td>
   </tr>
 </table>
+
+## Installation
+
+Install from PyPI package `the-efinance-cli`. The published commands are `efinance` and `efi`.
+
+```bash
+uv add -U the-efinance-cli
+efinance --help
+```
+
+```bash
+pip install -U the-efinance-cli
+efinance --help
+```
+
+Python `3.10+` is required.
 
 ## What This Is
 

@@ -9,6 +9,7 @@
     <a href="https://pandas.pydata.org/"><img alt="Pandas" src="https://img.shields.io/badge/DataFrame-pandas-1D4ED8"></a>
   </p>
   <p>
+    <a href="#安装">安装</a> ·
     <a href="#语言版本">语言版本</a> ·
     <a href="#30-秒上手">30 秒上手</a> ·
     <a href="#美股示例">美股示例</a> ·
@@ -38,6 +39,22 @@
     </td>
   </tr>
 </table>
+
+## 安装
+
+请从 PyPI 包 `the-efinance-cli` 安装。安装完成后可使用 `efinance` 和 `efi` 两个命令入口。
+
+```bash
+uv add -U the-efinance-cli
+efinance --help
+```
+
+```bash
+pip install -U the-efinance-cli
+efinance --help
+```
+
+运行环境要求为 Python `3.10+`。
 
 ## 这是什么
 
