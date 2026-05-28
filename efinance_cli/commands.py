@@ -180,7 +180,7 @@ def create_search_command() -> click.Command:
         if market_name:
             market_type = getattr(MarketType, market_name, None)
             if market_type is None:
-                raise click.ClickException(f"未知市场枚举: {market_name}")
+                raise click.ClickException(f"Unknown market enum: {market_name}")
 
         refresh_count = count_refresh if count_refresh is not None else count_refresh_alias
 
@@ -260,10 +260,10 @@ def create_watch_command() -> click.Command:
         clear_screen: bool,
     ) -> None:
         if not ctx.args:
-            raise click.ClickException("watch 后必须跟一个完整子命令。")
+            raise click.ClickException("watch must be followed by a full subcommand.")
         root = ctx.parent.command if ctx.parent else None
         if root is None:
-            raise click.ClickException("无法获取根命令。")
+            raise click.ClickException("Unable to resolve the root command.")
 
         forwarded = list(ctx.args)
         if "--watch" not in forwarded:

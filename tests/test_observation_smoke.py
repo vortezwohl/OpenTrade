@@ -435,8 +435,10 @@ class ObservationSmokeTest(unittest.TestCase):
         print_observation("fund multi tsv", tsv_result.output)
 
         self.assertEqual(table_result.exit_code, 0, msg=table_result.output)
-        self.assertIn("| source.161725", table_result.output)
-        self.assertIn("| source.005827", table_result.output)
+        self.assertIn("| source.161725 |", table_result.output)
+        self.assertIn("| source.005827 |", table_result.output)
+        self.assertIn("| meta", table_result.output)
+        self.assertNotIn("|               |\n+---------------+", table_result.output)
 
         self.assertEqual(json_result.exit_code, 0, msg=json_result.output)
         self.assertIn('"161725"', json_result.output)

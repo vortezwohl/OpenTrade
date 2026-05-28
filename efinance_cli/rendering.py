@@ -247,7 +247,7 @@ def render_observation_mapping(value: dict[Any, Any], options: OutputOptions) ->
     sections: list[str] = []
     for key, item in value.items():
         if isinstance(item, ObservationPayload):
-            sections.append(render_boxed_section(f"source.{key}", []))
+            sections.append(render_boxed_section(f"source.{key}", None))
             sections.append(render_observation_table(item, options))
         else:
             sections.append(f"== {key} ==")
@@ -260,8 +260,9 @@ def render_trace_groups_text(trace_groups: list[ObservationTraceGroup]) -> list[
 
     sections: list[str] = []
     for group in trace_groups:
+        section_title = f"trace_points.{group.name}"
         if not group.points:
-            sections.append(render_boxed_section(f"trace_points.{group.name}", ["<empty>"]))
+            sections.append(render_boxed_section(section_title, ["<empty>"]))
             continue
 
         fields = [field for field in group.points[0].keys() if field != "bar_offset"]
@@ -282,7 +283,7 @@ def render_trace_groups_text(trace_groups: list[ObservationTraceGroup]) -> list[
                     f"{field}: "
                     + " | ".join(normalize_display_scalar(point.get(field)) for point in block)
                 )
-        sections.append(render_boxed_section(f"trace_points.{group.name}", block_lines))
+        sections.append(render_boxed_section(section_title, block_lines))
     return sections
 
 
@@ -353,10 +354,10 @@ def render_mapping_lines(mapping: dict[str, Any]) -> list[str]:
     return [f"{key}: {normalize_display_scalar(value)}" for key, value in mapping.items()]
 
 
-def render_boxed_section(title: str, lines: Iterable[str]) -> str:
+def render_boxed_section(title: str, lines: Iterable[str] | None) -> str:
     """把若干文本行渲染为规整的 ASCII 外框。"""
 
-    prepared_lines = prepare_box_lines(lines)
+    prepared_lines = prepare_box_lines(lines) if lines is not None else []
     content_width = max(
         [len(title), *(len(line) for line in prepared_lines)],
         default=len(title),
@@ -365,6 +366,8 @@ def render_boxed_section(title: str, lines: Iterable[str]) -> str:
     result = [top_bottom]
     result.append(f"| {title.ljust(content_width)} |")
     result.append(top_bottom)
+    if lines is None:
+        return "\n".join(result)
     for line in prepared_lines:
         result.append(f"| {line.ljust(content_width)} |")
     result.append(top_bottom)

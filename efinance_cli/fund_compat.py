@@ -128,7 +128,7 @@ def get_base_info_single(fund_code: str) -> pd.Series:
     json_response = _fetch_base_info_payload(fund_code)
     items = json_response.get("Datas") or {}
     if not items:
-        rich.print("基金代码", fund_code, "可能有误")
+        rich.print("Fund code", fund_code, "may be invalid")
         return pd.Series(index=_BASE_INFO_COLUMNS.values(), dtype="object")
     return _build_base_info_series(items)
 
@@ -152,7 +152,7 @@ def get_base_info(fund_codes: str | list[str]) -> pd.Series | pd.DataFrame:
     if isinstance(fund_codes, str):
         return get_base_info_single(fund_codes)
     if not hasattr(fund_codes, "__iter__"):
-        raise TypeError(f"所给的 {fund_codes} 不符合参数要求")
+        raise TypeError(f"Unsupported fund_codes argument: {fund_codes}")
 
     normalized_codes = [str(code) for code in fund_codes]
     if not normalized_codes:

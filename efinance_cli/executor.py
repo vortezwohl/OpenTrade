@@ -44,7 +44,7 @@ class CommandExecutor:
         """循环刷新执行。"""
         if not request.spec.allow_watch:
             raise click.ClickException(
-                f"{request.spec.module_name}.{request.spec.function_name} 不支持循环刷新。"
+                f"{request.spec.module_name}.{request.spec.function_name} does not support watch mode."
             )
 
         iteration = 0
@@ -55,7 +55,7 @@ class CommandExecutor:
                 click.clear()
             header = (
                 f"[watch] {request.spec.module_name}.{request.spec.function_name} "
-                f"第 {iteration} 次刷新，间隔 {request.watch.interval} 秒"
+                f"refresh #{iteration}, interval {request.watch.interval}s"
             )
             click.echo(header)
             click.echo(self._render(request, result))

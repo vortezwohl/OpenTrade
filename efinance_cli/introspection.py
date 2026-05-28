@@ -141,7 +141,7 @@ def coerce_parameter_value(annotation: Any, value: Any) -> Any:
         for member in base:
             if member.name.lower() == str(value).lower():
                 return member
-        raise click.BadParameter(f"不支持的枚举值: {value}")
+        raise click.BadParameter(f"Unsupported enum value: {value}")
 
     if origin in (list, tuple, set) or any(
         typing.get_origin(arg) in (list, tuple, set) for arg in args
@@ -232,4 +232,4 @@ def normalize_bool(value: Any) -> bool:
         return True
     if text in {"0", "false", "no", "n", "off"}:
         return False
-    raise click.BadParameter(f"无法识别布尔值: {value}")
+    raise click.BadParameter(f"Unable to parse boolean value: {value}")

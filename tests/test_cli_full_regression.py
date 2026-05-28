@@ -415,7 +415,7 @@ class CliFullRegressionTest(unittest.TestCase):
         result = self.runner.invoke(self.cli, ["watch"])
         print_observation("watch 缺少子命令输出", result.output)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("watch 后必须跟一个完整子命令", result.output)
+        self.assertIn("watch must be followed by a full subcommand", result.output)
 
     def test_unsupported_market_name_returns_readable_error(self) -> None:
         """search 的非法 market 参数应返回可读错误。"""
@@ -423,7 +423,7 @@ class CliFullRegressionTest(unittest.TestCase):
         result = self.runner.invoke(self.cli, ["search", "AAPL", "--market", "UNKNOWN"])
         print_observation("search 非法 market 输出", result.output)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("未知市场枚举", result.output)
+        self.assertIn("Unknown market enum", result.output)
 
 
 if __name__ == "__main__":
