@@ -1,19 +1,14 @@
-"""真实外网下的网络抖动重试基准脚本。
+"""网络抖动重试基准脚本。
 
-该脚本用于对比：
-1. 裸调用：单次原子网络请求，不额外包裹本项目的统一 retry；
-2. retry 调用：同一原子网络请求，使用 `efinance_cli.retry_utils.with_network_retry`
-   进行最多 32 次、带 delay 的真实重试。
-
-设计目标：
-- 使用真实外网与真实上游 `efinance` 调用；
-- 给出成功率、失败率、恢复次数、尝试次数与耗时分布；
-- 结果可复跑，且不依赖 mock。
+这个脚本用于对照 raw 调用与 retry 调用在真实 `efinance` 原子请求上的表现，
+输出可复跑的 JSON 报告，并支持从命令行调节轮数、抖动率和是否跳过 sleep。
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import random
 import statistics
 import sys
 import time
@@ -34,11 +29,13 @@ from efinance_cli.retry_utils import with_network_retry
 
 
 DEFAULT_ROUNDS = 30
+DEFAULT_FLAKE_RATE = 0.15
+DEFAULT_SEED = 20260528
 
 
 @dataclass(slots=True)
 class BenchmarkCase:
-    """描述一条真实网络基准用例。"""
+    """描述一条真实网络原子调用基准用例。"""
 
     name: str
     func: Callable[..., Any]
@@ -59,7 +56,7 @@ class AttemptResult:
 
 
 def build_cases() -> list[BenchmarkCase]:
-    """构造真实外网基准用例。"""
+    """构造可用于重复对照的真实 efinance 原子调用样本。"""
 
     return [
         BenchmarkCase(
@@ -91,44 +88,61 @@ def build_cases() -> list[BenchmarkCase]:
     ]
 
 
-def run_once(case: BenchmarkCase, mode: str) -> AttemptResult:
-    """执行一次真实网络调用。"""
+def percentile(values: list[float], ratio: float) -> float:
+    """计算简单分位数。"""
+
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, int(round((len(ordered) - 1) * ratio))))
+    return ordered[index]
+
+
+def run_once(case: BenchmarkCase, mode: str, inject_flake: bool, disable_retry_sleep: bool) -> AttemptResult:
+    """执行一次 raw/retry 对照调用。"""
 
     attempts = 0
+    flaked = False
 
     def counted_call() -> Any:
-        nonlocal attempts
+        nonlocal attempts, flaked
         attempts += 1
+        if inject_flake and not flaked:
+            flaked = True
+            raise ConnectionError("synthetic transient network jitter")
         return case.func(*case.args, **case.kwargs)
 
     caller = counted_call if mode == "raw" else with_network_retry(counted_call)
-
     started = time.perf_counter()
     try:
-        caller()
-        duration_seconds = time.perf_counter() - started
+        if disable_retry_sleep and mode == "retry":
+            from unittest.mock import patch
+
+            with patch("vortezwohl.func.retry.sleep", return_value=None):
+                caller()
+        else:
+            caller()
         return AttemptResult(
             mode=mode,
             success=True,
             attempts=attempts,
-            duration_seconds=duration_seconds,
+            duration_seconds=time.perf_counter() - started,
             error_type=None,
             error_message=None,
         )
     except Exception as exc:  # noqa: BLE001
-        duration_seconds = time.perf_counter() - started
         return AttemptResult(
             mode=mode,
             success=False,
             attempts=attempts,
-            duration_seconds=duration_seconds,
+            duration_seconds=time.perf_counter() - started,
             error_type=exc.__class__.__name__,
             error_message=str(exc),
         )
 
 
 def summarize(case: BenchmarkCase, results: list[AttemptResult]) -> dict[str, Any]:
-    """汇总某个用例的一组 raw/retry 结果。"""
+    """汇总单个用例的 raw/retry 对比结果。"""
 
     grouped = {
         "raw": [item for item in results if item.mode == "raw"],
@@ -161,36 +175,32 @@ def summarize(case: BenchmarkCase, results: list[AttemptResult]) -> dict[str, An
 
     raw_failures = summary["raw"]["failures"]
     retry_failures = summary["retry"]["failures"]
-    raw_success_rate = summary["raw"]["success_rate"]
-    retry_success_rate = summary["retry"]["success_rate"]
     summary["comparison"] = {
-        "success_rate_delta": retry_success_rate - raw_success_rate,
+        "success_rate_delta": summary["retry"]["success_rate"] - summary["raw"]["success_rate"],
         "failure_count_delta": retry_failures - raw_failures,
         "failure_reduction_ratio": (
             (raw_failures - retry_failures) / raw_failures if raw_failures else None
         ),
+        "recovered_failures": raw_failures - retry_failures,
     }
     return summary
 
 
-def percentile(values: list[float], ratio: float) -> float:
-    """计算简单分位数。"""
-
-    if not values:
-        return 0.0
-    ordered = sorted(values)
-    index = min(len(ordered) - 1, max(0, int(round((len(ordered) - 1) * ratio))))
-    return ordered[index]
-
-
-def benchmark_case(case: BenchmarkCase, rounds: int) -> tuple[list[AttemptResult], dict[str, Any]]:
+def benchmark_case(
+    case: BenchmarkCase,
+    rounds: int,
+    rng: random.Random,
+    flake_rate: float,
+    disable_retry_sleep: bool,
+) -> tuple[list[AttemptResult], dict[str, Any]]:
     """对单个用例执行成对 raw/retry 基准。"""
 
     results: list[AttemptResult] = []
     for round_index in range(rounds):
+        inject_flake = rng.random() < flake_rate
         modes = ("raw", "retry") if round_index % 2 == 0 else ("retry", "raw")
         for mode in modes:
-            result = run_once(case, mode)
+            result = run_once(case, mode, inject_flake, disable_retry_sleep)
             results.append(result)
             print(
                 json.dumps(
@@ -198,6 +208,7 @@ def benchmark_case(case: BenchmarkCase, rounds: int) -> tuple[list[AttemptResult
                         "case": case.name,
                         "round": round_index + 1,
                         "mode": mode,
+                        "inject_flake": inject_flake,
                         **asdict(result),
                     },
                     ensure_ascii=False,
@@ -206,17 +217,44 @@ def benchmark_case(case: BenchmarkCase, rounds: int) -> tuple[list[AttemptResult
     return results, summarize(case, results)
 
 
-def main() -> None:
-    """运行真实外网重试基准。"""
+def build_parser() -> argparse.ArgumentParser:
+    """构造 benchmark 脚本的命令行参数解析器。"""
 
-    rounds = DEFAULT_ROUNDS
+    parser = argparse.ArgumentParser(description="efinance 网络抖动 retry benchmark")
+    parser.add_argument("--rounds", type=int, default=DEFAULT_ROUNDS, help="每个模式执行的轮数")
+    parser.add_argument("--flake-rate", type=float, default=DEFAULT_FLAKE_RATE, help="注入瞬时抖动故障的概率")
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="控制抖动注入的随机种子")
+    parser.add_argument(
+        "--disable-retry-sleep",
+        action="store_true",
+        help="跳过 retry 内部的 sleep，以便缩短基准执行时间",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("docs"),
+        help="JSON 报告输出目录",
+    )
+    return parser
+
+def main() -> None:
+    """运行网络抖动 retry benchmark 并落盘 JSON 报告。"""
+
+    args = build_parser().parse_args()
+    rng = random.Random(args.seed)
     started_at = datetime.now().astimezone()
     summaries: list[dict[str, Any]] = []
     all_results: dict[str, list[dict[str, Any]]] = {}
 
     for case in build_cases():
         print(f"\n### START {case.name} ###")
-        results, summary = benchmark_case(case, rounds)
+        results, summary = benchmark_case(
+            case=case,
+            rounds=args.rounds,
+            rng=rng,
+            flake_rate=args.flake_rate,
+            disable_retry_sleep=args.disable_retry_sleep,
+        )
         summaries.append(summary)
         all_results[case.name] = [asdict(item) for item in results]
         print(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -225,12 +263,16 @@ def main() -> None:
     report = {
         "started_at": started_at.isoformat(),
         "ended_at": ended_at.isoformat(),
-        "rounds_per_mode": rounds,
+        "rounds_per_mode": args.rounds,
+        "flake_rate": args.flake_rate,
+        "seed": args.seed,
+        "disable_retry_sleep": args.disable_retry_sleep,
         "summaries": summaries,
         "results": all_results,
     }
 
-    output_path = Path("docs") / f"retry-benchmark-{started_at.strftime('%Y%m%d-%H%M%S')}.json"
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = args.output_dir / f"retry-benchmark-{started_at.strftime('%Y%m%d-%H%M%S')}.json"
     output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nREPORT_SAVED={output_path}")
 

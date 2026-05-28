@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Palantir 2026-05-27 个股分析与投资建议</title>
+  <meta
+    name="description"
+    content="基于 2026 年 5 月 27 日美股收盘数据、Palantir Q1 2026 财报与最新技术面，对 PLTR 的基本面、估值、风险与投资动作给出中文研究结论。"
+  >
+  <style>
+    :root {
+      --page-bg: #f5f8fb;
+      --paper-bg: #ffffff;
+      --hero-start: #f2f8fb;
+      --hero-end: #ecf3f7;
+      --grid-line: rgba(61, 93, 119, 0.06);
+      --text-main: #17202a;
+      --text-strong: #0f161d;
+      --text-muted: #4d5c69;
+      --text-soft: #6a7a88;
+      --border: #d6e0e8;
+      --border-soft: #e5ecf2;
+      --panel-bg: #f7fafc;
+      --panel-strong: #edf4f8;
+      --accent: #3c7398;
+      --accent-deep: #193142;
+      --accent-soft: rgba(60, 115, 152, 0.1);
+      --good: #156b52;
+      --warn: #946200;
+      --risk: #9e3e35;
+      --shadow: 0 18px 50px rgba(22, 36, 48, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(132, 173, 199, 0.12), transparent 28rem),
+        linear-gradient(180deg, #f8fbfd 0%, var(--page-bg) 100%);
+      color: var(--text-main);
+      font-family: "Georgia", "Times New Roman", "Noto Serif SC", serif;
+      line-height: 1.9;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(60, 115, 152, 0.3);
+    }
+
+    a:hover {
+      border-bottom-color: rgba(60, 115, 152, 0.8);
+    }
+
+    .page {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 40px 20px 72px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 40px 38px 34px;
+      background: linear-gradient(180deg, var(--hero-start) 0%, var(--hero-end) 100%);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+      background-size: 100% 1.7rem, 1.7rem 100%;
+      pointer-events: none;
+    }
+
+    .hero > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .kicker {
+      margin: 0 0 10px;
+      color: var(--text-soft);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--text-strong);
+      font-size: 42px;
+      line-height: 1.15;
+      letter-spacing: 0.01em;
+    }
+
+    .hero-lead {
+      max-width: 860px;
+      margin: 18px 0 0;
+      font-size: 17px;
+      color: var(--text-muted);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 24px;
+    }
+
+    .summary-card {
+      padding: 16px 16px 14px;
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid var(--border);
+    }
+
+    .summary-card .label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-soft);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .summary-card strong {
+      display: block;
+      color: var(--text-strong);
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    .content {
+      margin-top: 24px;
+      padding: 32px 36px 40px;
+      background: var(--paper-bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    section {
+      margin-top: 34px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-soft);
+    }
+
+    section:first-of-type {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      color: var(--text-strong);
+      font-size: 29px;
+      line-height: 1.3;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      color: var(--text-strong);
+      font-size: 20px;
+      line-height: 1.35;
+    }
+
+    p {
+      margin: 12px 0;
+    }
+
+    ul,
+    ol {
+      margin: 12px 0 12px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    .callout,
+    .panel,
+    .risk-card,
+    .source-box {
+      border: 1px solid var(--border);
+      background: var(--panel-bg);
+    }
+
+    .callout,
+    .panel,
+    .source-box {
+      padding: 16px 18px;
+      margin: 16px 0;
+    }
+
+    .callout strong,
+    .panel strong {
+      color: var(--text-strong);
+    }
+
+    .thesis {
+      border-left: 4px solid var(--accent);
+      background: linear-gradient(90deg, var(--accent-soft) 0%, rgba(255, 255, 255, 0) 100%);
+    }
+
+    .metric-table {
+      width: 100%;
+      margin: 16px 0;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    .metric-table th,
+    .metric-table td {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .metric-table th {
+      background: var(--panel-strong);
+      color: var(--text-strong);
+      font-weight: 700;
+    }
+
+    .dual-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin: 18px 0;
+    }
+
+    .risk-card {
+      padding: 16px 16px 14px;
+    }
+
+    .risk-card h3 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 4px 10px;
+      margin-right: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .tag.buy {
+      color: var(--good);
+      border-color: rgba(21, 107, 82, 0.24);
+      background: rgba(21, 107, 82, 0.06);
+    }
+
+    .tag.hold {
+      color: var(--warn);
+      border-color: rgba(148, 98, 0, 0.24);
+      background: rgba(148, 98, 0, 0.07);
+    }
+
+    .tag.risk {
+      color: var(--risk);
+      border-color: rgba(158, 62, 53, 0.22);
+      background: rgba(158, 62, 53, 0.07);
+    }
+
+    .source-list {
+      margin-left: 18px;
+    }
+
+    .source-list li {
+      margin: 10px 0;
+    }
+
+    .footnote {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-soft);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .meta-line {
+      margin-top: 14px;
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    .muted {
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid,
+      .dual-grid,
+      .risk-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        padding: 20px 14px 40px;
+      }
+
+      .hero,
+      .content {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      h1 {
+        font-size: 31px;
+      }
+
+      .summary-grid,
+      .dual-grid,
+      .risk-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-table {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="kicker">Quant Research / US Equity / 2026-05-27 Close</p>
+      <h1>Palantir（PLTR）个股分析：基本面极强，但今天并不是适合重仓追高的位置</h1>
+      <p class="hero-lead">
+        本文基于 <strong>美国东部时间 2026 年 5 月 27 日收盘</strong> 的股价表现、Palantir 2026 年第一季度财报、
+        最新全年指引与近四个月技术面，对 <code>PLTR</code> 做一次偏研究风格而不是喊单风格的判断。核心结论很简单：
+        这是一家基本面非常强的公司，但在高估值前提下，更适合 <strong>持有或等回调分批买</strong>，而不是今天直接重仓追。
+      </p>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span class="label">最新收盘价</span>
+          <strong>132.51 美元</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">研究结论</span>
+          <strong>持有 / 回调分批买</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">12 个月基准目标价</span>
+          <strong>150 美元</strong>
+        </div>
+        <div class="summary-card">
+          <span class="label">建议仓位</span>
+          <strong>0%-4%</strong>
+        </div>
+      </div>
+
+      <p class="meta-line">
+        作者：Codex · 语言：中文简体 · 数据日期：2026-05-27 美股收盘 / 2026-05-28 整理
+      </p>
+    </header>
+
+    <article class="content">
+      <section>
+        <h2>一、执行摘要</h2>
+        <div class="callout thesis">
+          <strong>一句话结论：</strong>
+          Palantir 当前最显著的特征不是“会不会增长”，而是“市场已经为增长预付了多高的价格”。
+          基本面没有明显问题，风险主要集中在估值压缩和预期抬得过高之后的波动放大。
+        </div>
+
+        <p>
+          我对 <code>PLTR</code> 的基准判断是 <strong>持有 / 回调分批买</strong>。如果你已经持有，当前更像“继续拿着观察”的位置；
+          如果你没有仓位，今天这个价位不适合情绪化追高，更适合等回踩关键支撑，或者等重新放量突破阻力后再追趋势。
+        </p>
+
+        <div class="panel">
+          <span class="tag hold">主结论：持有 / 回调买</span>
+          <span class="tag buy">适合长周期小仓位</span>
+          <span class="tag risk">不适合今天直接重仓追</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>二、已验证事实</h2>
+        <table class="metric-table">
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>数据</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>最新收盘价</td>
+              <td>132.51 美元</td>
+              <td>对应美国东部时间 2026-05-27 收盘</td>
+            </tr>
+            <tr>
+              <td>近阶段高点 / 低点</td>
+              <td>162.40 / 122.68 美元</td>
+              <td>来自 2026-02-02 至 2026-05-27 区间日线</td>
+            </tr>
+            <tr>
+              <td>Q1 2026 营收</td>
+              <td>16.33 亿美元，同比 +85%</td>
+              <td>业务仍在极高增速区间</td>
+            </tr>
+            <tr>
+              <td>Q1 2026 政府收入</td>
+              <td>8.58 亿美元，同比 +76%</td>
+              <td>政府业务继续扩张</td>
+            </tr>
+            <tr>
+              <td>Q1 2026 商业收入</td>
+              <td>7.74 亿美元，同比 +95%</td>
+              <td>商业业务增速快于整体</td>
+            </tr>
+            <tr>
+              <td>美国商业收入</td>
+              <td>5.95 亿美元，同比 +133%</td>
+              <td>这是多头最核心的增长引擎</td>
+            </tr>
+            <tr>
+              <td>GAAP 营业利润率</td>
+              <td>46%</td>
+              <td>不是单纯高增长，也已经具备极强盈利性</td>
+            </tr>
+            <tr>
+              <td>经营现金流</td>
+              <td>8.99 亿美元</td>
+              <td>现金创造能力很强</td>
+            </tr>
+            <tr>
+              <td>现金与美债</td>
+              <td>80 亿美元</td>
+              <td>且基本无债务，资产负债表非常干净</td>
+            </tr>
+            <tr>
+              <td>FY2026 营收指引</td>
+              <td>76.50 亿至 76.62 亿美元</td>
+              <td>公司已上调全年展望</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="muted">
+          上述数字来自 Palantir 官方 Q1 2026 Business Update、10-Q 与 SEC 披露；技术面区间来自本地
+          <code>efinance common get-quote-history PLTR --market-type US_stock --format json --indicator-level full</code>
+          的日线结果。
+        </p>
+      </section>
+
+      <section>
+        <h2>三、为什么基本面强到值得长期关注</h2>
+        <div class="dual-grid">
+          <div class="panel">
+            <h3>1. 增长不是故事型增长，而是兑现型增长</h3>
+            <p>
+              Palantir 现在最难得的地方，在于它不是只靠 AI 叙事维持高估值，而是同时交出了高增长、强利润和强现金流。
+              很多高估值软件公司只能给你其中一项，但 Palantir 目前三项都拿到了。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>2. 美国商业业务仍在加速</h3>
+            <p>
+              美国商业收入同比增长 <strong>133%</strong>，说明 AIP 相关产品和企业落地仍然有很强吸引力。
+              如果未来两个季度这条线继续高增长，市场愿意继续给高估值溢价是有理由的。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>3. 利润率质量很高</h3>
+            <p>
+              46% 的 GAAP 营业利润率对于一家还处于高速扩张阶段的软件公司来说非常罕见。
+              这意味着 Palantir 并不是“烧钱换增长”，而是已经进入高质量扩张区。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>4. 资产负债表给了它很高容错率</h3>
+            <p>
+              账上现金与短期美债约 80 亿美元，且无债务，使得它在宏观波动、客户周期变化和战略投入上都拥有更大缓冲空间。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>四、为什么我仍然不建议今天直接重仓追</h2>
+        <p>
+          问题不在公司，而在价格。按照当前大约 3400 亿美元级别的市值去对比 2026 财年大约 76.5 亿美元的收入指引，
+          市场给它的前瞻市销率仍大致在 <strong>44x 至 45x</strong>。这个水平说明投资者不是在为“增长”付费，而是在为“持续极高增长且几乎不能失误”付费。
+        </p>
+
+        <div class="callout">
+          <strong>真正的核心矛盾：</strong>
+          如果未来增速继续超预期，Palantir 当然还能涨；但只要增速稍微低于最乐观预期，哪怕公司本身依旧优秀，股价也可能先因为估值压缩而下跌。
+        </div>
+
+        <p>
+          也就是说，这只股票当前的主要风险不是“经营崩掉”，而是“太贵，所以对失望更敏感”。这类股票在牛市里会被捧得很高，
+          在情绪切换时也会跌得很快。
+        </p>
+      </section>
+
+      <section>
+        <h2>五、技术面：不是坏图形，但也不是强势突破形态</h2>
+        <table class="metric-table">
+          <thead>
+            <tr>
+              <th>技术项</th>
+              <th>当前读数</th>
+              <th>解读</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>20 日均线</td>
+              <td>136.67</td>
+              <td>最新收盘价低于 20 日均线，短线仍偏震荡修复</td>
+            </tr>
+            <tr>
+              <td>RSI14</td>
+              <td>42.12</td>
+              <td>不算超卖，但也未显示强趋势动能</td>
+            </tr>
+            <tr>
+              <td>MACD 柱</td>
+              <td>0.30</td>
+              <td>动能没有彻底转坏，但强度有限</td>
+            </tr>
+            <tr>
+              <td>20 日支撑 / 阻力</td>
+              <td>128.75 / 149.64</td>
+              <td>支撑和阻力都很清晰，区间交易特征明显</td>
+            </tr>
+            <tr>
+              <td>关键斐波位</td>
+              <td>137.85 / 142.54 / 131.18</td>
+              <td>137.85 与 142.54 上方压力较大，131 一带是短线重要观察带</td>
+            </tr>
+            <tr>
+              <td>Supertrend 方向</td>
+              <td>-1</td>
+              <td>更接近趋势尚未完全转强</td>
+            </tr>
+            <tr>
+              <td>ATR14</td>
+              <td>5.47</td>
+              <td>波动仍大，说明仓位控制比方向判断更重要</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>
+          从图形上看，<code>PLTR</code> 在 2 月高点 <strong>162.40</strong> 之后并没有迅速创新高，反而回落到 130 多美元区间。
+          这不是灾难，但说明市场在重新评估它的合理溢价。对交易者来说，当前更像箱体内部震荡，而不是趋势已经完全重启。
+        </p>
+
+        <div class="panel">
+          <strong>我会重点看三个价位：</strong>
+          128.75 美元附近是否有承接；137.85 美元是否能有效站上；142.54 至 149.64 美元区间能否放量突破。
+        </div>
+      </section>
+
+      <section>
+        <h2>六、三种情景推演</h2>
+        <div class="dual-grid">
+          <div class="panel">
+            <h3>乐观情景：190 美元</h3>
+            <p>
+              前提是美国商业业务继续维持极高增速，后续季度收入和利润率继续超市场预期，市场继续给予高估值溢价。
+              这种情景并非不可能，但它要求公司几乎持续“打穿最乐观预期”。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>基准情景：150 美元</h3>
+            <p>
+              我认为更合理的情景是：基本面继续强，但估值逐步收敛，股价上涨更多来自盈利兑现而不是纯情绪拉升。
+              这也是我给出的 12 个月基准目标价。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>悲观情景：95 美元</h3>
+            <p>
+              若增长放缓、市场风格切换、AI 叙事热度明显降温，或者连续几个季度没能超预期，高估值股往往先杀估值。
+              在这种情况下，Palantir 未必经营变差，但股价可能大幅回调。
+            </p>
+          </div>
+          <div class="panel">
+            <h3>我的概率直觉</h3>
+            <p>
+              基准情景概率最高，乐观情景依赖持续超预期，悲观情景则取决于估值压缩速度。
+              这也是为什么我不支持在今天这个位置用重仓表达观点。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>七、风险评估</h2>
+        <div class="risk-grid">
+          <div class="risk-card">
+            <h3>估值风险</h3>
+            <p>
+              当前估值仍然非常贵。只要市场对高增长持续性的信心稍有动摇，股价的反应幅度会大于基本面变化本身。
+            </p>
+          </div>
+          <div class="risk-card">
+            <h3>预期风险</h3>
+            <p>
+              Palantir 已经进入“强还不够，必须持续超强”的阶段。这个位置最怕的不是差业绩，而是“好业绩但没惊喜”。
+            </p>
+          </div>
+          <div class="risk-card">
+            <h3>波动风险</h3>
+            <p>
+              ATR 和历史波动都说明它不是低波动白马。你即便方向看对，也可能因为仓位过大而承受不了中途回撤。
+            </p>
+          </div>
+          <div class="risk-card">
+            <h3>股权激励风险</h3>
+            <p>
+              Q1 股票薪酬费用约 2.02 亿美元，同比仍在增长。对高估值软件股来说，这类摊薄问题会持续被市场盯着看。
+            </p>
+          </div>
+          <div class="risk-card">
+            <h3>订单节奏风险</h3>
+            <p>
+              无论政府还是企业大客户，签约和确认节奏都可能让季度表现出现波动，进而放大短期股价摆动。
+            </p>
+          </div>
+          <div class="risk-card">
+            <h3>情绪切换风险</h3>
+            <p>
+              高估值 AI 相关股票很依赖市场风险偏好。宏观利率、资金风格切换和板块轮动都可能让股价先于基本面回撤。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>八、我给你的实际投资建议</h2>
+        <h3>如果你现在没有仓位</h3>
+        <ul>
+          <li>不建议今天在 132 美元附近直接重仓追。</li>
+          <li>更合理的做法是等回踩 128 美元附近观察承接，或者等重新站回 142 至 150 美元区间并放量确认。</li>
+          <li>如果你就是想提前参与，也建议只用小仓位分批建仓，而不是一把梭。</li>
+        </ul>
+
+        <h3>如果你已经持有</h3>
+        <ul>
+          <li>我偏向继续持有，但不建议因为一季报强就冲动加到很重。</li>
+          <li>可以把仓位控制在自己能承受 15% 到 25% 波动的水平上。</li>
+          <li>若股价无法重回强势区间，应该优先盯估值压缩而不是自我说服。</li>
+        </ul>
+
+        <h3>如果你是长线投资者</h3>
+        <div class="callout">
+          <strong>仓位建议：</strong>
+          保守型投资者建议单票仓位 <strong>0%-2%</strong>；风险承受能力较高、并且明确看 1 至 3 年逻辑的人，
+          可以考虑 <strong>2%-4%</strong> 的分批持仓上限。
+        </div>
+
+        <p>
+          我不反对买 Palantir，但我反对把“好公司”直接等同于“任何价格都值得重仓买”。这两件事不是一回事。
+        </p>
+      </section>
+
+      <section>
+        <h2>九、结论收束</h2>
+        <div class="callout thesis">
+          <strong>最终判断：</strong>
+          Palantir 是值得长期跟踪、也值得配置的小仓位优质成长股，但当前更适合
+          <strong>持有、等位置、分批买</strong>，不适合今天直接用重仓表达乐观观点。
+        </div>
+
+        <p>
+          如果你让我把这篇研究浓缩成一句最可执行的话，那就是：
+          <strong>今天不追高，等回调分批买，比现在直接梭哈更合理。</strong>
+        </p>
+      </section>
+
+      <section>
+        <h2>十、来源与核验路径</h2>
+        <div class="source-box">
+          <ol class="source-list">
+            <li>
+              Palantir 官方 Q1 2026 Business Update：
+              <a href="https://investors.palantir.com/files/Palantir%20-%20Q1%202026%20Business%20Update.pdf" target="_blank" rel="noopener noreferrer">
+                investors.palantir.com/files/Palantir - Q1 2026 Business Update.pdf
+              </a>
+            </li>
+            <li>
+              Palantir 2026 Q1 10-Q：
+              <a href="https://investors.palantir.com/files/2026%20Q1%20PLTR%2010-Q.pdf" target="_blank" rel="noopener noreferrer">
+                investors.palantir.com/files/2026 Q1 PLTR 10-Q.pdf
+              </a>
+            </li>
+            <li>
+              SEC 新闻稿附件：
+              <a href="https://www.sec.gov/Archives/edgar/data/1321655/000132165526000026/a2026q1ex991pressrelease.htm" target="_blank" rel="noopener noreferrer">
+                sec.gov/Archives/.../a2026q1ex991pressrelease.htm
+              </a>
+            </li>
+            <li>
+              本地行情核验命令：
+              <code>efinance common get-quote-history PLTR --market-type US_stock --beg 20260201 --end 20260528 --klt 101 --fqt 1 --format json --indicator-level full</code>
+            </li>
+            <li>
+              分析师目标价聚合参考：
+              <a href="https://stockanalysis.com/stocks/pltr/forecast/" target="_blank" rel="noopener noreferrer">
+                stockanalysis.com/stocks/pltr/forecast/
+              </a>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <p class="footnote">
+        免责声明：本文仅用于研究与教育目的，不构成个性化投资建议，也不构成任何买卖指令。
+        个股投资存在显著波动风险，尤其是高估值成长股，务必结合你的资金期限、风险承受能力与组合结构独立决策。
+      </p>
+    </article>
+  </main>
+</body>
+</html>
