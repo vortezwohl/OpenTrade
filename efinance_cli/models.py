@@ -28,13 +28,14 @@ class CommandSpec:
     function_name: str
     callback: Callable[..., Any]
     help_text: str
+    cli_path: tuple[str, ...] = field(default_factory=tuple)
     allow_watch: bool = True
     has_side_effect: bool = False
 
     @property
     def command_name(self) -> str:
         """返回 CLI 中使用的命令名。"""
-        return self.function_name.replace("_", "-")
+        return self.cli_path[-1]
 
 
 @dataclass(slots=True)

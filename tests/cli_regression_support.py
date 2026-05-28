@@ -99,7 +99,7 @@ def build_required_tokens(
     """为一条命令构造最小必填参数。"""
     excluded = exclude_option_names or set()
     if leaf.path == ("watch",):
-        return ["watch", "common", "get-latest-quote", "--quote-id", "105.AAPL"]
+        return ["watch", "quote", "price", "latest", "--quote-ids", "105.AAPL"]
 
     tokens: list[str] = list(leaf.path)
     for parameter in leaf.command.params:

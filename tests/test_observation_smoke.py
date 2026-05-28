@@ -176,8 +176,9 @@ class ObservationSmokeTest(unittest.TestCase):
             result = runner.invoke(
                 cli,
                 [
-                    "common",
-                    "get-quote-history",
+                    "quote",
+                    "price",
+                    "history",
                     "--symbols",
                     "105.AAPL",
                     "--start-date",
@@ -216,8 +217,9 @@ class ObservationSmokeTest(unittest.TestCase):
             result = runner.invoke(
                 cli,
                 [
-                    "common",
-                    "get-latest-quote",
+                    "quote",
+                    "price",
+                    "latest",
                     "--quote-ids",
                     "105.AAPL",
                     "--view",
@@ -384,7 +386,8 @@ class ObservationSmokeTest(unittest.TestCase):
                 cli,
                 [
                     "fund",
-                    "get-quote-history-multi",
+                    "nav",
+                    "history-batch",
                     "--symbols",
                     "161725",
                     "--symbols",
@@ -397,7 +400,8 @@ class ObservationSmokeTest(unittest.TestCase):
                 cli,
                 [
                     "fund",
-                    "get-quote-history-multi",
+                    "nav",
+                    "history-batch",
                     "--symbols",
                     "161725",
                     "--symbols",
@@ -412,7 +416,8 @@ class ObservationSmokeTest(unittest.TestCase):
                 cli,
                 [
                     "fund",
-                    "get-quote-history-multi",
+                    "nav",
+                    "history-batch",
                     "--symbols",
                     "161725",
                     "--symbols",
@@ -427,7 +432,8 @@ class ObservationSmokeTest(unittest.TestCase):
                 cli,
                 [
                     "fund",
-                    "get-quote-history-multi",
+                    "nav",
+                    "history-batch",
                     "--symbols",
                     "161725",
                     "--symbols",
@@ -481,7 +487,7 @@ class ObservationSmokeTest(unittest.TestCase):
         with patch("efinance_cli.executor.CommandExecutor.invoke", new=fake_invoke):
             runner = CliRunner()
             cli = create_root_command()
-            result = runner.invoke(cli, ["stock", "get-members", "--symbol", "000300"])
+            result = runner.invoke(cli, ["stock", "constituents", "--symbol", "000300"])
 
         print_observation("generic observation CLI 输出", result.output)
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -508,7 +514,7 @@ class ObservationSmokeTest(unittest.TestCase):
             cli = create_root_command()
             result = runner.invoke(
                 cli,
-                ["stock", "get-members", "--symbol", "000300", "--view", "raw"],
+                ["stock", "constituents", "--symbol", "000300", "--view", "raw"],
             )
 
         print_observation("generic raw CLI 输出", result.output)

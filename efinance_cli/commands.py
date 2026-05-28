@@ -1,11 +1,10 @@
 """Click 命令构建层。
 
-该模块负责把注册中心中的命令描述动态转换为 Click 命令树，并统一附加输出、
-观察视图与刷新控制参数。参数暴露层采用语义化命名，不再直接复刻上游函数签名。
+该模块负责把注册中心中的命令描述动态转换为自然化语义命令树，并统一附加输出、
+观察视图与刷新控制参数。命令路径由注册中心显式定义，而不是直接照搬上游函数名。
 """
 
 from __future__ import annotations
-
 from typing import Any
 
 import click
@@ -25,10 +24,10 @@ from efinance_cli.models import (
     WatchOptions,
 )
 from efinance_cli.registry import (
-    MODULE_HELP_TEXT,
-    build_command_specs,
+    GROUP_HELP_TEXT,
+    build_command_specs_for_group,
     get_command_spec,
-    list_module_names,
+    list_root_group_names,
 )
 
 
@@ -40,28 +39,48 @@ def create_root_command() -> click.Group:
     def cli() -> None:
         """efinance 命令行终端。"""
 
-    cli.add_command(create_search_command())
+    cli.add_command(create_search_group())
     cli.add_command(create_watch_command())
 
-    for module_name in list_module_names():
-        cli.add_command(create_module_group(module_name))
+    for group_name in list_root_group_names():
+        if group_name == "search":
+            continue
+        cli.add_command(create_root_group(group_name))
     return cli
 
 
-def create_module_group(module_name: str) -> click.Group:
-    """为单个模块创建命令组。"""
+def create_root_group(group_name: str) -> click.Group:
+    """根据自然化分组名称创建根命令组。"""
 
-    @click.group(name=module_name)
+    @click.group(name=group_name)
     def group() -> None:
-        """模块命令组。"""
+        """自然化语义分组。"""
 
-    group.help = MODULE_HELP_TEXT[module_name]
-    for spec in build_command_specs(module_name):
-        group.add_command(create_function_command(spec))
+    group.help = GROUP_HELP_TEXT[group_name]
+    for spec in build_command_specs_for_group(group_name):
+        attach_spec_to_tree(group, spec)
     return group
 
 
-def create_function_command(spec: CommandSpec) -> click.Command:
+def attach_spec_to_tree(root_group: click.Group, spec: CommandSpec) -> None:
+    """把命令规格按 cli_path 递归挂载到命令树。"""
+    path_parts = spec.cli_path[1:]
+    if not path_parts:
+        raise ValueError(f"Invalid cli_path for command: {spec.cli_path}")
+
+    current_group = root_group
+    for part in path_parts[:-1]:
+        child = current_group.commands.get(part)
+        if child is None:
+            child = click.Group(name=part)
+            current_group.add_command(child)
+        elif not isinstance(child, click.Group):
+            raise ValueError(f"Path conflict at {' '.join(spec.cli_path)}")
+        current_group = child
+    current_group.add_command(create_function_command(spec, command_name=path_parts[-1]))
+
+
+def create_function_command(spec: CommandSpec, command_name: str | None = None) -> click.Command:
     """为单个 efinance 函数创建 Click 命令。"""
 
     def callback(**kwargs: Any) -> None:
@@ -92,7 +111,7 @@ def create_function_command(spec: CommandSpec) -> click.Command:
         executor.run(request)
 
     command = click.Command(
-        name=spec.command_name,
+        name=command_name or spec.command_name,
         callback=callback,
         help=build_help_text(spec),
         context_settings={"ignore_unknown_options": False},
@@ -182,10 +201,40 @@ def build_help_text(spec: CommandSpec) -> str:
     return "\n".join(lines)
 
 
-def create_search_command() -> click.Command:
-    """创建顶层搜索命令。"""
+def create_search_group() -> click.Group:
+    """创建顶层 search 分组，包含默认搜索与本地搜索。"""
 
-    @click.command(name="search")
+    @click.group(name="search", invoke_without_command=True)
+    @click.pass_context
+    def search_group(ctx: click.Context, **kwargs: Any) -> None:
+        """搜索证券候选项。"""
+        if ctx.resilient_parsing:
+            return
+        if ctx.invoked_subcommand is None:
+            if not kwargs.get("query"):
+                raise click.ClickException("Missing option '--query'.")
+            ctx.invoke(default_search_command.callback, **kwargs)
+
+    default_search_command = create_search_command(command_name="search")
+    default_search_command.hidden = True
+    search_group.params = list(default_search_command.params)
+    for parameter in search_group.params:
+        if isinstance(parameter, click.Option) and parameter.name == "query":
+            parameter.required = False
+    search_group.help = "根据关键字搜索证券候选项。"
+
+    local_search = create_function_command(
+        get_command_spec("utils", "search_quote_locally"),
+        command_name="local",
+    )
+    search_group.add_command(local_search)
+    return search_group
+
+
+def create_search_command(command_name: str = "search") -> click.Command:
+    """创建默认搜索命令。"""
+
+    @click.command(name=command_name)
     @click.option("--query", required=True, type=click.STRING, help="搜索关键字。")
     @click.option(
         "--market",
@@ -343,6 +392,7 @@ def create_search_command() -> click.Command:
             function_name=request.spec.function_name,
             callback=lambda **_: build_frame(),
             help_text=request.spec.help_text,
+            cli_path=("search",),
             allow_watch=True,
             has_side_effect=False,
         )
