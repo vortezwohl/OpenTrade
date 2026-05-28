@@ -23,7 +23,11 @@ from efinance_cli.models import (
     ObservationPayload,
     OutputOptions,
 )
-from efinance_cli.observation import build_observation_output, detect_recent_events
+from efinance_cli.observation import (
+    OBSERVATION_REALTIME_LIST_COMMANDS,
+    build_observation_output,
+    detect_recent_events,
+)
 from tests.cli_regression_support import print_observation
 
 
@@ -92,6 +96,26 @@ def build_request(trace_window: int = 32) -> InvocationRequest:
             indicator_level="full",
             view_mode="observation",
             trace_window=trace_window,
+        ),
+    )
+
+
+def build_single_row_request(function_name: str) -> InvocationRequest:
+    """构造 single-row observation 组装请求。"""
+
+    return InvocationRequest(
+        spec=CommandSpec(
+            module_name="stock" if function_name != "get_base_info_common" else "common",
+            function_name="get_base_info" if function_name == "get_base_info_common" else function_name,
+            callback=lambda **_: None,
+            help_text="test",
+        ),
+        kwargs={"quote_id": "105.AAPL"} if function_name == "get_base_info_common" else {},
+        output=OutputOptions(
+            format_name="table",
+            indicator_level="full",
+            view_mode="observation",
+            trace_window=4,
         ),
     )
 
@@ -209,6 +233,222 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIn('"latest_quote"', result.output)
         self.assertIn('"trace_points"', result.output)
         self.assertIn('"recent_events"', result.output)
+
+    def test_fund_history_multi_can_build_multi_source_observation(self) -> None:
+        """fund get-quote-history-multi 应输出 source -> payload 映射。"""
+
+        request = InvocationRequest(
+            spec=CommandSpec(
+                module_name="fund",
+                function_name="get_quote_history_multi",
+                callback=lambda **_: None,
+                help_text="test",
+            ),
+            kwargs={},
+            output=OutputOptions(
+                format_name="table",
+                indicator_level="full",
+                view_mode="observation",
+                trace_window=4,
+            ),
+        )
+        value = {
+            "161725": build_history_frame().rename(columns={"股票代码": "基金代码", "股票名称": "基金名称", "收盘": "单位净值"}),
+            "005827": build_history_frame().rename(columns={"股票代码": "基金代码", "股票名称": "基金名称", "收盘": "单位净值"}),
+        }
+
+        payloads = build_observation_output(request, value)
+        print_observation("fund history multi payloads", payloads)
+        self.assertIsInstance(payloads, dict)
+        self.assertEqual(set(payloads.keys()), {"161725", "005827"})
+        self.assertTrue(all(isinstance(item, ObservationPayload) for item in payloads.values()))
+
+    def test_single_row_snapshot_and_base_info_can_build_observation(self) -> None:
+        """snapshot 与 base_info 应能走 single-row observation 组装。"""
+
+        snapshot_row = pd.Series(
+            {
+                "代码": "AAPL",
+                "名称": "Apple Inc.",
+                "时间": "2026-05-28 15:00:00",
+                "最新价": 106.0,
+                "今开": 105.0,
+                "最高": 107.0,
+                "最低": 104.0,
+                "成交量": 1800,
+                "成交额": 190000.0,
+                "涨跌幅": 1.2,
+                "ma5": 103.0,
+                "macd_dif": 0.36,
+            }
+        )
+        stock_base_info_row = pd.Series(
+            {
+                "股票代码": "AAPL",
+                "股票名称": "Apple Inc.",
+                "市盈率(动)": 25.0,
+            }
+        )
+        common_base_info_row = pd.Series(
+            {
+                "代码": "AAPL",
+                "名称": "Apple Inc.",
+                "行情ID": "105.AAPL",
+            }
+        )
+
+        with patch("efinance_cli.observation.fetch_history_for_code", return_value=build_history_frame()), patch(
+            "efinance_cli.observation.enrich_history_frame",
+            side_effect=lambda frame, level: frame,
+        ):
+            snapshot_payload = build_observation_output(build_single_row_request("get_quote_snapshot"), snapshot_row)
+            stock_base_payload = build_observation_output(build_single_row_request("get_base_info"), stock_base_info_row)
+            common_base_payload = build_observation_output(build_single_row_request("get_base_info_common"), common_base_info_row)
+
+        print_observation("snapshot payload", snapshot_payload)
+        print_observation("stock base payload", stock_base_payload)
+        print_observation("common base payload", common_base_payload)
+
+        self.assertIsInstance(snapshot_payload, ObservationPayload)
+        self.assertEqual(snapshot_payload.latest_quote["close"], 106.0)
+        self.assertIsInstance(stock_base_payload, ObservationPayload)
+        self.assertEqual(stock_base_payload.meta["code"], "AAPL")
+        self.assertIsInstance(common_base_payload, ObservationPayload)
+        self.assertEqual(common_base_payload.meta["code"], "105.AAPL")
+
+    def test_realtime_list_can_build_multi_source_observation_with_default_limit(self) -> None:
+        """realtime-list 应输出多 source observation，并受默认处理上限约束。"""
+
+        self.assertIn(("stock", "get_realtime_quotes"), OBSERVATION_REALTIME_LIST_COMMANDS)
+        request = InvocationRequest(
+            spec=CommandSpec(
+                module_name="stock",
+                function_name="get_realtime_quotes",
+                callback=lambda **_: None,
+                help_text="test",
+            ),
+            kwargs={},
+            output=OutputOptions(
+                format_name="table",
+                indicator_level="full",
+                view_mode="observation",
+                trace_window=4,
+                limit=2,
+            ),
+        )
+        frame = pd.DataFrame(
+            [
+                {"股票代码": "AAPL", "股票名称": "Apple Inc.", "最新价": 106.0, "行情ID": "105.AAPL"},
+                {"股票代码": "MSFT", "股票名称": "Microsoft", "最新价": 421.0, "行情ID": "105.MSFT"},
+                {"股票代码": "NVDA", "股票名称": "NVIDIA", "最新价": 980.0, "行情ID": "105.NVDA"},
+            ]
+        )
+
+        def fake_fetch(module_name, code, level):
+            sample = build_history_frame().copy()
+            sample["股票代码"] = code.split(".")[-1] if "." in code else code
+            sample["股票名称"] = code
+            return sample
+
+        with patch("efinance_cli.observation.fetch_history_for_code", side_effect=fake_fetch), patch(
+            "efinance_cli.observation.enrich_history_frame",
+            side_effect=lambda history, level: history,
+        ):
+            payloads = build_observation_output(request, frame)
+
+        print_observation("realtime list payloads", payloads)
+        self.assertIsInstance(payloads, dict)
+        self.assertEqual(len(payloads), 2)
+        self.assertEqual(set(payloads.keys()), {"AAPL", "MSFT"})
+
+    def test_fund_history_multi_cli_can_render_multi_source_observation_formats(self) -> None:
+        """fund get-quote-history-multi 应在多种格式下输出 multi-source observation。"""
+
+        payloads = {
+            "161725": build_observation_output(build_request(trace_window=4), build_history_frame()),
+            "005827": build_observation_output(build_request(trace_window=4), build_history_frame()),
+        }
+
+        def fake_invoke(executor_self, request):
+            self.assertEqual(request.spec.module_name, "fund")
+            self.assertEqual(request.spec.function_name, "get_quote_history_multi")
+            self.assertEqual(request.output.view_mode, "observation")
+            return InvocationResult(value=payloads)
+
+        with patch("efinance_cli.executor.CommandExecutor.invoke", new=fake_invoke):
+            runner = CliRunner()
+            cli = create_root_command()
+            table_result = runner.invoke(
+                cli,
+                [
+                    "fund",
+                    "get-quote-history-multi",
+                    "161725",
+                    "005827",
+                    "--view",
+                    "observation",
+                ],
+            )
+            json_result = runner.invoke(
+                cli,
+                [
+                    "fund",
+                    "get-quote-history-multi",
+                    "161725",
+                    "005827",
+                    "--view",
+                    "observation",
+                    "--format",
+                    "json",
+                ],
+            )
+            csv_result = runner.invoke(
+                cli,
+                [
+                    "fund",
+                    "get-quote-history-multi",
+                    "161725",
+                    "005827",
+                    "--view",
+                    "observation",
+                    "--format",
+                    "csv",
+                ],
+            )
+            tsv_result = runner.invoke(
+                cli,
+                [
+                    "fund",
+                    "get-quote-history-multi",
+                    "161725",
+                    "005827",
+                    "--view",
+                    "observation",
+                    "--format",
+                    "tsv",
+                ],
+            )
+
+        print_observation("fund multi table", table_result.output)
+        print_observation("fund multi json", json_result.output)
+        print_observation("fund multi csv", csv_result.output)
+        print_observation("fund multi tsv", tsv_result.output)
+
+        self.assertEqual(table_result.exit_code, 0, msg=table_result.output)
+        self.assertIn("| source.161725", table_result.output)
+        self.assertIn("| source.005827", table_result.output)
+
+        self.assertEqual(json_result.exit_code, 0, msg=json_result.output)
+        self.assertIn('"161725"', json_result.output)
+        self.assertIn('"005827"', json_result.output)
+
+        self.assertEqual(csv_result.exit_code, 0, msg=csv_result.output)
+        self.assertIn("__source__", csv_result.output)
+        self.assertIn("161725", csv_result.output)
+        self.assertIn("005827", csv_result.output)
+
+        self.assertEqual(tsv_result.exit_code, 0, msg=tsv_result.output)
+        self.assertIn("__source__", tsv_result.output)
 
 
 if __name__ == "__main__":
