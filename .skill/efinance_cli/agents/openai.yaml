@@ -1,7 +1,7 @@
 interface:
   display_name: "efinance CLI"
-  short_description: "解释并调用 efinance-cli，默认推荐 JSON 输出与 full 指标级别"
-  default_prompt: "使用 $efinance-cli 解释或规划一个 efinance-cli 命令，默认优先建议 --format json 和 --indicator-level full，并说明真实输出结构、参数和排查方式。"
+  short_description: "解释并规划 efinance-cli 当前命令树，默认推荐 json + full + trace-window 128，并说明 observation 输出与真实默认值。"
+  default_prompt: "使用 $efinance-cli 解释、规划或核对一条 efinance-cli 命令。优先基于当前真实命令树与 observation 输出模型回答；若用户未指定其他格式，推荐 --format json、--indicator-level full、--trace-window 128，并明确说明这只是面向 agent 的推荐值，而不是 CLI 程序的真实默认值。"
 
 policy:
   allow_implicit_invocation: true

@@ -1,78 +1,144 @@
 ---
 name: efinance-cli
-description: 使用 efinance-cli 查询股票、基金、债券、期货与通用行情，并在需要时解释全部命令、参数、合法值、真实 JSON 输出行为、底层 efinance 实现链路、量化指标含义、故障定位与重试策略。适用于 agent 需要稳定调用 efinance-cli、理解 CLI 与上游 efinance 的关系、以及做量化结果解释与排查的场景。
+description: 使用 efinance-cli 查询股票、基金、债券、期货与通用行情，并在需要时解释真实命令树、observation 输出、JSON 结构、重试边界、指标含义与排障路径。
 ---
 
 # efinance-cli
 
-使用这个 skill 时，把自己视为熟悉 `efinance-cli` 和上游 `efinance` 的命令专家。
+使用这个 skill 时，把自己视为熟悉 `efinance-cli` 当前代码实现的命令专家，而不是只会背旧版 README 的说明器。
 
 ## 核心规则
 
-1. 默认优先让 `efinance-cli` 命令使用 `--format json`。
-2. 默认优先让 `efinance-cli` 命令使用 `--indicator-level full`。
-3. 使用前必须确保系统里有 `python` 和 `efinance` / `efinance-cli` 命令。
-4. 如果系统有 `python` 但没有 `efinance` / `efinance-cli` 命令，优先执行 `pip install -U the-efinance-cli`。
-5. 安装来源参考 [vortezwohl/efinance-cli](https://github.com/vortezwohl/efinance-cli)。
-6. 必须区分“CLI 程序真实默认值”和“skill 推荐默认策略”。
-7. 不得伪造 `efinance-cli` 的 JSON 包装结构。
-8. 需要全量命令、参数、合法值时，读取 `references/command-catalog.json`。
-9. 需要理解执行链路、真实输出、失败分层与重试策略时，读取 `references/architecture-and-troubleshooting.md`。
-10. 需要解释量化指标时，读取 `references/indicator-guide.md`。
+1. 默认优先建议 `--format json`。
+2. 默认优先建议 `--indicator-level full`。
+3. 默认优先建议 `--trace-window 128`。
+4. 必须显式区分“CLI 程序真实默认值”和“skill 面向 agent 的推荐默认值”。
+5. 不得伪造 `efinance-cli` 的 JSON 包装结构。
+6. 需要完整命令目录、参数、合法值时，读取 `references/command-catalog.json`。
+7. 需要理解执行链路、observation 结构、真实默认值与排障策略时，读取 `references/architecture-and-troubleshooting.md`。
+8. 需要解释技术指标、等级差异和适用场景时，读取 `references/indicator-guide.md`。
+9. 对用户展示命令时，优先使用当前自然语义化命令树，不得退回旧式 `common` / `utils` 命名体系。
+10. 若用户未明确要求 raw 视图，解释输出时优先以 `observation` 视图为主。
 
 ## 使用前置检查
 
-在第一次真正使用这个 skill 调命令之前，先检查：
+在第一次真正调用命令前，先检查：
 
 1. 系统里是否有 `python`
 2. 系统里是否有 `efinance` 或 `efinance-cli`
 
 处理规则：
 
-- 如果 `python` 不存在，不要继续假设 CLI 可用，先提示环境不满足。
-- 如果 `python` 存在，但 `efinance` / `efinance-cli` 不存在，先安装：
+- 如果没有 `python`，先说明环境不满足，不要假设 CLI 可用。
+- 如果有 `python` 但没有 `efinance` / `efinance-cli`，优先建议：
 
 ```bash
 pip install -U the-efinance-cli
 ```
 
-- 安装完成后，再继续使用 `efinance` / `efinance-cli` 命令。
-- 如果两个命令都存在，优先使用当前环境里实际可执行的那个命令名。
+- 安装来源可参考 [vortezwohl/efinance-cli](https://github.com/vortezwohl/efinance-cli)。
+- 若两个命令都存在，优先使用当前环境里真实可执行的那个命令名。
 
-## 先讲清两件事实
+## 先说明两套默认值
 
-### 1. CLI 真实默认值
+### 1. CLI 程序真实默认值
 
-当前程序真实默认值是：
+当前代码里的真实默认值是：
 
 - `--format table`
-- `--indicator-level basic`
+- `--indicator-level advanced`
+- `--view observation`
+- `--trace-window 32`
 
-### 2. skill 推荐默认策略
+### 2. skill 面向 agent 的推荐默认值
 
-这个 skill 的推荐策略是：
+这个 skill 面向 agent 的推荐策略是：
 
-- 若用户没明确要求其他格式，优先建议加 `--format json`
-- 若用户没明确要求更轻量的指标级别，优先建议加 `--indicator-level full`
+- `--format json`
+- `--indicator-level full`
+- `--trace-window 128`
 
-不要把这两件事说反。
+原因：
 
-## 真实 JSON 输出规则
+- `json` 更适合后续程序消费与结构化分析。
+- `full` 更适合一次性拿到更完整的量化上下文。
+- `trace-window 128` 更适合 agent 做近期轨迹比较、事件回溯和多指标联读。
 
-`efinance-cli --format json` 输出的是命令返回值本身的序列化结果，不会额外包一层统一状态对象。
+不要把这两套默认值说反。
 
-真实序列化规则：
+## 当前真实命令树
 
-- `DataFrame` 输出为 records 数组
-- `Series` 输出为 object
-- `dict` 递归输出为 object
-- `list` / `tuple` / `set` 输出为 array
-- dataclass 先 `asdict`
-- namedtuple 先 `_asdict`
-- `None` 输出为 `null`
-- 其他类型按 `default=str`
+当前顶层命令是：
 
-如果用户问“这个命令的 JSON 长什么样”，应根据返回值类型回答，不要发明固定 schema。
+- `stock`
+- `fund`
+- `bond`
+- `futures`
+- `quote`
+- `market`
+- `resolve`
+- `search`
+- `watch`
+
+要点：
+
+- `quote` 是旧 `common` 的自然语义化入口。
+- `market` 承接市场级实时扫描和市场配置。
+- `resolve` 承接 `get_quote_id` 这类标识解析能力。
+- `search` 是顶层手写包装命令，不是普通动态命令。
+- `watch` 是顶层刷新包装器，不是普通业务查询命令。
+
+## 真实输出模型
+
+### 1. `observation` 已是默认视图
+
+当前 CLI 默认就是：
+
+```bash
+--view observation
+```
+
+因此：
+
+- 用户不显式传 `--view raw` 时，应默认预期结构化 observation 输出。
+- README、示例、解释都应优先围绕 observation 组织，而不是旧版宽表心智。
+
+### 2. 真实 JSON 规则
+
+`--format json` 输出的是返回值本身的序列化结果，不会额外包一层统一响应对象。
+
+序列化规则：
+
+- `DataFrame` 输出 `records` 数组
+- `Series` 输出 `object`
+- `dict` 递归输出 `object`
+- `list` / `tuple` / `set` 输出 `array`
+- dataclass 走 `asdict`
+- namedtuple 走 `_asdict`
+- `None` 输出 `null`
+- 其他类型走 `default=str`
+
+如果是 observation payload，则 JSON 会直接包含这些 section：
+
+- `meta`
+- `latest_quote`
+- `current_metrics`
+- `trace_points`
+- `recent_events`
+- `sections`
+
+### 3. observation table 规则
+
+table 模式下的 observation 不是传统 DataFrame 宽表，而是 boxed ASCII section 布局。
+
+常见 section：
+
+- `meta`
+- `latest_quote`
+- `current_metrics`
+- `trace_points.<group>`
+- `recent_events`
+- `result[n]` 或 `source.<key>`
 
 ## 默认工作流
 
@@ -80,111 +146,93 @@ pip install -U the-efinance-cli
 
 先明确：
 
-- 目标市场：`stock` / `fund` / `bond` / `futures` / `common` / `utils`
-- 目标动作：搜索、基础信息、实时行情、K 线、资金流、报告下载、市场映射等
-- 是否允许副作用：如 `fund get-pdf-reports`、`utils add-market`
+- 目标市场：`stock` / `fund` / `bond` / `futures` / `quote` / `market`
+- 目标动作：搜索、解析、历史、最新、实时列表、成交、资金流、资料、下载
+- 是否允许副作用：例如 `fund reports download`、`market add`
+- 输出是给人读还是给程序消费
 - 是否需要 watch
-- 是否需要量化指标
-- 输出是给人看还是给后续程序消费
+- 是否需要 full 指标
 
 ### 2. 选命令
 
 推荐顺序：
 
-1. 关键字不清楚时，先 `search` 或 `utils get-quote-id`
-2. 已知证券代码时，优先对应市场模块
-3. 已知 `quote_id` 或 `fs` 时，再用 `common` / `utils`
-4. 需要下载文件或改本地映射时，明确提示副作用
+1. 不知道标的时，先 `search`
+2. 知道代码但不确定 quote id 时，走 `resolve quote-id`
+3. 已知 quote id 且要跨品类统一访问时，走 `quote ...`
+4. 只关心某个市场实时扫描时，走 `market price live`
+5. 已知明确资产类别时，优先走对应模块命令
 
 ### 3. 组命令
 
-除非用户明确不要，默认推荐：
+若用户没有别的限制，agent 推荐命令通常是：
 
-- `--format json`
-- `--indicator-level full`
+```bash
+efinance quote price latest --quote-ids 105.AAPL --format json --indicator-level full --trace-window 128
+```
 
 但要同时说明：
 
-- 这是 skill 推荐值
-- 程序真实默认值不是这个
+- `json/full/128` 是 skill 推荐值
+- 程序真实默认值仍是 `table/advanced/32`
 
-### 4. 校验参数
+### 4. 解释结果
 
-- 先核对命令路径
-- 再核对必填参数
-- 再核对合法值
-- 日期优先用 `YYYYMMDD`
-- 枚举值严格按 `references/command-catalog.json`
-- `klt`、`fqt`、`fs`、`ft` 等高频开放参数，优先使用参考目录中的已知合法值
+解释结果时先说清：
 
-### 5. 解释结果
-
-解释结果时：
-
-- 先说这是原始查询结果还是增强后结果
-- 如果用了 `--indicator-level full`，要说明指标来自历史回补增强
-- 若用户在做程序消费，优先解释 JSON 结果类型和字段
-- 若用户在做人类判断，优先解释关键指标和局限
-
-## 默认命令策略
-
-### 常规查询
-
-默认给出类似这样的命令风格：
-
-```bash
-efinance stock get-quote-history 600519 --format json --indicator-level full
-```
-
-### 搜索
-
-优先示例：
-
-```bash
-efinance search 苹果 --format json
-```
-
-### 实时监控
-
-仅当命令支持 watch 时：
-
-```bash
-efinance stock get-realtime-quotes --format json --indicator-level full --watch --interval 5
-```
-
-### 副作用命令
-
-副作用命令先明确说明风险，再给命令：
-
-```bash
-efinance fund get-pdf-reports 161725 --save-dir reports
-```
+- 这是 observation 视图还是 raw 视图
+- 这是原始返回值还是带历史回补和指标增强的 observation payload
+- `current_metrics` 里的指标来自增强层，不一定是上游实时接口原生字段
 
 ## watch 规则
 
 - 不是所有命令都支持 watch
-- `fund get-pdf-reports` 和 `utils add-market` 不支持 watch
-- 高频命令配合 `full` 指标时，应主动建议更长间隔
-- 若 watch 场景中出现间歇性空结果，先怀疑远端数据源或历史回补失败，不要立即下业务结论
+- `fund reports download` 不支持 watch
+- `market add` 不支持 watch
+- 高频 watch + `full` + 大 `trace-window` 会明显增加请求和渲染成本
+- 如果用户要高频轮询，优先建议把 `indicator-level` 从 `full` 降到 `advanced` 或 `basic`
+- 如果用户要程序消费，优先建议 `--format json`
 
-## 量化指标规则
+## 何时读取参考文件
 
-默认推荐 `full`，但解释时必须说明：
+- 命令目录、参数、合法值、副作用、watch 支持：`references/command-catalog.json`
+- 执行链路、真实默认值、observation 契约、网络重试、失败分层：`references/architecture-and-troubleshooting.md`
+- 指标等级、适用场景、误读风险：`references/indicator-guide.md`
 
-- 这是 skill 推荐级别，不是 CLI 实际默认级别
-- `full` 的额外成本更高
-- 对实时列表命令，`full` 会触发更多历史回补请求
-- 若用户只需要轻量判断，可降为 `advanced` 或 `basic`
+## 直接可用的命令风格
 
-最低解释要求：
+### 搜索
 
-1. 指标看什么
-2. 它辅助判断什么
-3. 常见阈值或比较方式
-4. 最容易误导的场景
+```bash
+efinance search --query AAPL --market US_stock --result-count 5 --format json --trace-window 128
+```
 
-## 何时读参考文件
+### 标识解析
 
-- 全量命令、参数、合法值、watch 支持、副作用：`references/command-catalog.json`
-- 执行链路、真实 JSON 输出、默认值与推荐值差异、失败分层、重试：`references/architecture-and-troubleshooting.md`
-- 指标解释与 full 级别额外价值：`references/indicator-guide.md`
+```bash
+efinance resolve quote-id --symbol AAPL --market us_stock --format json
+```
+
+### 通用最新行情
+
+```bash
+efinance quote price latest --quote-ids 105.AAPL --format json --indicator-level full --trace-window 128
+```
+
+### 股票历史
+
+```bash
+efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format json --indicator-level full --trace-window 128
+```
+
+### 市场实时扫描
+
+```bash
+efinance market price live --market m:105+t:3 --format json --indicator-level advanced
+```
+
+### watch 包装
+
+```bash
+efinance watch --interval 5 quote price latest --quote-ids 105.AAPL --format json
+```

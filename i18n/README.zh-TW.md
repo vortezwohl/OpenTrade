@@ -1,524 +1,600 @@
 <div align="center">
   <h1>efinance-cli</h1>
-  <p><strong>把 <code>efinance</code> 變成更適合人和 Agent 反覆調用的終端介面</strong></p>
-  <p>顯式命令樹、統一輸出層、可重用刷新機制、按需疊加技術指標。</p>
+  <p><strong>把 <code>efinance</code> 變成一個更適合人閱讀、腳本呼叫與重複利用的行情命令列工具</strong></p>
+  <p>用一套統一命令樹完成證券搜尋、行情 ID 解析、即時行情查看、歷史行情查詢、資料匯出，以及指標資訊更豐富的 <code>observation</code> 結構化輸出。</p>
   <p>
-    <a href="https://www.python.org/"><img alt="Python 3.13+" src="https://img.shields.io/badge/Python-3.13%2B-2F5D8C"></a>
-    <a href="https://pypi.org/project/click/"><img alt="Click" src="https://img.shields.io/badge/CLI-Click-0F766E"></a>
-    <a href="https://pypi.org/project/efinance/"><img alt="Upstream efinance" src="https://img.shields.io/badge/Upstream-efinance-B45309"></a>
-    <a href="https://pandas.pydata.org/"><img alt="Pandas" src="https://img.shields.io/badge/DataFrame-pandas-1D4ED8"></a>
+    <a href="https://www.python.org/"><img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-2F5D8C"></a>
+    <a href="https://pypi.org/project/the-efinance-cli/"><img alt="PyPI 套件" src="https://img.shields.io/badge/PyPI-the--efinance--cli-2563EB"></a>
+    <a href="https://pypi.org/project/efinance/"><img alt="上游 efinance" src="https://img.shields.io/badge/Upstream-efinance-B45309"></a>
+    <img alt="預設視圖 observation" src="https://img.shields.io/badge/Default%20View-observation-0F766E">
+    <img alt="指標增強" src="https://img.shields.io/badge/Indicators-basic%20%7C%20advanced%20%7C%20full-7C3AED">
   </p>
   <p>
-    <a href="#安裝">安裝</a> ·
-    <a href="#語言版本">語言版本</a> ·
-    <a href="#30-秒上手">30 秒上手</a> ·
-    <a href="#美股示例">美股示例</a> ·
-    <a href="#命令地圖">命令地圖</a> ·
-    <a href="#技術指標增強">技術指標增強</a> ·
-    <a href="#專案架構">專案架構</a>
+    <a href="#installation">安裝</a> ·
+    <a href="#thirty-second-start">30 秒上手</a> ·
+    <a href="#command-map">命令地圖</a> ·
+    <a href="#output-model">輸出模型</a> ·
+    <a href="#indicator-coverage">指標覆蓋</a> ·
+    <a href="#observation-examples">Observation 範例</a>
   </p>
 </div>
 
-## 語言版本
-
 <p align="center"><strong><a href="../README.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | 繁體中文</strong></p>
 
-<table>
+<table width="100%">
   <tr>
     <td width="33%" valign="top">
-      <strong>可預測</strong><br />
-      命令名直接映射上游函式，適合快速檢索、腳本調用和 Agent 自動拼裝。
+      <strong>更容易發現</strong><br />
+      相比直接翻閱上游函式，按任務組織的命令樹更容易找到正確入口。
     </td>
     <td width="33%" valign="top">
-      <strong>可消費</strong><br />
-      所有結果統一落到 <code>table / json / csv / tsv</code>，不用為每類回傳值重新適配。
+      <strong>更容易閱讀</strong><br />
+      CLI 在 <code>table</code>、<code>json</code>、<code>csv</code>、<code>tsv</code> 之間保持統一輸出體驗，並預設使用 <code>observation</code> 視圖。
     </td>
     <td width="33%" valign="top">
-      <strong>可擴充</strong><br />
-      命令發現、參數反射、執行、渲染、指標增強相互解耦，便於局部演進。
+      <strong>指標更豐富</strong><br />
+      相容命令可接入大範圍內建技術指標，適合篩選、複盤與後續分析。
     </td>
   </tr>
 </table>
 
+<a id="installation"></a>
 ## 安裝
 
-請從 PyPI 套件 `the-efinance-cli` 安裝。安裝完成後可使用 `efinance` 和 `efi` 兩個命令入口。
+安裝已發佈到 PyPI 的 `the-efinance-cli`。安裝後可使用 `efinance` 和 `efi` 兩個命令。
 
-```bash
-uv add -U the-efinance-cli
-efinance --help
-```
+<table width="100%">
+  <tr>
+    <td width="50%" valign="top">
+      <strong>uv</strong>
+      <pre lang="bash"><code>uv add -U the-efinance-cli
+efinance --help</code></pre>
+    </td>
+    <td width="50%" valign="top">
+      <strong>pip</strong>
+      <pre lang="bash"><code>pip install -U the-efinance-cli
+efinance --help</code></pre>
+    </td>
+  </tr>
+</table>
 
-```bash
-pip install -U the-efinance-cli
-efinance --help
-```
+執行環境要求為 Python `3.10+`。
 
-執行環境需求為 Python `3.10+`。
+<a id="what-this-tool-is"></a>
+## 這個工具是什麼
 
-## 這是什麼
+> `efinance-cli` 不是一組零散腳本，而是建立在 `efinance` 之上的命令列產品層。
 
-> `efinance-cli` 不是一組零散腳本，而是套在 `efinance` 之上的命令列產品層。
+它把上游能力重新整理成一個更適合終端瀏覽、更適合腳本自動化、也更適合結構化消費的公開命令樹。目標不是取代上游行情庫，而是把原有能力變成一個更穩定、更好用的 CLI。
 
-它把上游市場資料 API 收束成一棵顯式命令樹，並把命令發現、參數解析、執行調度、結果渲染、技術指標增強拆成獨立模組。目標不是「重新發明一個行情庫」，而是把既有能力變成更穩定、更可重複調用的終端介面。
-
+<a id="thirty-second-start"></a>
 ## 30 秒上手
 
-<table>
+<table width="100%">
   <tr>
     <td width="33%" valign="top">
-      <strong>1. 先搜標的</strong>
-      <pre lang="bash"><code>efinance search AAPL --market US_stock --result-count 5 --format json</code></pre>
-      當你只知道股票代碼或公司簡稱時，先走搜尋入口最穩。
+      <strong>1. 先搜尋</strong>
+      <pre lang="bash"><code>efinance search --query AAPL --market US_stock --result-count 5 --format json</code></pre>
+      當你只知道代碼、關鍵字或公司名時，最穩妥的入口就是先搜尋。
     </td>
     <td width="33%" valign="top">
-      <strong>2. 再拿 quote_id</strong>
-      <pre lang="bash"><code>efinance utils get-quote-id AAPL</code></pre>
-      常見美股會拿到類似 <code>105.AAPL</code> 這樣的統一標識。
+      <strong>2. 解析 <code>quote_id</code></strong>
+      <pre lang="bash"><code>efinance resolve quote-id --symbol AAPL --market us_stock --format json</code></pre>
+      常見美股會被解析成類似 <code>105.AAPL</code> 這樣的統一行情標識。
     </td>
     <td width="33%" valign="top">
-      <strong>3. 再做查詢</strong>
-      <pre lang="bash"><code>efinance stock get-quote-history AAPL --market-type us_stock --beg 20250102 --end 20250501 --limit 20</code></pre>
-      歷史 K 線、最新行情、導出檔案都可以沿著這條鏈路繼續走。
+      <strong>3. 查詢行情</strong>
+      <pre lang="bash"><code>efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format json</code></pre>
+      後續可以繼續進入歷史行情、最新行情、循環刷新與匯出流程。
     </td>
   </tr>
 </table>
 
-## 為什麼不是直接用上游 API
+<a id="main-functions"></a>
+## 主要功能
 
-<table>
+<table width="100%">
   <tr>
     <td width="50%" valign="top">
-      <strong>上游問題不在能力，而在操作一致性</strong>
+      <strong>標的發現</strong>
       <ul>
-        <li>函式面很大，終端裡不容易快速發現。</li>
-        <li>不同回傳型別需要不同展示策略。</li>
-        <li>即時刷新、導出、轉置、限行等橫切能力容易重複接線。</li>
-        <li>適合疊加指標的結果，通常需要額外的資料形狀判斷。</li>
+        <li>按關鍵字搜尋證券。</li>
+        <li>把 symbol 解析成 <code>quote_id</code>。</li>
+        <li>從發現階段無縫進入行情與歷史查詢，不需要切換工具。</li>
       </ul>
     </td>
     <td width="50%" valign="top">
-      <strong>CLI 解決的是「穩定調用體驗」</strong>
+      <strong>跨資產資料存取</strong>
       <ul>
-        <li>把 API 能力變成可瀏覽的命令樹。</li>
-        <li>把輸出規則收斂到統一渲染層。</li>
-        <li>把 watch 邏輯做成通用執行器能力。</li>
-        <li>把技術指標增強做成保守、可控的後處理步驟。</li>
+        <li>查詢股票、基金、債券、期貨以及市場級即時資料。</li>
+        <li>同時覆蓋最新行情與歷史序列。</li>
+        <li>用統一的 watch 模型執行循環刷新。</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>結構化輸出</strong>
+      <ul>
+        <li>支援匯出為 <code>table</code>、<code>json</code>、<code>csv</code>、<code>tsv</code>。</li>
+        <li>預設使用面向公眾閱讀的 <code>observation</code> 視圖。</li>
+        <li>當下游程式需要原始結構時，可回退到 <code>raw</code>。</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <strong>指標增強</strong>
+      <ul>
+        <li>支援 <code>basic</code>、<code>advanced</code>、<code>full</code> 三檔。</li>
+        <li>覆蓋趨勢、動量、波動率、成交量與價格結構指標。</li>
+        <li>為複盤、篩選與自動化流程提供更豐富的市場上下文。</li>
       </ul>
     </td>
   </tr>
 </table>
 
-## 美股示例
-
-<details open>
-<summary><strong>發現與定位</strong></summary>
-
-```bash
-efinance search AAPL --market US_stock --result-count 5
-efinance search NVDA --market US_stock --format json
-efinance utils get-quote-id AAPL
-```
-
-</details>
-
-<details open>
-<summary><strong>歷史行情與導出</strong></summary>
-
-```bash
-efinance stock get-quote-history AAPL --market-type us_stock --beg 20250102 --end 20250501 --limit 20
-efinance stock get-quote-history MSFT --market-type us_stock --beg 20250102 --end 20250501 --format csv --output msft-history.csv
-efinance stock get-quote-history TSLA --market-type us_stock --beg 20250102 --end 20250501 --indicator-level advanced --full
-```
-
-</details>
-
-<details open>
-<summary><strong>最新行情與輪詢</strong></summary>
-
-```bash
-efinance common get-latest-quote 105.AAPL --format json
-efinance watch --interval 5 common get-latest-quote 105.NVDA --format json
-efinance common get-latest-quote 105.MSFT --format json --output msft-latest.json
-```
-
-</details>
-
-<details>
-<summary><strong>輸出控制</strong></summary>
-
-```bash
-efinance stock get-quote-history AAPL --market-type us_stock --beg 20250102 --end 20250501 --transpose
-efinance stock get-quote-history AAPL --market-type us_stock --beg 20250102 --end 20250501 --no-index
-efinance stock get-quote-history AAPL --market-type us_stock --beg 20250102 --end 20250501 --format tsv --output aapl.tsv
-```
-
-</details>
-
-<blockquote>
-  注意：即時行情命令是否穩定返回，取決於上游市場資料源狀態。CLI 會保留失敗資訊，不會把網路波動靜默吞掉。
-</blockquote>
-
+<a id="command-map"></a>
 ## 命令地圖
 
 <table>
   <thead>
     <tr>
       <th align="left">頂層命令</th>
-      <th align="left">定位</th>
-      <th align="left">典型入口</th>
+      <th align="left">職責</th>
+      <th align="left">典型用途</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code>search</code></td>
-      <td>按關鍵字和市場列舉搜尋證券候選項。</td>
-      <td>不知道精確標識符時的第一站。</td>
+      <td>按關鍵字發現標的。</td>
+      <td>在還不知道精確標識時先找候選項。</td>
     </tr>
     <tr>
-      <td><code>watch</code></td>
-      <td>給任意受支援子命令包一層刷新迴圈。</td>
-      <td>統一輪詢策略，而不是每條命令單獨記參數。</td>
+      <td><code>resolve</code></td>
+      <td>解析行情標識。</td>
+      <td>把 symbol 轉成可重複利用的 <code>quote_id</code>。</td>
+    </tr>
+    <tr>
+      <td><code>quote</code></td>
+      <td>跨資產統一行情入口。</td>
+      <td>適合已經拿到 <code>quote_id</code> 的場景。</td>
+    </tr>
+    <tr>
+      <td><code>market</code></td>
+      <td>市場級查詢。</td>
+      <td>做即時掃描和市場映射類查詢。</td>
     </tr>
     <tr>
       <td><code>stock</code></td>
       <td>股票相關查詢。</td>
-      <td>K 線、快照、最新行情、資金流、股東資訊。</td>
+      <td>歷史、快照、即時列表、資金流、股東與資料。</td>
     </tr>
     <tr>
       <td><code>fund</code></td>
       <td>基金相關查詢。</td>
-      <td>淨值、估算漲跌、持倉分布、報告下載。</td>
+      <td>淨值歷史、即時估算、配置、管理人與報告。</td>
     </tr>
     <tr>
       <td><code>bond</code></td>
       <td>債券相關查詢。</td>
-      <td>基礎資訊、行情、歷史成交與資金流。</td>
+      <td>資料、價格歷史、即時列表、成交與資金流。</td>
     </tr>
     <tr>
       <td><code>futures</code></td>
       <td>期貨相關查詢。</td>
-      <td>基礎資訊、即時行情、K 線與成交明細。</td>
+      <td>名錄、歷史、即時行情與成交明細。</td>
     </tr>
     <tr>
-      <td><code>common</code></td>
-      <td>跨資產的共享查詢入口。</td>
-      <td>適合已知 <code>quote_id</code> 時直接訪問。</td>
-    </tr>
-    <tr>
-      <td><code>utils</code></td>
-      <td>搜尋與標識符工具。</td>
-      <td><code>search-quote</code>、<code>get-quote-id</code>、<code>add-market</code>。</td>
+      <td><code>watch</code></td>
+      <td>刷新包裝器。</td>
+      <td>把支援的子命令放到統一輪詢循環裡執行。</td>
     </tr>
   </tbody>
 </table>
 
-<details open>
-<summary><strong>模組命令組</strong></summary>
+<a id="output-model"></a>
+## 輸出模型
 
-<table>
+<table width="100%">
   <tr>
-    <td width="33%" valign="top">
-      <strong>stock</strong><br />
-      <code>get-base-info</code><br />
-      <code>get-latest-quote</code><br />
-      <code>get-quote-history</code><br />
-      <code>get-quote-snapshot</code><br />
-      <code>get-realtime-quotes</code><br />
-      <code>get-deal-detail</code><br />
-      <code>get-history-bill</code><br />
-      <code>get-today-bill</code><br />
-      <code>get-top10-stock-holder-info</code><br />
-      <code>get-all-company-performance</code>
+    <td width="50%" valign="top">
+      <strong>當前真實預設值</strong>
+      <ul>
+        <li><code>--format table</code></li>
+        <li><code>--indicator-level advanced</code></li>
+        <li><code>--view observation</code></li>
+        <li><code>--trace-window 32</code></li>
+      </ul>
     </td>
-    <td width="33%" valign="top">
-      <strong>fund</strong><br />
-      <code>get-base-info</code><br />
-      <code>get-fund-codes</code><br />
-      <code>get-fund-manager</code><br />
-      <code>get-industry-distribution</code><br />
-      <code>get-invest-position</code><br />
-      <code>get-pdf-reports</code><br />
-      <code>get-period-change</code><br />
-      <code>get-public-dates</code><br />
-      <code>get-quote-history</code><br />
-      <code>get-realtime-increase-rate</code>
-    </td>
-    <td width="33%" valign="top">
-      <strong>bond / futures / common / utils</strong><br />
-      <code>bond.get-base-info</code><br />
-      <code>bond.get-quote-history</code><br />
-      <code>futures.get-futures-base-info</code><br />
-      <code>futures.get-quote-history</code><br />
-      <code>common.get-latest-quote</code><br />
-      <code>common.get-quote-history</code><br />
-      <code>utils.search-quote</code><br />
-      <code>utils.search-quote-locally</code><br />
-      <code>utils.get-quote-id</code><br />
-      <code>utils.add-market</code>
+    <td width="50%" valign="top">
+      <strong>使用建議</strong>
+      <ul>
+        <li><code>observation</code> 是預設的公開閱讀視圖。</li>
+        <li>如果要拿原始結構，請傳 <code>--view raw</code>。</li>
+        <li>對下游程式來說，<code>json</code> 通常是最合適的格式。</li>
+        <li><code>full</code> 比 <code>advanced</code> 提供更多指標上下文，但計算也更重。</li>
+      </ul>
     </td>
   </tr>
 </table>
-
-</details>
-
-## 輸出模型
 
 <table>
   <thead>
     <tr>
-      <th align="left">格式</th>
-      <th align="left">適用場景</th>
-      <th align="left">說明</th>
+      <th align="left">輸出或執行時參數</th>
+      <th align="left">用途</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code>table</code></td>
-      <td>終端直接閱讀</td>
-      <td>預設模式，適合 DataFrame 風格輸出。</td>
+      <td><code>--format table|json|csv|tsv</code></td>
+      <td>選擇終端閱讀格式或匯出友好的結構化格式。</td>
     </tr>
     <tr>
-      <td><code>json</code></td>
-      <td>Agent 下游處理</td>
-      <td>適合繼續做結構化消費、存檔和管道傳遞。</td>
+      <td><code>--full</code></td>
+      <td>輸出更完整的結果內容。</td>
     </tr>
     <tr>
-      <td><code>csv</code></td>
-      <td>落盤和資料交換</td>
-      <td>適合導入表格工具、腳本、分析流水線。</td>
+      <td><code>--transpose</code></td>
+      <td>在部分場景下把表格轉置後再輸出，便於終端閱讀。</td>
     </tr>
     <tr>
-      <td><code>tsv</code></td>
-      <td>表格友好導出</td>
-      <td>行為與 CSV 相同，但使用製表符分隔。</td>
+      <td><code>--no-index</code></td>
+      <td>隱藏表格輸出中的列索引。</td>
+    </tr>
+    <tr>
+      <td><code>--limit N</code></td>
+      <td>只保留結果前 <code>N</code> 列。</td>
+    </tr>
+    <tr>
+      <td><code>--output PATH</code></td>
+      <td>把渲染後的結果寫入檔案。</td>
+    </tr>
+    <tr>
+      <td><code>--encoding utf-8</code></td>
+      <td>設定輸出檔案編碼。</td>
+    </tr>
+    <tr>
+      <td><code>--watch --interval --count --clear/--no-clear</code></td>
+      <td>讓支援的命令進入循環刷新模式。</td>
     </tr>
   </tbody>
 </table>
 
-統一執行時選項：
+<a id="indicator-coverage"></a>
+## 指標覆蓋
 
-- `--full`
-- `--transpose`
-- `--no-index`
-- `--limit N`
-- `--output PATH`
-- `--encoding utf-8`
+`efinance-cli` 內建了一套覆蓋面很廣的技術指標集合。相容命令不只會返回原始行情，也能暴露大量指標上下文，因此適合篩選、複盤與後續量化分析。
 
-這組參數會貫穿整個命令樹，不需要在不同模組之間重新學習一套輸出規則。
+<details open>
+<summary><strong>均線與基礎變換</strong></summary>
+<p><code>sma</code> · <code>ema</code> · <code>rma</code> · <code>wma</code> · <code>dema</code> · <code>tema</code> · <code>trima</code> · <code>hma</code> · <code>zlema</code> · <code>highest</code> · <code>lowest</code> · <code>median_price</code> · <code>typical_price</code> · <code>true_range</code></p>
+</details>
 
-## Watch 模型
+<details open>
+<summary><strong>趨勢與通道類指標</strong></summary>
+<p><code>macd</code> · <code>bollinger_bands</code> · <code>donchian_channel</code> · <code>keltner_channel</code> · <code>moving_average_envelope</code> · <code>aroon_indicator</code> · <code>dmi</code> · <code>adx</code> · <code>supertrend</code> · <code>parabolic_sar</code> · <code>ichimoku_cloud</code></p>
+</details>
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <strong>內聯 watch</strong>
-      <pre lang="bash"><code>efinance common get-latest-quote 105.AAPL --watch --interval 5</code></pre>
-    </td>
-    <td width="50%" valign="top">
-      <strong>頂層 wrapper</strong>
-      <pre lang="bash"><code>efinance watch --interval 5 common get-latest-quote 105.AAPL --format json</code></pre>
-    </td>
-  </tr>
-</table>
+<details open>
+<summary><strong>動量類指標</strong></summary>
+<p><code>momentum</code> · <code>roc</code> · <code>rsi</code> · <code>stochastic_oscillator</code> · <code>kdj</code> · <code>cci</code> · <code>williams_r</code> · <code>trix</code> · <code>tsi</code> · <code>ultimate_oscillator</code> · <code>dpo</code> · <code>ppo</code></p>
+</details>
 
-統一刷新參數：
+<details open>
+<summary><strong>成交量與資金流類指標</strong></summary>
+<p><code>obv</code> · <code>accumulation_distribution</code> · <code>chaikin_money_flow</code> · <code>chaikin_oscillator</code> · <code>mfi</code> · <code>vwap</code> · <code>force_index</code> · <code>ease_of_movement</code> · <code>price_volume_trend</code> · <code>volume_ratio</code></p>
+</details>
 
-- `--watch`
-- `--interval FLOAT`
-- `--count INT`
-- `--clear / --no-clear`
+<details open>
+<summary><strong>波動率類指標</strong></summary>
+<p><code>atr</code> · <code>natr</code> · <code>historical_volatility</code> · <code>chaikin_volatility</code> · <code>mass_index</code></p>
+</details>
 
-## 技術指標增強
+<details open>
+<summary><strong>價格結構類指標</strong></summary>
+<p><code>pivot_points</code> · <code>fibonacci_retracement</code> · <code>rolling_support_resistance</code></p>
+</details>
 
-`enrichment/` 會在結果形狀足夠相容時，為歷史 K 線、最新行情、快照和部分即時列表疊加指標列。
+<details open>
+<summary><strong>常見中文技術分析指標</strong></summary>
+<p><code>bias</code> · <code>bbi</code> · <code>psy</code> · <code>vr</code> · <code>mtm</code> · <code>dma</code> · <code>brar</code> · <code>cr</code> · <code>emv</code> · <code>asi</code></p>
+</details>
 
 <table>
   <thead>
     <tr>
       <th align="left">等級</th>
-      <th align="left">別名</th>
-      <th align="left">歷史窗口</th>
-      <th align="left">即時上限</th>
-      <th align="left">適合場景</th>
+      <th align="left">實際能得到什麼</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code>basic</code></td>
-      <td><code>1</code></td>
-      <td>60</td>
-      <td>50</td>
-      <td>均線、RSI、KDJ、MACD 等基礎觀察。</td>
+      <td>提供 MA、EMA、MACD、RSI、KDJ、BOLL、ATR、OBV 等核心趨勢與動量指標。</td>
     </tr>
     <tr>
       <td><code>advanced</code></td>
-      <td><code>2</code></td>
-      <td>120</td>
-      <td>80</td>
-      <td>趨勢強度、通道類和更多動量指標。</td>
+      <td>進一步覆蓋 ADX、Donchian、Keltner、SuperTrend、MFI、PVT、CMF、VWAP、VR、PSY 等趨勢強度、通道與資金流指標。</td>
     </tr>
     <tr>
       <td><code>full</code></td>
-      <td><code>3</code></td>
-      <td>200</td>
-      <td>120</td>
-      <td>更大覆蓋面，包括 Ichimoku、SAR、樞軸點、斐波那契和支撐阻力。</td>
+      <td>繼續加入 Ichimoku、SAR、Mass Index、Pivot Points、Fibonacci Retracement、support/resistance、ADL、Chaikin Oscillator、Chaikin Volatility、EMV 等更重的結構層指標。</td>
     </tr>
   </tbody>
 </table>
 
-內建指標大致分為幾組：
+<a id="observation-examples"></a>
+## Observation 範例
 
-- 趨勢類：MACD、布林帶、DMI / ADX、SuperTrend、Ichimoku、Donchian、Keltner、Aroon、Parabolic SAR
-- 動量類：RSI、KDJ、ROC、CCI、PPO、TRIX、TSI、Williams %R
-- 成交量類：OBV、MFI、CMF、PVT、VWAP、Force Index、Volume Ratio
-- 波動率類：ATR、NATR、Historical Volatility、Chaikin Volatility、Mass Index
-- 價格結構類：Pivot Points、Fibonacci Retracement、Rolling Support / Resistance
-
-## 適合 Agent 的調用路徑
-
-```mermaid
-flowchart LR
-  A["自然語言意圖"] --> B["search"]
-  B --> C["utils get-quote-id"]
-  C --> D["stock / common / futures"]
-  D --> E["rendering.py"]
-  E --> F["table / json / csv / tsv"]
-  D --> G["enrichment/"]
-```
-
-推薦的穩定路徑是：
-
-```text
-search -> get-quote-id -> 模組查詢 -> 結構化輸出 / 檔案導出
-```
-
-## 專案架構
+下面的範例只展示公開閱讀用的 `observation` 格式。
 
 <details open>
-<summary><strong>執行管線</strong></summary>
+<summary><strong>最新行情 observation</strong></summary>
 
-```mermaid
-flowchart LR
-  API["Upstream efinance API"] --> REG["registry.py"]
-  REG --> INT["introspection.py"]
-  INT --> CMD["Click command tree"]
-  CMD --> EXEC["executor.py"]
-  EXEC --> ENR["enrichment/"]
-  EXEC --> REN["rendering.py"]
-  REN --> OUT["stdout / file output"]
+<p><strong>命令</strong></p>
+<pre lang="bash"><code>efinance quote price latest --quote-ids 105.AAPL --format table --indicator-level full --trace-window 4</code></pre>
+
+<p><strong>典型輸出</strong></p>
+
+```text
++-----------------------------+
+| meta                        |
++-----------------------------+
+| module: common              |
+| function: get_quote_history |
+| view: observation           |
+| indicator_level: full       |
+| trace_window: 4             |
+| row_count: 4                |
+| code: AAPL                  |
+| name: Apple Inc.            |
+| as_of: 2026-05-28           |
++-----------------------------+
+
++------------------+
+| latest_quote     |
++------------------+
+| code: AAPL       |
+| name: Apple Inc. |
+| date: 2026-05-28 |
+| close: 106       |
+| open: 105        |
+| high: 107        |
+| low: 104         |
+| volume: 1700     |
++------------------+
+
++---------------------+
+| current_metrics     |
++---------------------+
+| close: 106          |
+| open: 105           |
+| high: 107           |
+| low: 104            |
+| volume: 1700        |
+| ma5: 103            |
+| ma10: 102.5         |
+| macd_dif: 0.36      |
+| macd_dea: 0.26      |
+| rsi14: 59           |
++---------------------+
+
++-----------------------------------+
+| trace_points.price_ma             |
++-----------------------------------+
+| [block 1] bar_offset: -3 -> 0     |
+| bar_offset: -3 | -2 | -1 | 0      |
+| close: 100 | 102 | 104 | 106      |
+| ma5: 99.8 | 100.5 | 102 | 103     |
+| ma10: 100.1 | 100.4 | 101 | 102.5 |
++-----------------------------------+
+
++-------------------------------------------------------------+
+| recent_events                                               |
++-------------------------------------------------------------+
+| [1] bars_ago: -2                                            |
+|     event_key: ma5_crossed_above_ma10                       |
+|     subject_a: ma5                                          |
+|     relation: crossed_above                                 |
+|     subject_b: ma10                                         |
+|     description: ma5 moved from below to above ma10         |
+| prev_a: 99.8   prev_b: 100.1   curr_a: 100.5   curr_b:      |
+| 100.4                                                     |
++-------------------------------------------------------------+
 ```
 
 </details>
 
-<table>
-  <thead>
-    <tr>
-      <th align="left">檔案 / 包</th>
-      <th align="left">職責</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>efinance_cli/main.py</code></td>
-      <td>程序入口。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/app.py</code></td>
-      <td>應用裝配。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/commands.py</code></td>
-      <td>根命令、模組命令組、頂層命令。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/registry.py</code></td>
-      <td>可暴露上游能力的白名單與命令中繼資料。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/introspection.py</code></td>
-      <td>基於簽名自動推導 Click 參數。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/executor.py</code></td>
-      <td>執行請求、處理 watch 迴圈、發出結果。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/rendering.py</code></td>
-      <td>統一做輸出格式化與序列化。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/enrichment/</code></td>
-      <td>在相容結果上疊加技術指標。</td>
-    </tr>
-    <tr>
-      <td><code>efinance_cli/indicators/</code></td>
-      <td>可重用的指標計算原語。</td>
-    </tr>
-  </tbody>
-</table>
+<details open>
+<summary><strong>歷史行情 observation</strong></summary>
 
-## 資料源邊界
+<p><strong>命令</strong></p>
+<pre lang="bash"><code>efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format table --indicator-level advanced --trace-window 4</code></pre>
 
-<table>
+<p><strong>典型輸出</strong></p>
+
+```text
++-----------------------------+
+| meta                        |
++-----------------------------+
+| module: common              |
+| function: get_quote_history |
+| view: observation           |
+| indicator_level: full       |
+| trace_window: 4             |
+| row_count: 4                |
+| code: AAPL                  |
+| name: Apple Inc.            |
+| as_of: 2026-05-28           |
++-----------------------------+
+
++---------------------+
+| current_metrics     |
++---------------------+
+| close: 106          |
+| ma5: 103            |
+| ma10: 102.5         |
+| ma20: 101.4         |
+| ema12: 102.9        |
+| ema26: 101.7        |
+| macd_dif: 0.36      |
+| macd_dea: 0.26      |
+| rsi14: 59           |
+| kdj_k: 62           |
+| kdj_d: 60           |
+| plus_di: 28         |
+| minus_di: 16        |
+| adx: 28             |
++---------------------+
+
++---------------------------------------+
+| trace_points.macd_osc                 |
++---------------------------------------+
+| [block 1] bar_offset: -3 -> 0         |
+| bar_offset: -3 | -2 | -1 | 0          |
+| macd_dif: 0.05 | 0.2 | 0.28 | 0.36    |
+| macd_dea: -0.02 | 0.08 | 0.18 | 0.26  |
+| rsi14: 51 | 54 | 56 | 59              |
+| kdj_k: 50 | 55 | 60 | 62              |
+| kdj_d: 47 | 52 | 57 | 60              |
++---------------------------------------+
+
++-------------------------------------------------------------+
+| recent_events                                               |
++-------------------------------------------------------------+
+| [1] bars_ago: 0                                             |
+|     event_key: volume_ratio_5_crossed_above_1               |
+|     subject_a: volume_ratio_5                               |
+|     relation: crossed_above                                 |
+|     subject_b: 1.0                                          |
+|     description: volume_ratio_5 moved from at-or-below to   |
+|     above 1                                                 |
+| prev_a: 1   prev_b: 1   curr_a: 1.3   curr_b: 1             |
++-------------------------------------------------------------+
+```
+
+</details>
+
+<details open>
+<summary><strong>多標的基金 observation</strong></summary>
+
+<p><strong>命令</strong></p>
+<pre lang="bash"><code>efinance fund nav history-batch --symbols 161725 --symbols 005827 --format table --view observation --trace-window 4</code></pre>
+
+<p><strong>典型輸出</strong></p>
+
+```text
++---------------+
+| source.161725 |
++---------------+
+
++-----------------------------+
+| meta                        |
++-----------------------------+
+| module: common              |
+| function: get_quote_history |
+| view: observation           |
+| indicator_level: full       |
+| trace_window: 4             |
+| row_count: 4                |
+| code: AAPL                  |
+| name: Apple Inc.            |
+| as_of: 2026-05-28           |
++-----------------------------+
+
++------------------+
+| latest_quote     |
++------------------+
+| code: AAPL       |
+| name: Apple Inc. |
+| date: 2026-05-28 |
+| close: 106       |
++------------------+
+
++---------------+
+| source.005827 |
++---------------+
+
++-----------------------------+
+| meta                        |
++-----------------------------+
+| module: common              |
+| function: get_quote_history |
+| view: observation           |
+| indicator_level: full       |
+| trace_window: 4             |
+| row_count: 4                |
+| code: AAPL                  |
+| name: Apple Inc.            |
+| as_of: 2026-05-28           |
++-----------------------------+
+
++------------------+
+| latest_quote     |
++------------------+
+| code: AAPL       |
+| name: Apple Inc. |
+| date: 2026-05-28 |
+| close: 106       |
++------------------+
+```
+
+</details>
+
+<a id="common-workflows"></a>
+## 常見使用方式
+
+<table width="100%">
   <tr>
     <td width="50%" valign="top">
-      <strong>這不是 CLI 自身能完全控制的部分</strong>
+      <strong>搜尋並查看</strong>
+      <pre lang="bash"><code>efinance search --query NVDA --market US_stock
+efinance resolve quote-id --symbol NVDA --market us_stock
+efinance quote price latest --quote-ids 105.NVDA</code></pre>
+    </td>
+    <td width="50%" valign="top">
+      <strong>循環觀察單個行情</strong>
+      <pre lang="bash"><code>efinance watch --interval 5 --count 3 quote price latest --quote-ids 105.AAPL --format json</code></pre>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <strong>批量基金淨值歷史</strong>
+      <pre lang="bash"><code>efinance fund nav history-batch --symbols 161725 --symbols 005827 --format json</code></pre>
+    </td>
+    <td width="50%" valign="top">
+      <strong>市場級即時掃描</strong>
+      <pre lang="bash"><code>efinance market price live --market m:105+t:3 --format json</code></pre>
+    </td>
+  </tr>
+</table>
+
+<a id="notes"></a>
+## 說明
+
+<table width="100%">
+  <tr>
+    <td width="50%" valign="top">
+      <strong>資料源邊界</strong>
       <ul>
-        <li>臨時網路失敗</li>
-        <li>上游限流</li>
-        <li>空響應</li>
-        <li>市場級別的資料源波動</li>
+        <li>CLI 的可用性依賴上游行情資料源。</li>
+        <li>即時行情穩定性受網路狀態和源站行為影響。</li>
+        <li>不同命令支援的指標增強深度並不完全相同。</li>
       </ul>
     </td>
     <td width="50%" valign="top">
-      <strong>CLI 的處理原則</strong>
+      <strong>使用邊界</strong>
       <ul>
-        <li>不靜默吞掉失敗。</li>
-        <li>保留錯誤路徑，便於重試與定位。</li>
-        <li>把重試、降頻、切換查詢類型交給調用方決策。</li>
+        <li>帶副作用的命令，例如報告下載，應有意識地單獨使用。</li>
+        <li>如果結果要交給別的程式消費，優先使用 <code>json</code>。</li>
+        <li>如果人或 agent 更需要簡潔市場上下文而不是原始表格，優先使用 <code>observation</code>。</li>
       </ul>
     </td>
   </tr>
 </table>
 
-## 擴展方式
-
-如果你要擴展這個專案，推薦按下面的最小閉環推進：
-
-1. 在 `registry.py` 裡增刪上游函式白名單或幫助文字。
-2. 當出現新的參數類型，再調整 `introspection.py` 的推導與轉換規則。
-3. 當出現新的結果形狀，再擴充 `rendering.py`。
-4. 當某類資料應該具備指標增強，再進入 `enrichment/`。
-5. 最後補充或更新對應的 smoke test。
-
-## 品質基線
-
-倉庫當前重點覆蓋兩類最小契約：
-
-- 技術指標導出與結果形狀
-- `basic / advanced / full` 三檔增強行為
-
-目標不是驗證每一個金融指標本身的交易含義，而是盡量防止命令層和增強層出現靜默回歸。
-
-## 相關文件
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <strong>設計說明</strong><br />
-      <a href="../docs/cli-设计与使用说明.md">CLI 設計與使用說明</a><br />
-      <a href="../docs/架构设计说明.md">架構設計說明</a>
-    </td>
-    <td width="50%" valign="top">
-      <strong>入口</strong><br />
-      <code>efinance</code><br />
-      <code>efi</code>
-    </td>
-  </tr>
-</table>
-
-## License
+<a id="license"></a>
+## 授權
 
 See [../LICENSE](../LICENSE).
