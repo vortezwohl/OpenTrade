@@ -31,6 +31,14 @@ BOX_MAX_CONTENT_WIDTH = 62
 TRACE_BLOCK_BAR_COUNT = 8
 
 
+def should_include_index(options: OutputOptions) -> bool:
+    """统一判断导出类输出是否需要保留索引列。"""
+
+    if options.format_name in {"csv", "tsv"}:
+        return False
+    return not options.no_index
+
+
 def render_value(value: Any, options: OutputOptions) -> str:
     """把函数返回值渲染为字符串。"""
 
@@ -75,7 +83,7 @@ def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
 
     if isinstance(value, ObservationPayload):
         return observation_to_long_frame(value).to_csv(
-            index=not options.no_index,
+            index=should_include_index(options),
             sep=sep,
         )
     if isinstance(value, dict) and any(isinstance(item, ObservationPayload) for item in value.values()):
@@ -90,7 +98,7 @@ def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
         if not frames:
             return ""
         return pd.concat(frames, ignore_index=True).to_csv(
-            index=not options.no_index,
+            index=should_include_index(options),
             sep=sep,
         )
     if isinstance(value, pd.Series):
@@ -99,7 +107,7 @@ def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
         frame = maybe_limit(value, options)
         if options.transpose:
             frame = frame.transpose()
-        return frame.to_csv(index=not options.no_index, sep=sep)
+        return frame.to_csv(index=should_include_index(options), sep=sep)
     if isinstance(value, dict):
         frames: list[pd.DataFrame] = []
         for key, item in value.items():
@@ -109,11 +117,11 @@ def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
         if not frames:
             return ""
         return pd.concat(frames, ignore_index=True).to_csv(
-            index=not options.no_index,
+            index=should_include_index(options),
             sep=sep,
         )
     frame = pd.DataFrame({"value": list(value) if isinstance(value, (list, tuple, set)) else [value]})
-    return frame.to_csv(index=not options.no_index, sep=sep)
+    return frame.to_csv(index=should_include_index(options), sep=sep)
 
 
 def render_dataframe(frame: pd.DataFrame, options: OutputOptions) -> str:

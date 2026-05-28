@@ -42,6 +42,10 @@ class ParameterSpec:
 def build_parameter_specs(function: Any) -> list[ParameterSpec]:
     """从函数签名生成参数描述。"""
     signature = inspect.signature(function)
+    try:
+        resolved_hints = typing.get_type_hints(function)
+    except Exception:
+        resolved_hints = {}
     specs: list[ParameterSpec] = []
     for parameter in signature.parameters.values():
         if parameter.kind == inspect.Parameter.VAR_POSITIONAL:
@@ -52,7 +56,7 @@ def build_parameter_specs(function: Any) -> list[ParameterSpec]:
             ParameterSpec(
                 name=parameter.name,
                 cli_name=parameter.name.replace("_", "-"),
-                annotation=parameter.annotation,
+                annotation=resolved_hints.get(parameter.name, parameter.annotation),
                 required=parameter.default is inspect._empty,
                 default=None if parameter.default is inspect._empty else parameter.default,
                 kind=parameter.kind,

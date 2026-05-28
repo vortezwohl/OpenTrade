@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 from unittest.mock import patch
 
@@ -125,6 +126,45 @@ class CliFullRegressionTest(unittest.TestCase):
                                 expected_value,
                                 msg=f"{leaf.dotted_path} 参数 {tokens} 实际值不符",
                             )
+
+    def test_all_leaf_commands_support_four_output_formats(self) -> None:
+        """全部叶子命令都应能稳定走通 table/json/csv/tsv 四种输出格式。"""
+
+        rendered_cases: list[tuple[str, str, str]] = []
+
+        def fake_run(executor_self, request) -> None:
+            rendered_cases.append(
+                (
+                    f"{request.spec.module_name}.{request.spec.function_name}",
+                    request.output.format_name,
+                    request.output.view_mode,
+                )
+            )
+            click.echo(
+                f"FORMAT:{request.spec.module_name}.{request.spec.function_name}:{request.output.format_name}:{request.output.view_mode}"
+            )
+
+        formats = ("table", "json", "csv", "tsv")
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            for leaf in self.leaf_commands:
+                if leaf.path[0] in {"search", "watch"}:
+                    continue
+                for format_name in formats:
+                    argv = build_required_tokens(leaf) + ["--format", format_name]
+                    result = self.runner.invoke(self.cli, argv)
+                    print_observation(f"{leaf.dotted_path} format={format_name} 输出", result.output)
+                    self.assertEqual(
+                        result.exit_code,
+                        0,
+                        msg=f"{leaf.dotted_path} format={format_name} 执行失败:\n{result.output}",
+                    )
+                    self.assertIn(
+                        f"FORMAT:{leaf.path[0]}.{leaf.command.name.replace('-', '_')}:{format_name}:observation",
+                        result.output,
+                    )
+
+        expected = len([leaf for leaf in self.leaf_commands if leaf.path[0] not in {"search", "watch"}]) * len(formats)
+        self.assertEqual(len(rendered_cases), expected)
 
     def test_watch_wrapper_forwards_refresh_flags(self) -> None:
         """顶层 watch 包装命令应向子命令转发刷新参数。"""
@@ -257,6 +297,54 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured["request"].watch.count, 2)
         self.assertAlmostEqual(captured["request"].watch.interval, 0.1)
         self.assertEqual(captured["request"].output.indicator_level, "advanced")
+
+    def test_utils_search_quote_result_count_routes_to_business_parameter_without_runtime_warning(self) -> None:
+        """utils search-quote 应把业务候选数量暴露为 result-count，而不是复用运行时 count。"""
+
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("OK")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+                result = self.runner.invoke(
+                    self.cli,
+                    ["utils", "search-quote", "AAPL", "--result-count", "1", "--format", "json"],
+                )
+
+        print_observation("utils search-quote result-count 输出", result.output)
+        print_observation(
+            "utils search-quote 路由结果",
+            {
+                "business_result_count": captured["request"].kwargs["result_count"],
+                "watch_count": captured["request"].watch.count,
+                "warnings": [str(item.message) for item in caught],
+            },
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertEqual(captured["request"].kwargs["result_count"], 1)
+        self.assertIsNone(captured["request"].watch.count)
+        self.assertFalse(
+            any("parameter --count is used more than once" in str(item.message).lower() for item in caught),
+            msg=[str(item.message) for item in caught],
+        )
+
+    def test_utils_search_quote_result_count_is_normalized_before_callback(self) -> None:
+        """utils search-quote 的 result-count 在执行前应被归一化为整数。"""
+
+        with patch("efinance.utils.search_quote", return_value=build_search_records()) as mock_search:
+            result = self.runner.invoke(
+                self.cli,
+                ["utils", "search-quote", "AAPL", "--result-count", "1", "--format", "json"],
+            )
+
+        print_observation("utils search-quote invoke 输出", result.output)
+        print_observation("utils search-quote invoke kwargs", mock_search.call_args.kwargs)
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertEqual(mock_search.call_args.kwargs["count"], 1)
 
     def test_transpose_and_no_index_are_forwarded_to_search_emit(self) -> None:
         """search 的输出控制参数应透传给渲染层。"""

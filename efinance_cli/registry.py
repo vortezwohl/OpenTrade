@@ -112,6 +112,39 @@ CALLBACK_OVERRIDES: dict[tuple[str, str], Any] = {
 }
 
 
+def search_quote_compat(
+    keyword: str,
+    market_type: Any = None,
+    result_count: int = 5,
+    use_local: bool = True,
+) -> Any:
+    """兼容封装 `efinance.utils.search_quote` 的 CLI 参数语义。
+
+    原始上游函数把候选数量参数命名为 `count`，会与本项目统一约定的运行时刷新参数
+    `--count` 冲突。这里仅在 CLI 暴露层把它改名为 `result_count`，底层仍透传到上游
+    的 `count` 参数，避免破坏统一的刷新语义。
+
+    Args:
+        keyword: 搜索关键字。
+        market_type: 目标市场枚举；为空时按上游默认行为处理。
+        result_count: 需要返回的候选数量。
+        use_local: 是否允许使用本地缓存。
+
+    Returns:
+        上游 `search_quote` 的原始返回结果。
+    """
+
+    return efinance.utils.search_quote(
+        keyword=keyword,
+        market_type=market_type,
+        count=result_count,
+        use_local=use_local,
+    )
+
+
+CALLBACK_OVERRIDES[("utils", "search_quote")] = search_quote_compat
+
+
 def get_module(module_name: str) -> Any:
     """根据模块名获取 efinance 子模块。"""
     try:

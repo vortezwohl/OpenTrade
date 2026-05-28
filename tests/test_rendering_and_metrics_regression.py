@@ -176,6 +176,20 @@ class RenderingAndMetricsRegressionTest(unittest.TestCase):
         self.assertTrue(tsv_text.startswith("证券代码\t证券名称"))
         self.assertIn("600519\t贵州茅台", tsv_text)
 
+    def test_csv_and_tsv_default_output_do_not_leak_dataframe_index(self) -> None:
+        """CSV 与 TSV 默认应直接导出数据列，避免空索引列破坏可读性。"""
+
+        frame = build_wide_frame()[["证券代码", "证券名称"]]
+        csv_text = render_csv(frame, OutputOptions(format_name="csv"))
+        tsv_text = render_csv(frame, OutputOptions(format_name="tsv"), sep="\t")
+        print_observation("CSV 默认导出", csv_text)
+        print_observation("TSV 默认导出", tsv_text)
+
+        self.assertTrue(csv_text.startswith("证券代码,证券名称"))
+        self.assertFalse(csv_text.startswith(","))
+        self.assertTrue(tsv_text.startswith("证券代码\t证券名称"))
+        self.assertFalse(tsv_text.startswith("\t"))
+
     def test_limit_option_restricts_rendered_rows(self) -> None:
         """表格模式下的行数裁剪应只保留前 N 行。"""
 
