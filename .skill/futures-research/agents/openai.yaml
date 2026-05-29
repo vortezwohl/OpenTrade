@@ -1,0 +1,7 @@
+interface:
+  display_name: "Futures Research"
+  short_description: "基于 efinance-cli 与互联网深搜做完整选期货、买卖点、调仓与结构分析。"
+  default_prompt: "使用 $futures-research 分析一个期货品种、一个期货池、股指期货、国债期货或相关代理工具。优先联动 $efinance-cli 建立品种目录、历史价格与成交底稿；对宏观政策、产业链供需、期限结构、基差、主力合约切换、交割规则与风险信息进行互联网深度搜索补充。输出完整的方向逻辑、买点、卖点、调仓条件、风控要点与置信度，并显式区分事实、推断与未证实项。"
+
+policy:
+  allow_implicit_invocation: true

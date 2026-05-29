@@ -1,0 +1,7 @@
+interface:
+  display_name: "Stock Research"
+  short_description: "基于 efinance-cli 与互联网深搜做完整选股、买卖点、调仓与基本面+技术面联动分析。"
+  default_prompt: "使用 $stock-research 分析一只股票或一个股票池。优先联动 $efinance-cli 建立历史价格、资金流、龙虎榜与资料底稿；对最新财报、公告、板块资金流、ETF 资金流、分析师观点与监管信息进行互联网深度搜索补充。输出完整的选股逻辑、买点、卖点、调仓条件、风险与置信度，并显式区分事实、推断与未证实项。"
+
+policy:
+  allow_implicit_invocation: true
