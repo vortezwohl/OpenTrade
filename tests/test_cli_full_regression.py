@@ -806,6 +806,18 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured["request"].backend_selection.resolved.value, "efinance")
         self.assertEqual(captured["request"].kwargs["symbol"], "000001")
 
+    def test_shared_fund_root_can_coexist_with_legacy_fund_commands(self) -> None:
+        """shared fund 根组接入后，旧 fund 命令树仍应保留。"""
+        fund_result = self.runner.invoke(self.cli, ["fund", "--help"])
+        nav_result = self.runner.invoke(self.cli, ["fund", "nav", "--help"])
+        print_observation("fund merged root help", fund_result.output)
+        print_observation("fund merged nav help", nav_result.output)
+        self.assertEqual(fund_result.exit_code, 0, msg=fund_result.output)
+        self.assertEqual(nav_result.exit_code, 0, msg=nav_result.output)
+        self.assertIn("nav", fund_result.output)
+        self.assertIn("profile", fund_result.output)
+        self.assertIn("history-batch", nav_result.output)
+
 
 if __name__ == "__main__":
     unittest.main()

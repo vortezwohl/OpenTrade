@@ -57,15 +57,20 @@ def create_root_command() -> click.Group:
     cli.add_command(create_search_group())
     cli.add_command(create_watch_command())
 
-    for group_name in list_shared_root_groups():
-        cli.add_command(create_shared_root_group(group_name))
-
     for group_name in list_root_group_names():
         if group_name == "search":
             continue
-        if group_name in cli.commands:
-            continue
         cli.add_command(create_root_group(group_name))
+
+    for group_name in list_shared_root_groups():
+        existing = cli.commands.get(group_name)
+        if existing is not None:
+            if not isinstance(existing, click.Group):
+                raise ValueError(f"Root path conflict at {group_name}")
+            for definition in build_shared_command_definitions_for_group(group_name):
+                attach_definition_to_tree(existing, definition)
+            continue
+        cli.add_command(create_shared_root_group(group_name))
     return cli
 
 
