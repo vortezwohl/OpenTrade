@@ -1,4 +1,12 @@
-"""技术指标增强服务。"""
+"""技术指标增强服务。
+
+该模块负责把原始结果或共享契约结果补齐为可供 observation 与渲染消费的增强数据。
+当前阶段同时承担两类职责：
+
+1. 兼容旧的函数驱动命令路径；
+2. 为共享 capability 提供标准化的历史补充接口，逐步替换对 `efinance.*.get_quote_history`
+   的直接依赖。
+"""
 
 from __future__ import annotations
 
@@ -41,6 +49,10 @@ REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
     ("fund", "get_realtime_increase_rate"),
 }
 
+SHARED_HISTORY_COMMANDS: set[tuple[str, str]] = {
+    ("shared", "equity.price.history"),
+}
+
 
 def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
     """根据命令和结果类型附加技术指标。"""
@@ -51,7 +63,7 @@ def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
 
     if module_name == "utils":
         return value
-    if command_key in HISTORY_COMMANDS:
+    if command_key in HISTORY_COMMANDS or command_key in SHARED_HISTORY_COMMANDS:
         return enrich_history_result(value, level)
     if command_key in SINGLE_ROW_COMMANDS:
         return enrich_single_result(request, value, level)
@@ -174,6 +186,59 @@ def fetch_history_for_code(module_name: str, code: str, level: str) -> pd.DataFr
     except Exception:
         return None
     return None
+
+
+def fetch_standard_history_for_request(
+    request: InvocationRequest,
+    code: str,
+    level: str,
+) -> pd.DataFrame | None:
+    """通过标准补充接口回补共享 capability 的历史结果。
+
+    设计约束：
+    - 共享 capability 优先走 `CommandFacade`，而不是直接绑到某个 provider 函数；
+    - 返回值统一为标准字段 DataFrame，供 enrichment / observation 继续消费；
+    - 如果请求本身已经是共享历史命令，则优先复用该请求的后端与参数语义。
+    """
+
+    command_key = (
+        request.command_definition.command_key
+        if request.command_definition is not None
+        else None
+    )
+    if command_key != "equity.price.history" or request.backend_selection is None:
+        return fetch_history_for_code(request.spec.module_name, code, level)
+
+    from efinance_cli.facade import CommandFacade
+
+    config = LEVELS[level]
+    facade = CommandFacade()
+    request_data = {
+        "symbol": code,
+        "market": request.kwargs.get("market"),
+        "start_date": request.kwargs.get("start_date", "19000101"),
+        "end_date": request.kwargs.get("end_date", "20500101"),
+        "period": request.kwargs.get("period", "daily"),
+        "adjust": request.kwargs.get("adjust", "qfq"),
+    }
+    try:
+        standard_result = facade.invoke(
+            request.command_definition,
+            request.backend_selection,
+            request_data,
+        )
+    except Exception:
+        return None
+
+    data = getattr(standard_result, "data", None)
+    if not isinstance(data, list):
+        return None
+    frame = pd.DataFrame(data)
+    if frame.empty:
+        return frame
+    if "symbol" in frame.columns:
+        frame = frame[frame["symbol"].astype(str) == str(code)]
+    return frame.tail(config.history_window).reset_index(drop=True)
 
 
 def extract_code_from_series(series: pd.Series) -> str | None:

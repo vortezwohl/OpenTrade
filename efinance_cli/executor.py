@@ -30,9 +30,9 @@ class CommandExecutor:
     def invoke(self, request: InvocationRequest) -> InvocationResult:
         """执行一次命令请求。"""
         if request.command_definition is not None and request.backend_selection is not None:
-            return self._invoke_shared_command(request)
-        kwargs = self._normalize_kwargs(request)
-        value = request.spec.callback(**kwargs)
+            value = self._execute_shared_command(request)
+        else:
+            value = self._execute_legacy_command(request)
         value = enrich_market_data(request, value)
         value = build_observation_output(request, value)
         return InvocationResult(value=value)
@@ -82,7 +82,13 @@ class CommandExecutor:
         """渲染结果文本。"""
         return render_value(result.value, request.output)
 
-    def _invoke_shared_command(self, request: InvocationRequest) -> InvocationResult:
+    def _execute_legacy_command(self, request: InvocationRequest) -> Any:
+        """执行旧的函数驱动命令路径。"""
+
+        kwargs = self._normalize_kwargs(request)
+        return request.spec.callback(**kwargs)
+
+    def _execute_shared_command(self, request: InvocationRequest) -> Any:
         """执行基于共享命令目录的新调用路径。"""
 
         assert request.command_definition is not None
@@ -102,10 +108,7 @@ class CommandExecutor:
             **request.kwargs,
             **request_data,
         }
-        value = self._materialize_standard_result(request, standard_result)
-        value = enrich_market_data(request, value)
-        value = build_observation_output(request, value)
-        return InvocationResult(value=value)
+        return self._materialize_standard_result(request, standard_result)
 
     def _normalize_kwargs(self, request: InvocationRequest) -> dict[str, Any]:
         """按函数签名把 CLI 输入转换为真实调用参数。"""
@@ -150,50 +153,14 @@ class CommandExecutor:
         request: InvocationRequest,
         rows: list[dict[str, Any]],
     ) -> pd.DataFrame:
-        """把共享契约记录转换为现有渲染与增强链可消费的 DataFrame。"""
+        """把共享契约记录转换为标准字段 DataFrame。
 
-        command_key = request.command_definition.command_key if request.command_definition else None
-        if command_key == "equity.price.history":
-            return self._materialize_history_rows(rows)
+        这里不再把共享结果重新回投成旧的 provider 原始列名，后续增强与 observation
+        应直接消费标准契约字段，兼容下沉到标准化与补充接口层处理。
+        """
+
+        _ = request
         return pd.DataFrame(rows)
-
-    def _materialize_history_rows(self, rows: list[dict[str, Any]]) -> pd.DataFrame:
-        """把共享历史契约记录回投为旧链路可理解的中文列。"""
-
-        frame = pd.DataFrame(rows)
-        if frame.empty:
-            return frame
-        rename_map = {
-            "date": "日期",
-            "symbol": "股票代码",
-            "open": "开盘",
-            "close": "收盘",
-            "high": "最高",
-            "low": "最低",
-            "volume": "成交量",
-            "turnover": "成交额",
-            "amplitude": "振幅",
-            "change_pct": "涨跌幅",
-            "change_amount": "涨跌额",
-            "turnover_rate": "换手率",
-        }
-        frame = frame.rename(columns=rename_map)
-        ordered_columns = [
-            "日期",
-            "股票代码",
-            "开盘",
-            "收盘",
-            "最高",
-            "最低",
-            "成交量",
-            "成交额",
-            "振幅",
-            "涨跌幅",
-            "涨跌额",
-            "换手率",
-        ]
-        available_columns = [column for column in ordered_columns if column in frame.columns]
-        return frame[available_columns]
 
 
 def build_request_kwargs(function: Any, raw_kwargs: dict[str, Any]) -> dict[str, Any]:

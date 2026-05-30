@@ -22,14 +22,14 @@
 ## 4. 统一执行骨架重构
 
 - [x] 4.1 引入 `CommandFacade`，把命令请求路由到 backend provider 与 capability handler。
-- [ ] 4.2 重构执行层，使统一骨架包含请求校验、backend 解析、能力检查、handler 调用、标准化、增强、观察和渲染。
-- [ ] 4.3 调整 watch 模式，使其复用相同请求对象与 backend 解析路径，而不是旁路命令执行逻辑。
+- [x] 4.2 重构执行层，使统一骨架包含请求校验、backend 解析、能力检查、handler 调用、标准化、增强、观察和渲染。
+- [x] 4.3 调整 watch 模式，使其复用相同请求对象与 backend 解析路径，而不是旁路命令执行逻辑。
 - [x] 4.4 为统一执行骨架补充失败路径测试，覆盖 schema 校验失败、backend 冲突和 capability 不支持场景。
 
 ## 5. Enrichment 与 Observation 解耦
 
-- [ ] 5.1 为历史回补引入标准补充接口，替换 enrichment 对 `efinance.*.get_quote_history` 的直接依赖。
-- [ ] 5.2 调整 observation，使其优先消费标准结果契约字段，而不是继续扩张 provider 原始字段别名。
+- [x] 5.1 为历史回补引入标准补充接口，替换 enrichment 对 `efinance.*.get_quote_history` 的直接依赖。
+- [x] 5.2 调整 observation，使其优先消费标准结果契约字段，而不是继续扩张 provider 原始字段别名。
 - [ ] 5.3 为首批共享 capability 建立 observation 与 enrichment 的契约级测试。
 - [ ] 5.4 明确并实现 provider 原始字段到标准字段的兼容下沉策略，避免兼容逻辑散落在 observation 中。
 

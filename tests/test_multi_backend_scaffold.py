@@ -27,8 +27,10 @@ from efinance_cli.command_catalog import (
     list_shared_root_groups,
 )
 from efinance_cli.contracts import SEARCH_RESULTS_CONTRACT, StandardizationError
+from efinance_cli.enrichment.service import enrich_market_data
 from efinance_cli.facade import CommandFacade
 from efinance_cli.models import BackendName, RequestField, RequestSchema
+from efinance_cli.models import CommandSpec, InvocationRequest, OutputOptions, WatchOptions
 from efinance_cli.request_schema import build_click_options_for_schema, validate_request_data
 from efinance_cli.backends.factory import get_backend_provider, list_backend_providers
 from efinance_cli.backends.providers import AkshareSearchHandler
@@ -407,6 +409,34 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertIn("raw_payload", result.value)
         self.assertIsInstance(result.value["data"], list)
         self.assertEqual(result.value["data"][0]["code"], "AAPL")
+
+    def test_shared_history_standard_rows_can_enter_enrichment_pipeline(self) -> None:
+        """共享历史标准字段结果应可直接进入增强链，而不必回投旧中文列。"""
+
+        request = InvocationRequest(
+            spec=CommandSpec(
+                module_name="shared",
+                function_name="equity.price.history",
+                callback=lambda **_: None,
+                help_text="test",
+            ),
+            kwargs={"symbol": "000001"},
+            output=OutputOptions(indicator_level="basic", view_mode="raw"),
+            watch=WatchOptions(),
+        )
+        frame = pd.DataFrame(
+            [
+                {"date": "2026-05-26", "symbol": "000001", "open": 10.0, "close": 10.2, "high": 10.3, "low": 9.9, "volume": 1000},
+                {"date": "2026-05-27", "symbol": "000001", "open": 10.2, "close": 10.4, "high": 10.5, "low": 10.1, "volume": 1200},
+                {"date": "2026-05-28", "symbol": "000001", "open": 10.4, "close": 10.6, "high": 10.7, "low": 10.3, "volume": 1400},
+            ]
+        )
+
+        enriched = enrich_market_data(request, frame)
+        print_observation("shared history enrichment frame", enriched.to_dict(orient="records"))
+        self.assertIsInstance(enriched, pd.DataFrame)
+        self.assertIn("close", enriched.columns)
+        self.assertIn("ma5", enriched.columns)
 
     def test_standardization_requires_contract_core_fields(self) -> None:
         """标准契约缺少关键字段时应显式失败。"""

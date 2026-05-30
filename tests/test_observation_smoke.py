@@ -17,17 +17,22 @@ from click.testing import CliRunner
 
 from efinance_cli.commands import create_root_command
 from efinance_cli.models import (
+    BackendName,
     CommandSpec,
+    BackendSelection,
+    CommandDefinition,
     InvocationRequest,
     InvocationResult,
     ObservationPayload,
     OutputOptions,
 )
+from efinance_cli.command_catalog import get_shared_command_definition
 from efinance_cli.observation import (
     OBSERVATION_REALTIME_LIST_COMMANDS,
     build_observation_output,
     detect_recent_events,
 )
+from efinance_cli.enrichment.service import fetch_standard_history_for_request
 from tests.cli_regression_support import print_observation
 
 
@@ -122,6 +127,7 @@ def build_single_row_request(function_name: str) -> InvocationRequest:
 
 def build_shared_equity_history_request(trace_window: int = 32) -> InvocationRequest:
     """构造共享权益历史 observation 组装请求。"""
+    definition = get_shared_command_definition("equity.price.history")
 
     return InvocationRequest(
         spec=CommandSpec(
@@ -130,12 +136,25 @@ def build_shared_equity_history_request(trace_window: int = 32) -> InvocationReq
             callback=lambda **_: None,
             help_text="test",
         ),
-        kwargs={"symbol": "000001"},
+        kwargs={
+            "symbol": "000001",
+            "market": "A_stock",
+            "start_date": "20260501",
+            "end_date": "20260528",
+            "period": "daily",
+            "adjust": "qfq",
+        },
         output=OutputOptions(
             format_name="table",
             indicator_level="full",
             view_mode="observation",
             trace_window=trace_window,
+        ),
+        command_definition=definition,
+        backend_selection=BackendSelection(
+            requested=BackendName.EFINANCE,
+            resolved=BackendName.EFINANCE,
+            source="explicit",
         ),
     )
 
@@ -219,9 +238,10 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIn("| recent_events", result.output)
 
     def test_shared_equity_history_can_build_observation_payload(self) -> None:
-        """共享 equity history 结果当前至少应稳定进入 generic observation 链。"""
+        """共享 equity history 结果应进入标准历史 observation 链。"""
 
-        frame = build_history_frame().rename(columns={"股票代码": "symbol"})
+        frame = build_history_frame().rename(columns={"股票代码": "symbol", "股票名称": "name", "日期": "date", "收盘": "close", "开盘": "open", "最高": "high", "最低": "low", "成交量": "volume"})
+        frame["symbol"] = "000001"
         payload = build_observation_output(build_shared_equity_history_request(trace_window=4), frame)
         print_observation("shared equity history payload", payload)
 
@@ -229,9 +249,52 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.meta["module"], "shared")
         self.assertEqual(payload.meta["function"], "equity.price.history")
         self.assertEqual(payload.meta["trace_window"], 4)
-        self.assertEqual(payload.meta["result_type"], "DataFrame")
-        self.assertEqual(payload.meta["row_count"], 6)
-        self.assertEqual(payload.sections[0].name, "result")
+        self.assertEqual(payload.meta["row_count"], 4)
+        self.assertEqual(payload.meta["code"], "000001")
+        self.assertEqual(payload.latest_quote["close"], 106.0)
+        self.assertTrue(payload.trace_points)
+        self.assertTrue(payload.recent_events)
+
+    def test_shared_history_lookup_uses_standard_supplement_interface(self) -> None:
+        """共享命令的历史回补应优先走标准补充接口，而不是旧 provider 直连。"""
+
+        request = build_shared_equity_history_request(trace_window=4)
+        standard_rows = [
+            {
+                "date": "2026-05-26",
+                "symbol": "000001",
+                "open": 10.0,
+                "close": 10.2,
+                "high": 10.3,
+                "low": 9.9,
+                "volume": 1000,
+            },
+            {
+                "date": "2026-05-27",
+                "symbol": "000001",
+                "open": 10.2,
+                "close": 10.4,
+                "high": 10.5,
+                "low": 10.1,
+                "volume": 1200,
+            },
+        ]
+
+        standard_result = type(
+            "MockStandardResult",
+            (),
+            {"data": standard_rows},
+        )()
+        with patch(
+            "efinance_cli.facade.CommandFacade.invoke",
+            return_value=standard_result,
+        ) as mock_invoke:
+            frame = fetch_standard_history_for_request(request, "000001", "basic")
+
+        print_observation("shared history lookup frame", frame.to_dict(orient="records") if frame is not None else None)
+        self.assertIsInstance(frame, pd.DataFrame)
+        self.assertEqual(list(frame["symbol"]), ["000001", "000001"])
+        mock_invoke.assert_called_once()
 
     def test_supported_latest_command_can_render_observation_json(self) -> None:
         """最新行情 observation 模式应产出完整 JSON section。"""

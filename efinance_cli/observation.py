@@ -24,9 +24,11 @@ from efinance_cli.enrichment.levels import LEVELS, normalize_indicator_level
 from efinance_cli.enrichment.service import (
     HISTORY_COMMANDS,
     LATEST_COMMANDS,
+    SHARED_HISTORY_COMMANDS,
     SINGLE_ROW_COMMANDS,
     extract_code_from_series,
     fetch_history_for_code,
+    fetch_standard_history_for_request,
 )
 from efinance_cli.models import (
     ObservationEvent,
@@ -37,9 +39,9 @@ from efinance_cli.models import (
 
 
 RAW_FIELD_ALIASES: dict[str, list[str]] = {
-    "code": ["股票代码", "债券代码", "期货代码", "基金代码", "代码", "行情ID"],
-    "name": ["股票名称", "债券名称", "期货名称", "基金名称", "名称"],
-    "date": ["日期", "时间"],
+    "code": ["股票代码", "债券代码", "期货代码", "基金代码", "代码", "行情ID", "symbol", "code", "quote_id"],
+    "name": ["股票名称", "债券名称", "期货名称", "基金名称", "名称", "name"],
+    "date": ["日期", "时间", "date"],
     "close": ["收盘", "最新价", "单位净值", "close"],
     "open": ["开盘", "今开", "open"],
     "high": ["最高", "high"],
@@ -162,7 +164,11 @@ def build_observation_output(request: Any, value: Any) -> Any:
         return value
 
     command_key = (request.spec.module_name, request.spec.function_name)
-    if command_key in HISTORY_COMMANDS or command_key in OBSERVATION_MULTI_HISTORY_COMMANDS:
+    if (
+        command_key in HISTORY_COMMANDS
+        or command_key in SHARED_HISTORY_COMMANDS
+        or command_key in OBSERVATION_MULTI_HISTORY_COMMANDS
+    ):
         return build_history_observation_output(request, value)
     if command_key in LATEST_COMMANDS:
         return build_latest_observation_output(request, value)
@@ -278,7 +284,7 @@ def build_payload_from_latest_row(request: Any, row: pd.Series) -> ObservationPa
         return None
 
     level = normalize_indicator_level(request.output.indicator_level)
-    history = fetch_history_for_code(request.spec.module_name, code, level)
+    history = fetch_standard_history_for_request(request, code, level)
     if history is None or history.empty:
         return None
 
@@ -298,7 +304,7 @@ def build_payload_from_single_row(request: Any, row: pd.Series) -> ObservationPa
         return None
 
     level = normalize_indicator_level(request.output.indicator_level)
-    history = fetch_history_for_code(request.spec.module_name, code, level)
+    history = fetch_standard_history_for_request(request, code, level)
     if history is None or history.empty:
         return None
 
