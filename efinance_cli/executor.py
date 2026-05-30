@@ -13,11 +13,14 @@ from pathlib import Path
 from typing import Any
 
 import click
+import pandas as pd
 
+from efinance_cli.facade import CommandFacade
 from efinance_cli.enrichment import enrich_market_data
 from efinance_cli.introspection import build_parameter_specs, coerce_parameter_value
 from efinance_cli.models import InvocationRequest, InvocationResult
 from efinance_cli.observation import build_observation_output
+from efinance_cli.request_schema import validate_request_data
 from efinance_cli.rendering import render_value
 
 
@@ -26,6 +29,8 @@ class CommandExecutor:
 
     def invoke(self, request: InvocationRequest) -> InvocationResult:
         """执行一次命令请求。"""
+        if request.command_definition is not None and request.backend_selection is not None:
+            return self._invoke_shared_command(request)
         kwargs = self._normalize_kwargs(request)
         value = request.spec.callback(**kwargs)
         value = enrich_market_data(request, value)
@@ -77,6 +82,31 @@ class CommandExecutor:
         """渲染结果文本。"""
         return render_value(result.value, request.output)
 
+    def _invoke_shared_command(self, request: InvocationRequest) -> InvocationResult:
+        """执行基于共享命令目录的新调用路径。"""
+
+        assert request.command_definition is not None
+        assert request.backend_selection is not None
+
+        request_data = validate_request_data(
+            request.command_definition.request_schema,
+            request.kwargs,
+        )
+        facade = CommandFacade()
+        standard_result = facade.invoke(
+            request.command_definition,
+            request.backend_selection,
+            request_data,
+        )
+        request.kwargs = {
+            **request.kwargs,
+            **request_data,
+        }
+        value = self._materialize_standard_result(request, standard_result)
+        value = enrich_market_data(request, value)
+        value = build_observation_output(request, value)
+        return InvocationResult(value=value)
+
     def _normalize_kwargs(self, request: InvocationRequest) -> dict[str, Any]:
         """按函数签名把 CLI 输入转换为真实调用参数。"""
         specs = {spec.name: spec for spec in build_parameter_specs(request.spec.callback)}
@@ -90,6 +120,80 @@ class CommandExecutor:
                 value = value[0] if len(value) == 1 else list(value)
             normalized[key] = coerce_parameter_value(spec.annotation, value)
         return normalized
+
+    def _materialize_standard_result(self, request: InvocationRequest, standard_result: Any) -> Any:
+        """把标准结果封装转换为现有渲染链可消费的对象。
+
+        设计约束：
+        - `observation` 仍然只消费标准化后的主体数据；
+        - `raw` 视图需要保留契约名、原始 payload 和 provider 扩展字段；
+        - 表格/JSON/CSV/TSV 渲染仍然复用现有渲染层，不为共享命令单独开旁路。
+        """
+
+        data = getattr(standard_result, "data", standard_result)
+        materialized = data
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            materialized = self._materialize_standard_rows(request, data)
+
+        if request.output.view_mode == "raw":
+            return {
+                "contract_name": getattr(standard_result, "contract_name", None),
+                "data": data,
+                "raw_payload": getattr(standard_result, "raw_payload", None),
+                "provider_fields": getattr(standard_result, "provider_fields", {}),
+                "metadata": getattr(standard_result, "metadata", {}),
+            }
+        return materialized
+
+    def _materialize_standard_rows(
+        self,
+        request: InvocationRequest,
+        rows: list[dict[str, Any]],
+    ) -> pd.DataFrame:
+        """把共享契约记录转换为现有渲染与增强链可消费的 DataFrame。"""
+
+        command_key = request.command_definition.command_key if request.command_definition else None
+        if command_key == "equity.price.history":
+            return self._materialize_history_rows(rows)
+        return pd.DataFrame(rows)
+
+    def _materialize_history_rows(self, rows: list[dict[str, Any]]) -> pd.DataFrame:
+        """把共享历史契约记录回投为旧链路可理解的中文列。"""
+
+        frame = pd.DataFrame(rows)
+        if frame.empty:
+            return frame
+        rename_map = {
+            "date": "日期",
+            "symbol": "股票代码",
+            "open": "开盘",
+            "close": "收盘",
+            "high": "最高",
+            "low": "最低",
+            "volume": "成交量",
+            "turnover": "成交额",
+            "amplitude": "振幅",
+            "change_pct": "涨跌幅",
+            "change_amount": "涨跌额",
+            "turnover_rate": "换手率",
+        }
+        frame = frame.rename(columns=rename_map)
+        ordered_columns = [
+            "日期",
+            "股票代码",
+            "开盘",
+            "收盘",
+            "最高",
+            "最低",
+            "成交量",
+            "成交额",
+            "振幅",
+            "涨跌幅",
+            "涨跌额",
+            "换手率",
+        ]
+        available_columns = [column for column in ordered_columns if column in frame.columns]
+        return frame[available_columns]
 
 
 def build_request_kwargs(function: Any, raw_kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -120,6 +224,7 @@ def split_runtime_options(raw_kwargs: dict[str, Any]) -> tuple[dict[str, Any], d
         "interval",
         "count",
         "clear_screen",
+        "backend_name",
     }
     runtime: dict[str, Any] = {}
     business: dict[str, Any] = {}

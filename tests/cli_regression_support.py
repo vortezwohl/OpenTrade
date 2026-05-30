@@ -43,6 +43,10 @@ RUNTIME_WATCH_OPTION_NAMES = {
     "clear_screen",
 }
 
+RUNTIME_EXECUTION_OPTION_NAMES = {
+    "backend_name",
+}
+
 
 @dataclass(slots=True)
 class LeafCommand:

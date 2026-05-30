@@ -22,6 +22,7 @@ from click.testing import CliRunner
 from efinance_cli.commands import create_root_command
 from efinance_cli.registry import build_command_specs
 from tests.cli_regression_support import (
+    RUNTIME_EXECUTION_OPTION_NAMES,
     RUNTIME_OUTPUT_OPTION_NAMES,
     RUNTIME_WATCH_OPTION_NAMES,
     build_all_optional_option_tokens,
@@ -216,6 +217,8 @@ class CliFullRegressionTest(unittest.TestCase):
                         elif option_name in RUNTIME_WATCH_OPTION_NAMES:
                             mapped_name = "enabled" if option_name == "watch" else option_name
                             actual = getattr(request.watch, mapped_name)
+                        elif option_name in RUNTIME_EXECUTION_OPTION_NAMES:
+                            actual = request.backend_selection.resolved.value
                         else:
                             actual = request.kwargs[option_name]
 
@@ -349,6 +352,10 @@ class CliFullRegressionTest(unittest.TestCase):
                     self.cli,
                     ["search", "--query", "AAPL", "--format", "json"],
                 )
+                raw_json_result = self.runner.invoke(
+                    self.cli,
+                    ["search", "--query", "AAPL", "--format", "json", "--view", "raw"],
+                )
                 limited_result = self.runner.invoke(
                     self.cli,
                     ["search", "--query", "AAPL", "--format", "table", "--limit", "1"],
@@ -362,6 +369,7 @@ class CliFullRegressionTest(unittest.TestCase):
 
         print_observation("search 表格输出", table_result.output)
         print_observation("search JSON 输出", json_result.output)
+        print_observation("search raw JSON 输出", raw_json_result.output)
         print_observation("search limit=1 输出", limited_result.output)
         print_observation("search 输出文件内容", output_content)
 
@@ -376,6 +384,11 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertIn('"sections"', json_result.output)
         self.assertIn('"code": "AAPL"', json_result.output)
         self.assertIn('"quote_id": "105.AAPL"', json_result.output)
+
+        self.assertEqual(raw_json_result.exit_code, 0, msg=raw_json_result.output)
+        self.assertIn('"contract_name": "search-results"', raw_json_result.output)
+        self.assertIn('"raw_payload"', raw_json_result.output)
+        self.assertIn('"provider_fields"', raw_json_result.output)
 
         self.assertEqual(limited_result.exit_code, 0, msg=limited_result.output)
         self.assertIn("Apple Inc.", limited_result.output)
@@ -420,6 +433,59 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertAlmostEqual(captured["request"].watch.interval, 0.1)
         self.assertEqual(captured["request"].output.indicator_level, "advanced")
 
+    def test_watch_wrapper_reuses_shared_request_and_backend_resolution(self) -> None:
+        """顶层 watch 包装 shared 命令时，应复用同一请求对象与 backend 解析路径。"""
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("WATCHED")
+
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            result = self.runner.invoke(
+                self.cli,
+                [
+                    "watch",
+                    "--interval",
+                    "0.1",
+                    "--count",
+                    "1",
+                    "--no-clear",
+                    "search",
+                    "--query",
+                    "AAPL",
+                    "--backend",
+                    "akshare",
+                ],
+            )
+
+        print_observation("watch shared 命令输出", result.output)
+        print_observation(
+            "watch shared 请求参数",
+            {
+                "spec": (
+                    captured["request"].spec.module_name,
+                    captured["request"].spec.function_name,
+                ),
+                "command_key": captured["request"].command_definition.command_key,
+                "backend": captured["request"].backend_selection.resolved.value,
+                "watch_enabled": captured["request"].watch.enabled,
+                "watch_count": captured["request"].watch.count,
+                "watch_interval": captured["request"].watch.interval,
+            },
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("WATCHED", result.output)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("shared", "instrument.search"),
+        )
+        self.assertEqual(captured["request"].command_definition.command_key, "instrument.search")
+        self.assertEqual(captured["request"].backend_selection.resolved.value, "akshare")
+        self.assertTrue(captured["request"].watch.enabled)
+        self.assertEqual(captured["request"].watch.count, 1)
+        self.assertAlmostEqual(captured["request"].watch.interval, 0.1)
+
     def test_search_result_count_routes_to_business_parameter_without_runtime_warning(self) -> None:
         """顶层 search 应把业务候选数量暴露为 result-count。"""
         captured = {}
@@ -459,7 +525,7 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, msg=result.output)
         self.assertEqual(
             (captured["request"].spec.module_name, captured["request"].spec.function_name),
-            ("utils", "search_quote"),
+            ("shared", "instrument.search"),
         )
         self.assertIsNone(captured["request"].watch.count)
         self.assertFalse(
@@ -640,6 +706,60 @@ class CliFullRegressionTest(unittest.TestCase):
         print_observation("search maximal sample 输出", result.output)
         self.assertEqual(result.exit_code, 0, msg=result.output)
         self.assertIn('"meta"', result.output)
+
+    def test_equity_history_shared_command_routes_through_executor(self) -> None:
+        """共享 equity price history 命令应构造 shared 请求并透传 backend。"""
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("HISTORY_OK")
+
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            result = self.runner.invoke(
+                self.cli,
+                [
+                    "equity",
+                    "price",
+                    "history",
+                    "--symbol",
+                    "000001",
+                    "--market",
+                    "A_stock",
+                    "--start-date",
+                    "20260501",
+                    "--end-date",
+                    "20260528",
+                    "--period",
+                    "daily",
+                    "--adjust",
+                    "qfq",
+                    "--backend",
+                    "akshare",
+                ],
+            )
+
+        print_observation("equity history shared 输出", result.output)
+        print_observation(
+            "equity history shared 请求",
+            {
+                "spec": (
+                    captured["request"].spec.module_name,
+                    captured["request"].spec.function_name,
+                ),
+                "kwargs": captured["request"].kwargs,
+                "backend": captured["request"].backend_selection.resolved.value,
+            },
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("HISTORY_OK", result.output)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("shared", "equity.price.history"),
+        )
+        self.assertEqual(captured["request"].command_definition.command_key, "equity.price.history")
+        self.assertEqual(captured["request"].backend_selection.resolved.value, "akshare")
+        self.assertEqual(captured["request"].kwargs["symbol"], "000001")
 
 
 if __name__ == "__main__":
