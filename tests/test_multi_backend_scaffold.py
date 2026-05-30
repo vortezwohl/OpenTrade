@@ -40,7 +40,11 @@ from efinance_cli.facade import CommandFacade
 from efinance_cli.models import BackendName, RequestField, RequestSchema
 from efinance_cli.models import CommandSpec, InvocationRequest, OutputOptions, WatchOptions
 from efinance_cli.request_schema import build_click_options_for_schema, validate_request_data
-from efinance_cli.backends.factory import get_backend_provider, list_backend_providers
+from efinance_cli.backends.factory import (
+    get_backend_provider,
+    list_backend_providers,
+    list_optional_provider_names,
+)
 from efinance_cli.backends.providers import AkshareSearchHandler
 from efinance_cli.backends.resolver import resolve_backend_selection
 from tests.cli_regression_support import print_observation
@@ -824,6 +828,55 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(normalized["open"], 10.2)
         self.assertEqual(normalized["high"], 10.6)
         self.assertEqual(normalized["low"], 10.1)
+
+    def test_akshare_provider_exposes_extension_command_definition(self) -> None:
+        """akshare provider 应暴露扩展命令定义。"""
+        provider = get_backend_provider(BackendName.AKSHARE)
+        self.assertEqual(len(provider.extension_commands), 1)
+        definition = provider.extension_commands[0]
+        print_observation(
+            "akshare extension command definition",
+            {
+                "command_key": definition.command_key,
+                "cli_path": definition.cli_path,
+                "kind": definition.kind.value,
+                "provider_name": definition.provider_name.value if definition.provider_name else None,
+            },
+        )
+        self.assertEqual(definition.command_key, "akshare.industry.boards")
+        self.assertEqual(definition.cli_path, ("akshare", "industry", "boards"))
+        self.assertEqual(definition.kind.value, "provider-extension")
+        self.assertEqual(definition.provider_name, BackendName.AKSHARE)
+
+    def test_akshare_extension_handler_returns_provider_records_contract(self) -> None:
+        """akshare 扩展 handler 应返回 provider-records 契约。"""
+        provider = get_backend_provider(BackendName.AKSHARE)
+        handler = provider.get_handler("akshare.industry.boards")
+        frame = pd.DataFrame(
+            [
+                {"板块名称": "小金属", "最新价": 1234.5, "涨跌幅": 2.3},
+                {"板块名称": "汽车整车", "最新价": 987.6, "涨跌幅": -1.1},
+            ]
+        )
+        mocked_akshare = type(
+            "MockAkshare",
+            (),
+            {
+                "stock_board_industry_name_em": staticmethod(lambda: frame),
+            },
+        )()
+        with patch("efinance_cli.backends.providers._load_akshare_module", return_value=mocked_akshare):
+            result = handler.execute({})
+        print_observation("akshare extension result", result.data)
+        self.assertEqual(result.contract_name, "provider-records")
+        self.assertEqual(result.data[0]["name"], "小金属")
+        self.assertEqual(result.metadata["backend"], "akshare")
+
+    def test_optional_provider_mount_points_include_yfinance(self) -> None:
+        """可选 provider 预留点应包含 yfinance。"""
+        optional = list_optional_provider_names()
+        print_observation("optional providers", [item.value for item in optional])
+        self.assertIn(BackendName.YFINANCE, optional)
 
 if __name__ == "__main__":
     unittest.main()

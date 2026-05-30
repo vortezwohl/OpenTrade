@@ -20,6 +20,7 @@ from efinance_cli.contracts import (
     FUND_NAV_HISTORY_CONTRACT,
     HISTORY_BARS_CONTRACT,
     PROFILE_INFO_CONTRACT,
+    PROVIDER_RECORDS_CONTRACT,
     REALTIME_QUOTES_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
     StandardizationError,
@@ -27,7 +28,12 @@ from efinance_cli.contracts import (
     ensure_mapping_has_required_fields,
     normalize_contract_mapping,
 )
-from efinance_cli.models import BackendName
+from efinance_cli.models import (
+    BackendName,
+    CommandDefinition,
+    CommandKind,
+    RequestSchema,
+)
 from efinance_cli.retry_utils import call_with_network_retry
 
 
@@ -476,6 +482,31 @@ class AkshareEquityPriceLiveHandler(CapabilityHandler):
         )
 
 
+class AkshareIndustryBoardsHandler(CapabilityHandler):
+    """`akshare` 行业板块列表扩展命令实现。"""
+
+    capability_name = "akshare.industry.boards"
+
+    def execute(self, request_data: dict[str, object]):
+        _ = request_data
+        akshare = _load_akshare_module()
+        result = akshare.stock_board_industry_name_em()
+        frame = _coerce_history_frame(result)
+        rows = _standardize_provider_records_frame(
+            frame,
+            provider_name=BackendName.AKSHARE.value,
+        )
+        return build_standard_result(
+            PROVIDER_RECORDS_CONTRACT,
+            rows,
+            raw_payload=result,
+            metadata={
+                "backend": BackendName.AKSHARE.value,
+                "extension_command": "akshare.industry.boards",
+            },
+        )
+
+
 def _load_akshare_module():
     """惰性加载 `akshare`，避免未安装时在导入阶段直接失败。"""
 
@@ -639,6 +670,32 @@ def _standardize_realtime_quotes_frame(
     return rows
 
 
+def _standardize_provider_records_frame(
+    frame: pd.DataFrame,
+    *,
+    provider_name: str,
+) -> list[dict[str, object]]:
+    """把 provider 扩展列表结果标准化为通用 records 契约。"""
+
+    if frame is None or frame.empty:
+        return []
+
+    rows: list[dict[str, object]] = []
+    for _, row in frame.iterrows():
+        item = {
+            "name": _pick_first_present_value(row, ("name", "板块名称", "名称")),
+            "code": _pick_first_present_value(row, ("code", "代码")),
+            "latest": _pick_first_present_value(row, ("latest", "最新价")),
+            "change_pct": _pick_first_present_value(row, ("change_pct", "涨跌幅")),
+            "provider_name": provider_name,
+        }
+        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
+        normalized = normalize_contract_mapping(item, PROVIDER_RECORDS_CONTRACT)
+        ensure_mapping_has_required_fields(normalized, PROVIDER_RECORDS_CONTRACT)
+        rows.append(normalized)
+    return rows
+
+
 def _pick_first_present_value(row: pd.Series, candidates: tuple[str, ...]) -> object | None:
     """从候选列名里提取第一个非空值。"""
 
@@ -729,10 +786,28 @@ def build_akshare_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.AKSHARE,
         handlers={
+            "akshare.industry.boards": AkshareIndustryBoardsHandler(),
             "equity.price.live": AkshareEquityPriceLiveHandler(),
             "fund.nav.history": AkshareFundNavHistoryHandler(),
             "equity.profile": AkshareEquityProfileHandler(),
             "equity.price.history": AkshareEquityPriceHistoryHandler(),
             "instrument.search": AkshareSearchHandler(),
         },
+        extension_commands=(
+            CommandDefinition(
+                command_key="akshare.industry.boards",
+                cli_path=("akshare", "industry", "boards"),
+                capability="akshare.industry.boards",
+                request_schema=RequestSchema(
+                    schema_name="akshare-industry-boards-request",
+                    fields=(),
+                ),
+                help_text="获取 akshare 行业板块列表。",
+                kind=CommandKind.PROVIDER_EXTENSION,
+                supported_backends=(BackendName.AKSHARE,),
+                allow_watch=True,
+                has_side_effect=False,
+                provider_name=BackendName.AKSHARE,
+            ),
+        ),
     )

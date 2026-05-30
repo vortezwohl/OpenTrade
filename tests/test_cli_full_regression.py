@@ -910,5 +910,50 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured["request"].kwargs["market"], "A_stock")
         self.assertEqual(captured["request"].kwargs["record_limit"], 2)
 
+    def test_akshare_extension_command_routes_through_executor(self) -> None:
+        """akshare 扩展命令应走统一执行器并默认解析到 akshare backend。"""
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("EXT_OK")
+
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            result = self.runner.invoke(
+                self.cli,
+                [
+                    "akshare",
+                    "industry",
+                    "boards",
+                ],
+            )
+
+        print_observation("akshare extension command output", result.output)
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("EXT_OK", result.output)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("shared", "akshare.industry.boards"),
+        )
+        self.assertEqual(captured["request"].command_definition.command_key, "akshare.industry.boards")
+        self.assertEqual(captured["request"].backend_selection.resolved.value, "akshare")
+        self.assertEqual(captured["request"].backend_selection.source, "command-default")
+
+    def test_akshare_extension_command_rejects_wrong_backend(self) -> None:
+        """akshare 扩展命令在错误 backend 下应明确失败。"""
+        result = self.runner.invoke(
+            self.cli,
+            [
+                "akshare",
+                "industry",
+                "boards",
+                "--backend",
+                "efinance",
+            ],
+        )
+        print_observation("akshare extension wrong backend output", result.output)
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("does not support backend 'efinance'", result.output)
+
 if __name__ == "__main__":
     unittest.main()

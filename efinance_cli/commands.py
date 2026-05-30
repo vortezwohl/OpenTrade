@@ -16,6 +16,7 @@ import click
 import pandas as pd
 
 from efinance_cli.backends.resolver import resolve_backend_selection
+from efinance_cli.backends.factory import list_provider_extension_commands
 from efinance_cli.command_catalog import (
     GROUP_HELP_TEXT as SHARED_GROUP_HELP_TEXT,
     build_shared_command_definitions_for_group,
@@ -71,6 +72,9 @@ def create_root_command() -> click.Group:
                 attach_definition_to_tree(existing, definition)
             continue
         cli.add_command(create_shared_root_group(group_name))
+
+    for backend_name, definitions in list_provider_extension_commands().items():
+        cli.add_command(create_provider_extension_root_group(backend_name.value, definitions))
     return cli
 
 
@@ -96,6 +100,22 @@ def create_shared_root_group(group_name: str) -> click.Group:
 
     group.help = SHARED_GROUP_HELP_TEXT[group_name]
     for definition in build_shared_command_definitions_for_group(group_name):
+        attach_definition_to_tree(group, definition)
+    return group
+
+
+def create_provider_extension_root_group(
+    group_name: str,
+    definitions: tuple[CommandDefinition, ...],
+) -> click.Group:
+    """根据 provider 扩展命令目录创建根命令组。"""
+
+    @click.group(name=group_name)
+    def group() -> None:
+        """provider 扩展命令分组。"""
+
+    group.help = f"{group_name} provider 扩展命令。"
+    for definition in definitions:
         attach_definition_to_tree(group, definition)
     return group
 

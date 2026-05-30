@@ -38,8 +38,12 @@ def resolve_backend_selection(
     )
     normalized = normalize_backend_name(requested_backend)
     if normalized is None:
-        normalized = DEFAULT_BACKEND
-        source = "default"
+        if definition.kind.value == "provider-extension" and definition.provider_name is not None:
+            normalized = definition.provider_name
+            source = "command-default"
+        else:
+            normalized = DEFAULT_BACKEND
+            source = "default"
     else:
         source = "explicit"
 

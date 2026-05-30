@@ -16,6 +16,12 @@ def list_backend_providers() -> dict[BackendName, BackendProvider]:
     }
 
 
+def list_optional_provider_names() -> tuple[BackendName, ...]:
+    """返回当前仅预留挂载点、尚未默认接入的 provider 名称。"""
+
+    return (BackendName.YFINANCE,)
+
+
 def get_backend_provider(backend_name: BackendName) -> BackendProvider:
     """按 backend 名称返回 provider。"""
 
@@ -24,3 +30,13 @@ def get_backend_provider(backend_name: BackendName) -> BackendProvider:
         return registry[backend_name]
     except KeyError as exc:
         raise KeyError(f"未知 backend: {backend_name.value}") from exc
+
+
+def list_provider_extension_commands() -> dict[BackendName, tuple]:
+    """返回各 provider 注册的扩展命令定义。"""
+
+    return {
+        backend_name: provider.extension_commands
+        for backend_name, provider in list_backend_providers().items()
+        if provider.extension_commands
+    }

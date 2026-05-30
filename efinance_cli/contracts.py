@@ -115,6 +115,20 @@ REALTIME_QUOTES_CONTRACT = ResultContract(
     },
 )
 
+PROVIDER_RECORDS_CONTRACT = ResultContract(
+    contract_name="provider-records",
+    required_fields=("name",),
+    optional_fields=("symbol", "code", "latest", "change_pct", "provider_name"),
+    field_aliases={
+        "name": ("name", "板块名称", "名称"),
+        "symbol": ("symbol", "symbol"),
+        "code": ("code", "代码"),
+        "latest": ("latest", "最新价"),
+        "change_pct": ("change_pct", "涨跌幅"),
+        "provider_name": ("provider_name",),
+    },
+)
+
 HISTORY_BARS_CONTRACT = ResultContract(
     contract_name="history-bars",
     required_fields=("date", "symbol", "open", "close", "high", "low"),
