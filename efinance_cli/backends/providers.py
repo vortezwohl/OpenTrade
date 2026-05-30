@@ -20,6 +20,7 @@ from efinance_cli.contracts import (
     FUND_NAV_HISTORY_CONTRACT,
     HISTORY_BARS_CONTRACT,
     PROFILE_INFO_CONTRACT,
+    REALTIME_QUOTES_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
     StandardizationError,
     build_standard_result,
@@ -161,6 +162,37 @@ class EfinanceFundNavHistoryHandler(CapabilityHandler):
             raw_payload=result,
             metadata={
                 "symbol": request_data["symbol"],
+                "backend": BackendName.EFINANCE.value,
+            },
+        )
+
+
+class EfinanceEquityPriceLiveHandler(CapabilityHandler):
+    """`efinance` 的权益实时列表能力实现。"""
+
+    capability_name = "equity.price.live"
+
+    def execute(self, request_data: dict[str, object]):
+        market = request_data.get("market")
+        if market not in (None, "", "A_stock"):
+            raise ValueError("Efinance equity.price.live 当前仅支持 A_stock 市场")
+
+        result = call_with_network_retry(efinance.stock.get_realtime_quotes)
+        frame = _coerce_history_frame(result)
+        rows = _standardize_realtime_quotes_frame(
+            frame,
+            market_name="A_stock",
+            provider_name=BackendName.EFINANCE.value,
+        )
+        limit = request_data.get("record_limit")
+        if isinstance(limit, int) and limit > 0:
+            rows = rows[:limit]
+        return build_standard_result(
+            REALTIME_QUOTES_CONTRACT,
+            rows,
+            raw_payload=result,
+            metadata={
+                "market": "A_stock",
                 "backend": BackendName.EFINANCE.value,
             },
         )
@@ -412,6 +444,38 @@ class AkshareFundNavHistoryHandler(CapabilityHandler):
         )
 
 
+class AkshareEquityPriceLiveHandler(CapabilityHandler):
+    """`akshare` 的权益实时列表能力实现。"""
+
+    capability_name = "equity.price.live"
+
+    def execute(self, request_data: dict[str, object]):
+        market = request_data.get("market")
+        if market not in (None, "", "A_stock"):
+            raise ValueError("Akshare equity.price.live 当前仅支持 A_stock 市场")
+
+        akshare = _load_akshare_module()
+        result = akshare.stock_zh_a_spot_em()
+        frame = _coerce_history_frame(result)
+        rows = _standardize_realtime_quotes_frame(
+            frame,
+            market_name="A_stock",
+            provider_name=BackendName.AKSHARE.value,
+        )
+        limit = request_data.get("record_limit")
+        if isinstance(limit, int) and limit > 0:
+            rows = rows[:limit]
+        return build_standard_result(
+            REALTIME_QUOTES_CONTRACT,
+            rows,
+            raw_payload=result,
+            metadata={
+                "market": "A_stock",
+                "backend": BackendName.AKSHARE.value,
+            },
+        )
+
+
 def _load_akshare_module():
     """惰性加载 `akshare`，避免未安装时在导入阶段直接失败。"""
 
@@ -533,6 +597,48 @@ def _standardize_fund_nav_history_frame(
     return rows
 
 
+def _standardize_realtime_quotes_frame(
+    frame: pd.DataFrame,
+    *,
+    market_name: str,
+    provider_name: str,
+) -> list[dict[str, object]]:
+    """把实时行情列表标准化为共享实时契约。"""
+
+    if frame is None or frame.empty:
+        return []
+
+    rows: list[dict[str, object]] = []
+    for _, row in frame.iterrows():
+        item = {
+            "symbol": _pick_first_present_value(row, ("symbol", "代码", "股票代码", "证券代码")),
+            "name": _pick_first_present_value(row, ("name", "名称", "股票名称", "证券简称")),
+            "close": _pick_first_present_value(row, ("close", "最新价", "收盘")),
+            "quote_id": _pick_first_present_value(row, ("quote_id", "行情ID", "symbol", "代码", "股票代码", "证券代码")),
+            "market": _pick_first_present_value(row, ("market", "市场", "市场类型")) or market_name,
+            "open": _pick_first_present_value(row, ("open", "今开", "开盘")),
+            "high": _pick_first_present_value(row, ("high", "最高")),
+            "low": _pick_first_present_value(row, ("low", "最低")),
+            "volume": _pick_first_present_value(row, ("volume", "成交量")),
+            "turnover": _pick_first_present_value(row, ("turnover", "成交额")),
+            "change_pct": _pick_first_present_value(row, ("change_pct", "涨跌幅")),
+            "change_amount": _pick_first_present_value(row, ("change_amount", "涨跌额")),
+            "turnover_rate": _pick_first_present_value(row, ("turnover_rate", "换手率")),
+            "amplitude": _pick_first_present_value(row, ("amplitude", "振幅")),
+            "date": _pick_first_present_value(row, ("date", "日期", "时间")),
+        }
+        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
+        normalized = normalize_contract_mapping(item, REALTIME_QUOTES_CONTRACT)
+        if "market" not in normalized:
+            normalized["market"] = market_name
+        if "quote_id" not in normalized and "symbol" in normalized:
+            normalized["quote_id"] = normalized["symbol"]
+        ensure_mapping_has_required_fields(normalized, REALTIME_QUOTES_CONTRACT)
+        normalized["provider_name"] = provider_name
+        rows.append(normalized)
+    return rows
+
+
 def _pick_first_present_value(row: pd.Series, candidates: tuple[str, ...]) -> object | None:
     """从候选列名里提取第一个非空值。"""
 
@@ -605,6 +711,7 @@ def build_efinance_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.EFINANCE,
         handlers={
+            "equity.price.live": EfinanceEquityPriceLiveHandler(),
             "fund.nav.history": EfinanceFundNavHistoryHandler(),
             "equity.profile": EfinanceEquityProfileHandler(),
             "equity.price.history": EfinanceEquityPriceHistoryHandler(),
@@ -622,6 +729,7 @@ def build_akshare_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.AKSHARE,
         handlers={
+            "equity.price.live": AkshareEquityPriceLiveHandler(),
             "fund.nav.history": AkshareFundNavHistoryHandler(),
             "equity.profile": AkshareEquityProfileHandler(),
             "equity.price.history": AkshareEquityPriceHistoryHandler(),

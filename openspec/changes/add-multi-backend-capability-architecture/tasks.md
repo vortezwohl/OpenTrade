@@ -40,7 +40,7 @@
 - [x] 6.3 迁移 `equity.price.history` 到新骨架，并实现 `efinance` 与 `akshare` 双 backend handler。
 - [x] 6.4 迁移 `equity.profile` 到新骨架，并验证弱行情字段场景下的 observation / enrichment 行为。
 - [x] 6.5 迁移 `fund.nav.history` 到新骨架，并验证标准历史契约、渲染与观察输出。
-- [ ] 6.6 在前述能力稳定后，再迁移 `equity.price.live`，并补充性能与默认限流验证。
+- [x] 6.6 在前述能力稳定后，再迁移 `equity.price.live`，并补充性能与默认限流验证。
 
 ## 7. Provider 扩展命令
 

@@ -54,6 +54,10 @@ SHARED_HISTORY_COMMANDS: set[tuple[str, str]] = {
     ("shared", "equity.price.history"),
 }
 
+SHARED_REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
+    ("shared", "equity.price.live"),
+}
+
 
 def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
     """根据命令和结果类型附加技术指标。"""
@@ -70,7 +74,7 @@ def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
         return enrich_single_result(request, value, level)
     if command_key in LATEST_COMMANDS:
         return enrich_latest_result(request, value, level)
-    if command_key in REALTIME_LIST_COMMANDS:
+    if command_key in REALTIME_LIST_COMMANDS or command_key in SHARED_REALTIME_LIST_COMMANDS:
         return enrich_realtime_list_result(request, value, level)
     return value
 
