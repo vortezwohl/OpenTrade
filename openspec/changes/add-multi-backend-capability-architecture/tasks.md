@@ -38,7 +38,7 @@
 - [x] 6.1 迁移 `instrument.search` 到新命令目录、请求 schema 和结果契约，并由 `efinance` provider 实现。
 - [x] 6.2 为 `instrument.search` 补充 `akshare` handler，并验证双 backend 输出满足搜索结果契约。
 - [x] 6.3 迁移 `equity.price.history` 到新骨架，并实现 `efinance` 与 `akshare` 双 backend handler。
-- [ ] 6.4 迁移 `equity.profile` 到新骨架，并验证弱行情字段场景下的 observation / enrichment 行为。
+- [x] 6.4 迁移 `equity.profile` 到新骨架，并验证弱行情字段场景下的 observation / enrichment 行为。
 - [ ] 6.5 迁移 `fund.nav.history` 到新骨架，并验证标准历史契约、渲染与观察输出。
 - [ ] 6.6 在前述能力稳定后，再迁移 `equity.price.live`，并补充性能与默认限流验证。
 

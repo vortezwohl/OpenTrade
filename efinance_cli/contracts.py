@@ -50,6 +50,22 @@ SEARCH_RESULTS_CONTRACT = ResultContract(
     },
 )
 
+PROFILE_INFO_CONTRACT = ResultContract(
+    contract_name="profile-info",
+    required_fields=("code", "name"),
+    optional_fields=("quote_id", "market", "pe", "pb", "industry", "total_market_value"),
+    field_aliases={
+        "code": ("code", "symbol", "股票代码", "代码", "证券代码", "quote_id"),
+        "name": ("name", "股票名称", "名称", "证券简称", "cname"),
+        "quote_id": ("quote_id", "行情ID", "quote_id", "symbol", "代码", "证券代码"),
+        "market": ("market", "市场", "市场类型"),
+        "pe": ("pe", "市盈率(动)", "市盈率", "PE"),
+        "pb": ("pb", "市净率", "PB"),
+        "industry": ("industry", "所处行业", "行业"),
+        "total_market_value": ("total_market_value", "总市值"),
+    },
+)
+
 HISTORY_BARS_CONTRACT = ResultContract(
     contract_name="history-bars",
     required_fields=("date", "symbol", "open", "close", "high", "low"),

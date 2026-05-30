@@ -761,6 +761,51 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured["request"].backend_selection.resolved.value, "akshare")
         self.assertEqual(captured["request"].kwargs["symbol"], "000001")
 
+    def test_equity_profile_shared_command_routes_through_executor(self) -> None:
+        """共享 equity profile 命令应按 shared 请求透传到 backend。"""
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("PROFILE_OK")
+
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            result = self.runner.invoke(
+                self.cli,
+                [
+                    "equity",
+                    "profile",
+                    "--symbol",
+                    "000001",
+                    "--market",
+                    "A_stock",
+                    "--backend",
+                    "efinance",
+                ],
+            )
+
+        print_observation("equity profile shared 输出", result.output)
+        print_observation(
+            "equity profile shared 请求",
+            {
+                "spec": (
+                    captured["request"].spec.module_name,
+                    captured["request"].spec.function_name,
+                ),
+                "kwargs": captured["request"].kwargs,
+                "backend": captured["request"].backend_selection.resolved.value,
+            },
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("PROFILE_OK", result.output)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("shared", "equity.profile"),
+        )
+        self.assertEqual(captured["request"].command_definition.command_key, "equity.profile")
+        self.assertEqual(captured["request"].backend_selection.resolved.value, "efinance")
+        self.assertEqual(captured["request"].kwargs["symbol"], "000001")
+
 
 if __name__ == "__main__":
     unittest.main()

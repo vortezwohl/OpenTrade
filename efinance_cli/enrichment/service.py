@@ -34,6 +34,7 @@ SINGLE_ROW_COMMANDS: set[tuple[str, str]] = {
     ("stock", "get_base_info"),
     ("bond", "get_base_info"),
     ("common", "get_base_info"),
+    ("shared", "equity.profile"),
 }
 
 LATEST_COMMANDS: set[tuple[str, str]] = {
@@ -206,7 +207,7 @@ def fetch_standard_history_for_request(
         if request.command_definition is not None
         else None
     )
-    if command_key != "equity.price.history" or request.backend_selection is None:
+    if command_key not in {"equity.price.history", "equity.profile"} or request.backend_selection is None:
         return fetch_history_for_code(request.spec.module_name, code, level)
 
     from efinance_cli.facade import CommandFacade

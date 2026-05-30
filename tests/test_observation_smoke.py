@@ -159,6 +159,36 @@ def build_shared_equity_history_request(trace_window: int = 32) -> InvocationReq
     )
 
 
+def build_shared_equity_profile_request(trace_window: int = 32) -> InvocationRequest:
+    """构造共享权益资料 observation 组装请求。"""
+    definition = get_shared_command_definition("equity.profile")
+
+    return InvocationRequest(
+        spec=CommandSpec(
+            module_name="shared",
+            function_name="equity.profile",
+            callback=lambda **_: None,
+            help_text="test",
+        ),
+        kwargs={
+            "symbol": "000001",
+            "market": "A_stock",
+        },
+        output=OutputOptions(
+            format_name="table",
+            indicator_level="full",
+            view_mode="observation",
+            trace_window=trace_window,
+        ),
+        command_definition=definition,
+        backend_selection=BackendSelection(
+            requested=BackendName.EFINANCE,
+            resolved=BackendName.EFINANCE,
+            source="explicit",
+        ),
+    )
+
+
 class ObservationSmokeTest(unittest.TestCase):
     """覆盖 observation 结构化输出的关键烟雾场景。"""
 
@@ -295,6 +325,51 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIsInstance(frame, pd.DataFrame)
         self.assertEqual(list(frame["symbol"]), ["000001", "000001"])
         mock_invoke.assert_called_once()
+
+    def test_shared_equity_profile_can_build_observation_payload(self) -> None:
+        """共享权益资料命令应能复用共享历史回补并生成 observation payload。"""
+
+        profile_row = pd.Series(
+            {
+                "code": "000001",
+                "name": "平安银行",
+                "pe": 5.1,
+                "industry": "银行",
+            }
+        )
+        history_frame = build_history_frame().rename(
+            columns={
+                "��Ʊ����": "symbol",
+                "��Ʊ����": "name",
+                "����": "date",
+                "����": "close",
+                "����": "open",
+                "���": "high",
+                "���": "low",
+                "�ɽ���": "volume",
+            }
+        )
+        history_frame["symbol"] = "000001"
+
+        with patch(
+            "efinance_cli.observation.fetch_standard_history_for_request",
+            return_value=history_frame,
+        ) as mock_fetch, patch(
+            "efinance_cli.observation.enrich_history_frame",
+            side_effect=lambda frame, level: frame,
+        ):
+            payload = build_observation_output(
+                build_shared_equity_profile_request(),
+                profile_row,
+            )
+
+        print_observation("shared equity profile payload", payload)
+        self.assertIsInstance(payload, ObservationPayload)
+        self.assertEqual(payload.meta["code"], "000001")
+        self.assertEqual(payload.latest_quote["name"], "平安银行")
+        self.assertEqual(payload.latest_quote["code"], "000001")
+        self.assertIn("close", payload.current_metrics)
+        mock_fetch.assert_called_once()
 
     def test_supported_latest_command_can_render_observation_json(self) -> None:
         """最新行情 observation 模式应产出完整 JSON section。"""

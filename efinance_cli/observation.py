@@ -350,6 +350,10 @@ def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
     """根据命令上下文解析用于历史回补的标的标识。"""
 
     module_name = request.spec.module_name
+    if module_name == "shared" and request.spec.function_name == "equity.profile":
+        symbol = request.kwargs.get("symbol")
+        if symbol:
+            return str(symbol)
     if module_name == "common":
         quote_id = request.kwargs.get("quote_id")
         if quote_id:

@@ -28,6 +28,11 @@ GROUP_HELP_TEXT: dict[str, str] = {
 
 
 SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
+    "equity.profile": CapabilityDescriptor(
+        capability_name="equity.profile",
+        description="获取权益类标的的基础资料。",
+        result_contract="profile-info",
+    ),
     "equity.price.history": CapabilityDescriptor(
         capability_name="equity.price.history",
         description="获取权益类标的历史 K 线数据。",
@@ -42,6 +47,36 @@ SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
 
 
 SHARED_COMMANDS: tuple[CommandDefinition, ...] = (
+    CommandDefinition(
+        command_key="equity.profile",
+        cli_path=("equity", "profile"),
+        capability="equity.profile",
+        request_schema=RequestSchema(
+            schema_name="equity-profile-request",
+            fields=(
+                RequestField(
+                    name="symbol",
+                    cli_name="symbol",
+                    annotation=str,
+                    required=True,
+                    help_text="股票代码，例如 000001。",
+                ),
+                RequestField(
+                    name="market",
+                    cli_name="market",
+                    annotation=str | None,
+                    default="A_stock",
+                    choices=("A_stock", "Hongkong", "US_stock"),
+                    help_text="市场枚举名；当前首版共享资料能力默认按 A_stock 验证。",
+                ),
+            ),
+        ),
+        help_text="获取权益类标的的基础资料。",
+        kind=CommandKind.SHARED,
+        supported_backends=(BackendName.EFINANCE, BackendName.AKSHARE),
+        allow_watch=True,
+        has_side_effect=False,
+    ),
     CommandDefinition(
         command_key="equity.price.history",
         cli_path=("equity", "price", "history"),

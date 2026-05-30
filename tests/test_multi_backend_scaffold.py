@@ -28,6 +28,7 @@ from efinance_cli.command_catalog import (
 )
 from efinance_cli.contracts import (
     HISTORY_BARS_CONTRACT,
+    PROFILE_INFO_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
     StandardizationError,
     normalize_contract_mapping,
@@ -72,7 +73,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertIn(BackendName.AKSHARE, definition.supported_backends)
         self.assertIn("instrument", list_shared_root_groups())
         self.assertEqual(build_shared_command_definitions_for_group("instrument"), [definition])
-        self.assertEqual(len(SHARED_COMMANDS), 2)
+        self.assertEqual(len(SHARED_COMMANDS), 3)
 
     def test_shared_catalog_exposes_equity_history_definition(self) -> None:
         """共享命令目录应暴露权益历史命令定义。"""
@@ -92,6 +93,26 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(definition.request_schema.schema_name, "equity-price-history-request")
         self.assertEqual(definition.request_schema.field_map()["period"].default, "daily")
         self.assertEqual(definition.request_schema.field_map()["adjust"].default, "qfq")
+        self.assertIn(BackendName.EFINANCE, definition.supported_backends)
+        self.assertIn(BackendName.AKSHARE, definition.supported_backends)
+
+    def test_shared_catalog_exposes_equity_profile_definition(self) -> None:
+        """共享命令目录应暴露权益资料命令定义。"""
+        definition = get_shared_command_definition("equity.profile")
+        capability = get_capability_descriptor(definition.capability)
+        print_observation(
+            "共享权益资料定义",
+            {
+                "command_key": definition.command_key,
+                "cli_path": definition.cli_path,
+                "capability": definition.capability,
+                "supported_backends": [item.value for item in definition.supported_backends],
+            },
+        )
+        self.assertEqual(definition.cli_path, ("equity", "profile"))
+        self.assertEqual(capability.result_contract, "profile-info")
+        self.assertEqual(definition.request_schema.schema_name, "equity-profile-request")
+        self.assertEqual(definition.request_schema.field_map()["market"].default, "A_stock")
         self.assertIn(BackendName.EFINANCE, definition.supported_backends)
         self.assertIn(BackendName.AKSHARE, definition.supported_backends)
 
@@ -153,6 +174,8 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertIn(BackendName.AKSHARE, registry)
         self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("instrument.search"))
         self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("instrument.search"))
+        self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("equity.profile"))
+        self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("equity.profile"))
         self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("equity.price.history"))
         self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("equity.price.history"))
 
@@ -320,6 +343,35 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.data[0]["symbol"], "000001")
         self.assertEqual(result.data[0]["close"], 10.5)
 
+    def test_efinance_equity_profile_handler_returns_standard_result(self) -> None:
+        """`efinance` 权益资料 handler 应返回标准资料契约。"""
+        definition = get_shared_command_definition("equity.profile")
+        selection = resolve_backend_selection(definition, BackendName.EFINANCE)
+        facade = CommandFacade()
+        profile_row = pd.Series(
+            {
+                "股票代码": "000001",
+                "股票名称": "平安银行",
+                "市盈率(动)": 5.1,
+                "市净率": 0.7,
+                "所处行业": "银行",
+            }
+        )
+        with patch("efinance.stock.get_base_info", return_value=profile_row):
+            result = facade.invoke(
+                definition,
+                selection,
+                {
+                    "symbol": "000001",
+                    "market": "A_stock",
+                },
+            )
+        print_observation("efinance 权益资料标准结果", result.data)
+        self.assertEqual(result.contract_name, PROFILE_INFO_CONTRACT.contract_name)
+        self.assertEqual(result.data["code"], "000001")
+        self.assertEqual(result.data["name"], "平安银行")
+        self.assertEqual(result.data["industry"], "银行")
+
     def test_akshare_equity_history_handler_returns_standard_result(self) -> None:
         """`akshare` 权益历史 handler 应返回标准历史契约。"""
         definition = get_shared_command_definition("equity.price.history")
@@ -367,6 +419,41 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(len(result.data), 1)
         self.assertEqual(result.data[0]["symbol"], "000001")
+        self.assertEqual(result.metadata["backend"], "akshare")
+
+    def test_akshare_equity_profile_handler_returns_standard_result(self) -> None:
+        """`akshare` 权益资料 handler 应返回标准资料契约。"""
+        definition = get_shared_command_definition("equity.profile")
+        selection = resolve_backend_selection(definition, BackendName.AKSHARE)
+        facade = CommandFacade()
+        frame = pd.DataFrame(
+            [
+                {"item": "股票代码", "value": "000001"},
+                {"item": "股票名称", "value": "平安银行"},
+                {"item": "总市值", "value": 123456789},
+                {"item": "市盈率(动)", "value": 5.1},
+            ]
+        )
+        mocked_akshare = type(
+            "MockAkshare",
+            (),
+            {
+                "stock_individual_info_em": staticmethod(lambda **kwargs: frame),
+            },
+        )()
+        with patch("efinance_cli.backends.providers._load_akshare_module", return_value=mocked_akshare):
+            result = facade.invoke(
+                definition,
+                selection,
+                {
+                    "symbol": "000001",
+                    "market": "A_stock",
+                },
+            )
+        print_observation("akshare 权益资料标准结果", result.data)
+        self.assertEqual(result.contract_name, PROFILE_INFO_CONTRACT.contract_name)
+        self.assertEqual(result.data["code"], "000001")
+        self.assertEqual(result.data["name"], "平安银行")
         self.assertEqual(result.metadata["backend"], "akshare")
 
     def test_shared_executor_keeps_raw_payload_in_raw_view(self) -> None:
@@ -494,6 +581,29 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 "high": 10.6,
                 "low": 9.9,
                 "volume": 1000,
+            },
+        )
+
+    def test_profile_contract_aliases_normalize_provider_fields(self) -> None:
+        """资料契约应能把 provider 原始字段归一化为标准字段。"""
+
+        raw = {
+            "股票代码": "000001",
+            "股票名称": "平安银行",
+            "市盈率(动)": 5.1,
+            "所处行业": "银行",
+            "总市值": 123456789,
+        }
+        normalized = normalize_contract_mapping(raw, PROFILE_INFO_CONTRACT)
+        print_observation("profile contract normalized", normalized)
+        self.assertEqual(
+            normalized,
+            {
+                "code": "000001",
+                "name": "平安银行",
+                "pe": 5.1,
+                "industry": "银行",
+                "total_market_value": 123456789,
             },
         )
 

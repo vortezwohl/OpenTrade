@@ -18,6 +18,7 @@ import pandas as pd
 from efinance_cli.backends.base import BackendProvider, CapabilityHandler
 from efinance_cli.contracts import (
     HISTORY_BARS_CONTRACT,
+    PROFILE_INFO_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
     StandardizationError,
     build_standard_result,
@@ -103,6 +104,33 @@ class EfinanceEquityPriceHistoryHandler(CapabilityHandler):
                 "symbol": request_data["symbol"],
                 "period": period,
                 "adjust": adjust,
+                "backend": BackendName.EFINANCE.value,
+            },
+        )
+
+
+class EfinanceEquityProfileHandler(CapabilityHandler):
+    """`efinance` 的权益类资料能力实现。"""
+
+    capability_name = "equity.profile"
+
+    def execute(self, request_data: dict[str, object]):
+        result = call_with_network_retry(
+            efinance.stock.get_base_info,
+            str(request_data["symbol"]),
+        )
+        row = _coerce_profile_row(result)
+        normalized = normalize_contract_mapping(row, PROFILE_INFO_CONTRACT)
+        if "code" not in normalized:
+            normalized["code"] = str(request_data["symbol"])
+        ensure_mapping_has_required_fields(normalized, PROFILE_INFO_CONTRACT)
+        return build_standard_result(
+            PROFILE_INFO_CONTRACT,
+            normalized,
+            raw_payload=result,
+            metadata={
+                "symbol": request_data["symbol"],
+                "market": request_data.get("market"),
                 "backend": BackendName.EFINANCE.value,
             },
         )
@@ -295,6 +323,35 @@ class AkshareEquityPriceHistoryHandler(CapabilityHandler):
         )
 
 
+class AkshareEquityProfileHandler(CapabilityHandler):
+    """`akshare` 的权益类资料能力实现。"""
+
+    capability_name = "equity.profile"
+
+    def execute(self, request_data: dict[str, object]):
+        market = request_data.get("market")
+        if market not in (None, "", "A_stock"):
+            raise ValueError("Akshare equity.profile 当前仅支持 A_stock 市场")
+
+        akshare = _load_akshare_module()
+        result = akshare.stock_individual_info_em(symbol=str(request_data["symbol"]))
+        row = _coerce_profile_row(result)
+        normalized = normalize_contract_mapping(row, PROFILE_INFO_CONTRACT)
+        if "code" not in normalized:
+            normalized["code"] = str(request_data["symbol"])
+        ensure_mapping_has_required_fields(normalized, PROFILE_INFO_CONTRACT)
+        return build_standard_result(
+            PROFILE_INFO_CONTRACT,
+            normalized,
+            raw_payload=result,
+            metadata={
+                "symbol": request_data["symbol"],
+                "market": request_data.get("market"),
+                "backend": BackendName.AKSHARE.value,
+            },
+        )
+
+
 def _load_akshare_module():
     """惰性加载 `akshare`，避免未安装时在导入阶段直接失败。"""
 
@@ -331,6 +388,25 @@ def _coerce_history_frame(result: object) -> pd.DataFrame:
         if isinstance(only_value, pd.DataFrame):
             return only_value
     raise StandardizationError(f"Unsupported history payload type: {type(result).__name__}")
+
+
+def _coerce_profile_row(result: object) -> dict[str, object]:
+    """把 provider 资料结果收敛为单行映射。"""
+
+    if isinstance(result, pd.Series):
+        return result.to_dict()
+    if isinstance(result, pd.DataFrame):
+        if result.empty:
+            return {}
+        if {"item", "value"}.issubset(result.columns):
+            return {
+                str(item): _normalize_scalar(value)
+                for item, value in zip(result["item"], result["value"], strict=False)
+            }
+        return result.iloc[0].to_dict()
+    if isinstance(result, dict):
+        return result
+    raise StandardizationError(f"Unsupported profile payload type: {type(result).__name__}")
 
 
 def _standardize_history_frame(
@@ -441,6 +517,7 @@ def build_efinance_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.EFINANCE,
         handlers={
+            "equity.profile": EfinanceEquityProfileHandler(),
             "equity.price.history": EfinanceEquityPriceHistoryHandler(),
             "instrument.search": EfinanceSearchHandler(),
         },
@@ -456,6 +533,7 @@ def build_akshare_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.AKSHARE,
         handlers={
+            "equity.profile": AkshareEquityProfileHandler(),
             "equity.price.history": AkshareEquityPriceHistoryHandler(),
             "instrument.search": AkshareSearchHandler(),
         },
