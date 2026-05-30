@@ -79,6 +79,42 @@ FUND_NAV_HISTORY_CONTRACT = ResultContract(
     },
 )
 
+REALTIME_QUOTES_CONTRACT = ResultContract(
+    contract_name="realtime-quotes",
+    required_fields=("symbol", "name", "close"),
+    optional_fields=(
+        "quote_id",
+        "market",
+        "open",
+        "high",
+        "low",
+        "volume",
+        "turnover",
+        "change_pct",
+        "change_amount",
+        "turnover_rate",
+        "amplitude",
+        "date",
+    ),
+    field_aliases={
+        "symbol": ("symbol", "代码", "股票代码", "证券代码"),
+        "name": ("name", "名称", "股票名称", "证券简称"),
+        "close": ("close", "最新价", "收盘"),
+        "quote_id": ("quote_id", "行情ID", "symbol", "代码", "股票代码", "证券代码"),
+        "market": ("market", "市场", "市场类型"),
+        "open": ("open", "今开", "开盘"),
+        "high": ("high", "最高"),
+        "low": ("low", "最低"),
+        "volume": ("volume", "成交量"),
+        "turnover": ("turnover", "成交额"),
+        "change_pct": ("change_pct", "涨跌幅"),
+        "change_amount": ("change_amount", "涨跌额"),
+        "turnover_rate": ("turnover_rate", "换手率"),
+        "amplitude": ("amplitude", "振幅"),
+        "date": ("date", "日期", "时间"),
+    },
+)
+
 HISTORY_BARS_CONTRACT = ResultContract(
     contract_name="history-bars",
     required_fields=("date", "symbol", "open", "close", "high", "low"),

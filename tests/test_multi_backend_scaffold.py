@@ -30,6 +30,7 @@ from efinance_cli.contracts import (
     FUND_NAV_HISTORY_CONTRACT,
     HISTORY_BARS_CONTRACT,
     PROFILE_INFO_CONTRACT,
+    REALTIME_QUOTES_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
     StandardizationError,
     normalize_contract_mapping,
@@ -74,7 +75,27 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertIn(BackendName.AKSHARE, definition.supported_backends)
         self.assertIn("instrument", list_shared_root_groups())
         self.assertEqual(build_shared_command_definitions_for_group("instrument"), [definition])
-        self.assertEqual(len(SHARED_COMMANDS), 4)
+        self.assertEqual(len(SHARED_COMMANDS), 5)
+
+    def test_shared_catalog_exposes_equity_live_definition(self) -> None:
+        """共享命令目录应暴露权益实时行情定义。"""
+        definition = get_shared_command_definition("equity.price.live")
+        capability = get_capability_descriptor(definition.capability)
+        print_observation(
+            "shared equity live definition",
+            {
+                "command_key": definition.command_key,
+                "cli_path": definition.cli_path,
+                "capability": definition.capability,
+                "supported_backends": [item.value for item in definition.supported_backends],
+            },
+        )
+        self.assertEqual(definition.cli_path, ("equity", "price", "live"))
+        self.assertEqual(capability.result_contract, "realtime-quotes")
+        self.assertEqual(definition.request_schema.schema_name, "equity-price-live-request")
+        self.assertEqual(definition.request_schema.field_map()["market"].default, "A_stock")
+        self.assertIn(BackendName.EFINANCE, definition.supported_backends)
+        self.assertIn(BackendName.AKSHARE, definition.supported_backends)
 
     def test_shared_catalog_exposes_equity_history_definition(self) -> None:
         """共享命令目录应暴露权益历史命令定义。"""
@@ -194,6 +215,8 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertIn(BackendName.AKSHARE, registry)
         self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("instrument.search"))
         self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("instrument.search"))
+        self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("equity.price.live"))
+        self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("equity.price.live"))
         self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("equity.profile"))
         self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("equity.profile"))
         self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("equity.price.history"))
@@ -544,6 +567,67 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.data[0]["symbol"], "161725")
         self.assertEqual(result.metadata["backend"], "akshare")
 
+    def test_efinance_equity_live_handler_returns_standard_result(self) -> None:
+        """`efinance` 权益实时 handler 应返回标准契约结果。"""
+        definition = get_shared_command_definition("equity.price.live")
+        selection = resolve_backend_selection(definition, BackendName.EFINANCE)
+        facade = CommandFacade()
+        frame = pd.DataFrame(
+            [
+                {"代码": "000001", "名称": "平安银行", "最新价": 10.5, "今开": 10.2, "最高": 10.6, "最低": 10.1, "成交量": 12345, "成交额": 67890.0, "涨跌幅": 1.2},
+                {"代码": "000002", "名称": "万科A", "最新价": 9.8, "今开": 9.7, "最高": 9.9, "最低": 9.6, "成交量": 54321, "成交额": 98765.0, "涨跌幅": -0.5},
+            ]
+        )
+        with patch("efinance.stock.get_realtime_quotes", return_value=frame):
+            result = facade.invoke(
+                definition,
+                selection,
+                {
+                    "market": "A_stock",
+                    "record_limit": 1,
+                },
+            )
+        print_observation("efinance equity live standard result", result.data)
+        self.assertEqual(result.contract_name, REALTIME_QUOTES_CONTRACT.contract_name)
+        self.assertEqual(len(result.data), 1)
+        self.assertEqual(result.data[0]["symbol"], "000001")
+        self.assertEqual(result.data[0]["name"], "平安银行")
+        self.assertEqual(result.metadata["backend"], "efinance")
+
+    def test_akshare_equity_live_handler_returns_standard_result(self) -> None:
+        """`akshare` 权益实时 handler 应返回标准契约结果。"""
+        definition = get_shared_command_definition("equity.price.live")
+        selection = resolve_backend_selection(definition, BackendName.AKSHARE)
+        facade = CommandFacade()
+        frame = pd.DataFrame(
+            [
+                {"代码": "000001", "名称": "平安银行", "最新价": 10.5, "今开": 10.2, "最高": 10.6, "最低": 10.1, "成交量": 12345, "成交额": 67890.0, "涨跌幅": 1.2},
+                {"代码": "000002", "名称": "万科A", "最新价": 9.8, "今开": 9.7, "最高": 9.9, "最低": 9.6, "成交量": 54321, "成交额": 98765.0, "涨跌幅": -0.5},
+            ]
+        )
+        mocked_akshare = type(
+            "MockAkshare",
+            (),
+            {
+                "stock_zh_a_spot_em": staticmethod(lambda: frame),
+            },
+        )()
+        with patch("efinance_cli.backends.providers._load_akshare_module", return_value=mocked_akshare):
+            result = facade.invoke(
+                definition,
+                selection,
+                {
+                    "market": "A_stock",
+                    "record_limit": 2,
+                },
+            )
+        print_observation("akshare equity live standard result", result.data)
+        self.assertEqual(result.contract_name, REALTIME_QUOTES_CONTRACT.contract_name)
+        self.assertEqual(len(result.data), 2)
+        self.assertEqual(result.data[1]["symbol"], "000002")
+        self.assertEqual(result.data[1]["name"], "万科A")
+        self.assertEqual(result.metadata["backend"], "akshare")
+
     def test_shared_executor_keeps_raw_payload_in_raw_view(self) -> None:
         """共享命令在 raw 视图下应保留标准结果封装中的原始 payload。"""
         from efinance_cli.executor import CommandExecutor
@@ -718,6 +802,28 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             },
         )
 
+
+    def test_realtime_quotes_contract_aliases_normalize_provider_fields(self) -> None:
+        """实时行情契约应归一化 provider 字段别名。"""
+        raw = {
+            "代码": "000001",
+            "名称": "平安银行",
+            "最新价": 10.5,
+            "今开": 10.2,
+            "最高": 10.6,
+            "最低": 10.1,
+            "成交量": 12345,
+            "成交额": 67890.0,
+            "涨跌幅": 1.2,
+        }
+        normalized = normalize_contract_mapping(raw, REALTIME_QUOTES_CONTRACT)
+        print_observation("realtime quotes contract normalized", normalized)
+        self.assertEqual(normalized["symbol"], "000001")
+        self.assertEqual(normalized["name"], "平安银行")
+        self.assertEqual(normalized["close"], 10.5)
+        self.assertEqual(normalized["open"], 10.2)
+        self.assertEqual(normalized["high"], 10.6)
+        self.assertEqual(normalized["low"], 10.1)
 
 if __name__ == "__main__":
     unittest.main()

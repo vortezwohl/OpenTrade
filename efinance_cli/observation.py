@@ -24,6 +24,7 @@ from efinance_cli.enrichment.levels import LEVELS, normalize_indicator_level
 from efinance_cli.enrichment.service import (
     HISTORY_COMMANDS,
     LATEST_COMMANDS,
+    SHARED_REALTIME_LIST_COMMANDS,
     SHARED_HISTORY_COMMANDS,
     SINGLE_ROW_COMMANDS,
     extract_code_from_series,
@@ -152,6 +153,7 @@ OBSERVATION_REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
     ("bond", "get_realtime_quotes"),
     ("futures", "get_realtime_quotes"),
 }
+OBSERVATION_REALTIME_LIST_COMMANDS.update(SHARED_REALTIME_LIST_COMMANDS)
 
 
 def build_observation_output(request: Any, value: Any) -> Any:
@@ -350,6 +352,10 @@ def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
     """根据命令上下文解析用于历史回补的标的标识。"""
 
     module_name = request.spec.module_name
+    if module_name == "shared" and request.spec.function_name == "equity.price.live":
+        symbol = find_first_present_value(row, ["symbol", "code", "quote_id"])
+        if symbol is not None:
+            return str(symbol)
     if module_name == "shared" and request.spec.function_name == "equity.profile":
         symbol = request.kwargs.get("symbol")
         if symbol:

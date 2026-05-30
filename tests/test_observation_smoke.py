@@ -219,6 +219,37 @@ def build_shared_fund_nav_history_request(trace_window: int = 32) -> InvocationR
     )
 
 
+def build_shared_equity_live_request(trace_window: int = 32, limit: int | None = None) -> InvocationRequest:
+    """构造共享权益实时 observation 组装请求。"""
+    definition = get_shared_command_definition("equity.price.live")
+
+    return InvocationRequest(
+        spec=CommandSpec(
+            module_name="shared",
+            function_name="equity.price.live",
+            callback=lambda **_: None,
+            help_text="test",
+        ),
+        kwargs={
+            "market": "A_stock",
+            "record_limit": None,
+        },
+        output=OutputOptions(
+            format_name="table",
+            indicator_level="full",
+            view_mode="observation",
+            trace_window=trace_window,
+            limit=limit,
+        ),
+        command_definition=definition,
+        backend_selection=BackendSelection(
+            requested=BackendName.EFINANCE,
+            resolved=BackendName.EFINANCE,
+            source="explicit",
+        ),
+    )
+
+
 class ObservationSmokeTest(unittest.TestCase):
     """覆盖 observation 结构化输出的关键烟雾场景。"""
 
@@ -601,6 +632,46 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIsInstance(payloads, dict)
         self.assertEqual(len(payloads), 2)
         self.assertEqual(set(payloads.keys()), {"AAPL", "MSFT"})
+
+    def test_shared_equity_live_can_build_multi_source_observation_with_limit(self) -> None:
+        """共享 equity live 应复用 realtime-list observation 与 limit 限流。"""
+        self.assertIn(("shared", "equity.price.live"), OBSERVATION_REALTIME_LIST_COMMANDS)
+        request = build_shared_equity_live_request(trace_window=4, limit=2)
+        frame = pd.DataFrame(
+            [
+                {"symbol": "000001", "name": "平安银行", "close": 10.5},
+                {"symbol": "000002", "name": "万科A", "close": 9.8},
+                {"symbol": "000333", "name": "美的集团", "close": 65.2},
+            ]
+        )
+
+        def fake_fetch_standard(request_obj, code, level):
+            sample = build_history_frame().rename(
+                columns={
+                    "股票代码": "symbol",
+                    "股票名称": "name",
+                    "日期": "date",
+                    "收盘": "close",
+                    "开盘": "open",
+                    "最高": "high",
+                    "最低": "low",
+                    "成交量": "volume",
+                }
+            ).copy()
+            sample["symbol"] = code
+            sample["name"] = code
+            return sample
+
+        with patch("efinance_cli.observation.fetch_standard_history_for_request", side_effect=fake_fetch_standard), patch(
+            "efinance_cli.observation.enrich_history_frame",
+            side_effect=lambda history, level: history,
+        ):
+            payloads = build_observation_output(request, frame)
+
+        print_observation("shared equity live payloads", payloads)
+        self.assertIsInstance(payloads, dict)
+        self.assertEqual(len(payloads), 2)
+        self.assertEqual(set(payloads.keys()), {"000001", "000002"})
 
     def test_fund_history_multi_cli_can_render_multi_source_observation_formats(self) -> None:
         """fund get-quote-history-multi 应在多种格式下输出 multi-source observation。"""

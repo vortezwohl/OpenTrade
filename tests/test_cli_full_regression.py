@@ -863,5 +863,52 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured["request"].kwargs["symbol"], "161725")
 
 
+    def test_equity_live_shared_command_routes_through_executor(self) -> None:
+        """共享 equity live 命令应按 shared 请求透传到 backend。"""
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("LIVE_OK")
+
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            result = self.runner.invoke(
+                self.cli,
+                [
+                    "equity",
+                    "price",
+                    "live",
+                    "--market",
+                    "A_stock",
+                    "--record-limit",
+                    "2",
+                    "--backend",
+                    "akshare",
+                ],
+            )
+
+        print_observation("equity live shared 输出", result.output)
+        print_observation(
+            "equity live shared 请求",
+            {
+                "spec": (
+                    captured["request"].spec.module_name,
+                    captured["request"].spec.function_name,
+                ),
+                "kwargs": captured["request"].kwargs,
+                "backend": captured["request"].backend_selection.resolved.value,
+            },
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("LIVE_OK", result.output)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("shared", "equity.price.live"),
+        )
+        self.assertEqual(captured["request"].command_definition.command_key, "equity.price.live")
+        self.assertEqual(captured["request"].backend_selection.resolved.value, "akshare")
+        self.assertEqual(captured["request"].kwargs["market"], "A_stock")
+        self.assertEqual(captured["request"].kwargs["record_limit"], 2)
+
 if __name__ == "__main__":
     unittest.main()

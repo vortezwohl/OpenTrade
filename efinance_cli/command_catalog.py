@@ -29,6 +29,11 @@ GROUP_HELP_TEXT: dict[str, str] = {
 
 
 SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
+    "equity.price.live": CapabilityDescriptor(
+        capability_name="equity.price.live",
+        description="获取权益类标的的实时行情列表。",
+        result_contract="realtime-quotes",
+    ),
     "fund.nav.history": CapabilityDescriptor(
         capability_name="fund.nav.history",
         description="��ȡ������ʷ��ֵ���ݡ�",
@@ -53,6 +58,36 @@ SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
 
 
 SHARED_COMMANDS: tuple[CommandDefinition, ...] = (
+    CommandDefinition(
+        command_key="equity.price.live",
+        cli_path=("equity", "price", "live"),
+        capability="equity.price.live",
+        request_schema=RequestSchema(
+            schema_name="equity-price-live-request",
+            fields=(
+                RequestField(
+                    name="market",
+                    cli_name="market",
+                    annotation=str | None,
+                    default="A_stock",
+                    choices=("A_stock",),
+                    help_text="市场枚举名；首版共享实时列表仅支持 A_stock。",
+                ),
+                RequestField(
+                    name="record_limit",
+                    cli_name="record-limit",
+                    annotation=int | None,
+                    default=None,
+                    help_text="仅保留前 N 条实时行情；不传时由 provider 返回默认规模。",
+                ),
+            ),
+        ),
+        help_text="获取权益类标的的实时行情列表。",
+        kind=CommandKind.SHARED,
+        supported_backends=(BackendName.EFINANCE, BackendName.AKSHARE),
+        allow_watch=True,
+        has_side_effect=False,
+    ),
     CommandDefinition(
         command_key="fund.nav.history",
         cli_path=("fund", "nav", "history"),
