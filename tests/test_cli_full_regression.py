@@ -818,6 +818,50 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertIn("profile", fund_result.output)
         self.assertIn("history-batch", nav_result.output)
 
+    def test_fund_nav_history_shared_command_routes_through_executor(self) -> None:
+        """���� fund nav history ����Ӧ���� shared ����͸�� backend��"""
+        captured = {}
+
+        def fake_run(executor_self, request) -> None:
+            captured["request"] = request
+            click.echo("FUND_HISTORY_OK")
+
+        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+            result = self.runner.invoke(
+                self.cli,
+                [
+                    "fund",
+                    "nav",
+                    "history",
+                    "--symbol",
+                    "161725",
+                    "--backend",
+                    "akshare",
+                ],
+            )
+
+        print_observation("fund nav history shared 输出", result.output)
+        print_observation(
+            "fund nav history shared 请求",
+            {
+                "spec": (
+                    captured["request"].spec.module_name,
+                    captured["request"].spec.function_name,
+                ),
+                "kwargs": captured["request"].kwargs,
+                "backend": captured["request"].backend_selection.resolved.value,
+            },
+        )
+        self.assertEqual(result.exit_code, 0, msg=result.output)
+        self.assertIn("FUND_HISTORY_OK", result.output)
+        self.assertEqual(
+            (captured["request"].spec.module_name, captured["request"].spec.function_name),
+            ("shared", "fund.nav.history"),
+        )
+        self.assertEqual(captured["request"].command_definition.command_key, "fund.nav.history")
+        self.assertEqual(captured["request"].backend_selection.resolved.value, "akshare")
+        self.assertEqual(captured["request"].kwargs["symbol"], "161725")
+
 
 if __name__ == "__main__":
     unittest.main()

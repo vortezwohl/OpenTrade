@@ -17,6 +17,7 @@ import pandas as pd
 
 from efinance_cli.backends.base import BackendProvider, CapabilityHandler
 from efinance_cli.contracts import (
+    FUND_NAV_HISTORY_CONTRACT,
     HISTORY_BARS_CONTRACT,
     PROFILE_INFO_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
@@ -131,6 +132,35 @@ class EfinanceEquityProfileHandler(CapabilityHandler):
             metadata={
                 "symbol": request_data["symbol"],
                 "market": request_data.get("market"),
+                "backend": BackendName.EFINANCE.value,
+            },
+        )
+
+
+class EfinanceFundNavHistoryHandler(CapabilityHandler):
+    """`efinance` 的基金净值历史能力实现。"""
+
+    capability_name = "fund.nav.history"
+
+    def execute(self, request_data: dict[str, object]):
+        result = call_with_network_retry(
+            efinance.fund.get_quote_history,
+            str(request_data["symbol"]),
+        )
+        frame = _coerce_history_frame(result)
+        rows = _standardize_fund_nav_history_frame(
+            frame,
+            symbol=str(request_data["symbol"]),
+        )
+        limit = request_data.get("record_limit")
+        if isinstance(limit, int) and limit > 0:
+            rows = rows[:limit]
+        return build_standard_result(
+            FUND_NAV_HISTORY_CONTRACT,
+            rows,
+            raw_payload=result,
+            metadata={
+                "symbol": request_data["symbol"],
                 "backend": BackendName.EFINANCE.value,
             },
         )
@@ -352,6 +382,36 @@ class AkshareEquityProfileHandler(CapabilityHandler):
         )
 
 
+class AkshareFundNavHistoryHandler(CapabilityHandler):
+    """`akshare` 的基金净值历史能力实现。"""
+
+    capability_name = "fund.nav.history"
+
+    def execute(self, request_data: dict[str, object]):
+        akshare = _load_akshare_module()
+        result = akshare.fund_open_fund_info_em(
+            symbol=str(request_data["symbol"]),
+            indicator="单位净值走势",
+        )
+        frame = _coerce_history_frame(result)
+        rows = _standardize_fund_nav_history_frame(
+            frame,
+            symbol=str(request_data["symbol"]),
+        )
+        limit = request_data.get("record_limit")
+        if isinstance(limit, int) and limit > 0:
+            rows = rows[:limit]
+        return build_standard_result(
+            FUND_NAV_HISTORY_CONTRACT,
+            rows,
+            raw_payload=result,
+            metadata={
+                "symbol": request_data["symbol"],
+                "backend": BackendName.AKSHARE.value,
+            },
+        )
+
+
 def _load_akshare_module():
     """惰性加载 `akshare`，避免未安装时在导入阶段直接失败。"""
 
@@ -445,6 +505,34 @@ def _standardize_history_frame(
     return rows
 
 
+def _standardize_fund_nav_history_frame(
+    frame: pd.DataFrame,
+    *,
+    symbol: str,
+) -> list[dict[str, object]]:
+    """把基金净值历史 DataFrame 标准化为共享基金净值契约。"""
+
+    if frame is None or frame.empty:
+        return []
+
+    rows: list[dict[str, object]] = []
+    for _, row in frame.iterrows():
+        item = {
+            "date": _pick_first_present_value(row, ("date", "日期", "净值日期", "时间")),
+            "symbol": _pick_first_present_value(row, ("symbol", "基金代码", "代码")) or symbol,
+            "unit_nav": _pick_first_present_value(row, ("unit_nav", "单位净值")),
+            "accumulated_nav": _pick_first_present_value(row, ("accumulated_nav", "累计净值")),
+            "change_pct": _pick_first_present_value(row, ("change_pct", "涨跌幅", "日增长率")),
+        }
+        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
+        normalized = normalize_contract_mapping(item, FUND_NAV_HISTORY_CONTRACT)
+        if "symbol" not in normalized:
+            normalized["symbol"] = symbol
+        ensure_mapping_has_required_fields(normalized, FUND_NAV_HISTORY_CONTRACT)
+        rows.append(normalized)
+    return rows
+
+
 def _pick_first_present_value(row: pd.Series, candidates: tuple[str, ...]) -> object | None:
     """从候选列名里提取第一个非空值。"""
 
@@ -517,6 +605,7 @@ def build_efinance_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.EFINANCE,
         handlers={
+            "fund.nav.history": EfinanceFundNavHistoryHandler(),
             "equity.profile": EfinanceEquityProfileHandler(),
             "equity.price.history": EfinanceEquityPriceHistoryHandler(),
             "instrument.search": EfinanceSearchHandler(),
@@ -533,6 +622,7 @@ def build_akshare_provider() -> BackendProvider:
     return BackendProvider(
         backend_name=BackendName.AKSHARE,
         handlers={
+            "fund.nav.history": AkshareFundNavHistoryHandler(),
             "equity.profile": AkshareEquityProfileHandler(),
             "equity.price.history": AkshareEquityPriceHistoryHandler(),
             "instrument.search": AkshareSearchHandler(),

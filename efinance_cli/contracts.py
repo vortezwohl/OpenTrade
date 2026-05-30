@@ -66,6 +66,19 @@ PROFILE_INFO_CONTRACT = ResultContract(
     },
 )
 
+FUND_NAV_HISTORY_CONTRACT = ResultContract(
+    contract_name="fund-nav-history",
+    required_fields=("date", "symbol", "unit_nav"),
+    optional_fields=("accumulated_nav", "change_pct"),
+    field_aliases={
+        "date": ("date", "����", "ʱ��"),
+        "symbol": ("symbol", "�������", "����"),
+        "unit_nav": ("unit_nav", "��λ��ֵ"),
+        "accumulated_nav": ("accumulated_nav", "�ۼƾ�ֵ"),
+        "change_pct": ("change_pct", "�ǵ���"),
+    },
+)
+
 HISTORY_BARS_CONTRACT = ResultContract(
     contract_name="history-bars",
     required_fields=("date", "symbol", "open", "close", "high", "low"),

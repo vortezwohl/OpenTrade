@@ -27,6 +27,7 @@ from efinance_cli.command_catalog import (
     list_shared_root_groups,
 )
 from efinance_cli.contracts import (
+    FUND_NAV_HISTORY_CONTRACT,
     HISTORY_BARS_CONTRACT,
     PROFILE_INFO_CONTRACT,
     SEARCH_RESULTS_CONTRACT,
@@ -73,7 +74,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertIn(BackendName.AKSHARE, definition.supported_backends)
         self.assertIn("instrument", list_shared_root_groups())
         self.assertEqual(build_shared_command_definitions_for_group("instrument"), [definition])
-        self.assertEqual(len(SHARED_COMMANDS), 3)
+        self.assertEqual(len(SHARED_COMMANDS), 4)
 
     def test_shared_catalog_exposes_equity_history_definition(self) -> None:
         """共享命令目录应暴露权益历史命令定义。"""
@@ -113,6 +114,25 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(capability.result_contract, "profile-info")
         self.assertEqual(definition.request_schema.schema_name, "equity-profile-request")
         self.assertEqual(definition.request_schema.field_map()["market"].default, "A_stock")
+        self.assertIn(BackendName.EFINANCE, definition.supported_backends)
+        self.assertIn(BackendName.AKSHARE, definition.supported_backends)
+
+    def test_shared_catalog_exposes_fund_nav_history_definition(self) -> None:
+        """��������Ŀ¼Ӧ��¶������ʷ��ֵ����塣"""
+        definition = get_shared_command_definition("fund.nav.history")
+        capability = get_capability_descriptor(definition.capability)
+        print_observation(
+            "fund nav history definition",
+            {
+                "command_key": definition.command_key,
+                "cli_path": definition.cli_path,
+                "capability": definition.capability,
+                "supported_backends": [item.value for item in definition.supported_backends],
+            },
+        )
+        self.assertEqual(definition.cli_path, ("fund", "nav", "history"))
+        self.assertEqual(capability.result_contract, "fund-nav-history")
+        self.assertEqual(definition.request_schema.schema_name, "fund-nav-history-request")
         self.assertIn(BackendName.EFINANCE, definition.supported_backends)
         self.assertIn(BackendName.AKSHARE, definition.supported_backends)
 
@@ -178,6 +198,8 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("equity.profile"))
         self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("equity.price.history"))
         self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("equity.price.history"))
+        self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("fund.nav.history"))
+        self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("fund.nav.history"))
 
     def test_facade_invokes_efinance_search_handler_and_returns_standard_result(self) -> None:
         """门面应能调度 `efinance` 搜索 handler 并返回标准结果。"""
@@ -456,6 +478,72 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.data["name"], "平安银行")
         self.assertEqual(result.metadata["backend"], "akshare")
 
+    def test_efinance_fund_nav_history_handler_returns_standard_result(self) -> None:
+        """`efinance` ������ʷ��ֵ handler Ӧ���ر�׼������ֵ��Լ��"""
+        definition = get_shared_command_definition("fund.nav.history")
+        selection = resolve_backend_selection(definition, BackendName.EFINANCE)
+        facade = CommandFacade()
+        frame = pd.DataFrame(
+            [
+                {
+                    "date": "2026-05-29",
+                    "unit_nav": 0.5866,
+                    "accumulated_nav": 2.3027,
+                    "change_pct": 3.11,
+                }
+            ]
+        )
+        with patch("efinance.fund.get_quote_history", return_value=frame):
+            result = facade.invoke(
+                definition,
+                selection,
+                {
+                    "symbol": "161725",
+                    "record_limit": None,
+                },
+            )
+        print_observation("efinance fund nav history standard result", result.data)
+        self.assertEqual(result.contract_name, FUND_NAV_HISTORY_CONTRACT.contract_name)
+        self.assertEqual(result.data[0]["symbol"], "161725")
+        self.assertEqual(result.data[0]["unit_nav"], 0.5866)
+
+    def test_akshare_fund_nav_history_handler_returns_standard_result(self) -> None:
+        """`akshare` ������ʷ��ֵ handler Ӧ���ر�׼������ֵ��Լ��"""
+        definition = get_shared_command_definition("fund.nav.history")
+        selection = resolve_backend_selection(definition, BackendName.AKSHARE)
+        facade = CommandFacade()
+        frame = pd.DataFrame(
+            [
+                {
+                    "date": "2026-05-29",
+                    "symbol": "161725",
+                    "unit_nav": 0.5866,
+                    "accumulated_nav": 2.3027,
+                    "change_pct": 3.11,
+                }
+            ]
+        )
+        mocked_akshare = type(
+            "MockAkshare",
+            (),
+            {
+                "fund_open_fund_info_em": staticmethod(lambda **kwargs: frame),
+            },
+        )()
+        with patch("efinance_cli.backends.providers._load_akshare_module", return_value=mocked_akshare):
+            result = facade.invoke(
+                definition,
+                selection,
+                {
+                    "symbol": "161725",
+                    "record_limit": None,
+                },
+            )
+        print_observation("akshare fund nav history standard result", result.data)
+        self.assertEqual(result.contract_name, FUND_NAV_HISTORY_CONTRACT.contract_name)
+        self.assertEqual(result.data[0]["symbol"], "161725")
+        self.assertEqual(result.metadata["backend"], "akshare")
+
     def test_shared_executor_keeps_raw_payload_in_raw_view(self) -> None:
         """共享命令在 raw 视图下应保留标准结果封装中的原始 payload。"""
         from efinance_cli.executor import CommandExecutor
@@ -604,6 +692,29 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 "pe": 5.1,
                 "industry": "银行",
                 "total_market_value": 123456789,
+            },
+        )
+
+    def test_fund_nav_history_contract_aliases_normalize_provider_fields(self) -> None:
+        """������ʷ��ֵ��ԼӦ�ܰ� provider ԭʼ�ֶι�һ��Ϊ��׼�ֶΡ�"""
+
+        raw = {
+            "����": "2026-05-29",
+            "�������": "161725",
+            "��λ��ֵ": 0.5866,
+            "�ۼƾ�ֵ": 2.3027,
+            "�ǵ���": 3.11,
+        }
+        normalized = normalize_contract_mapping(raw, FUND_NAV_HISTORY_CONTRACT)
+        print_observation("fund nav history contract normalized", normalized)
+        self.assertEqual(
+            normalized,
+            {
+                "date": "2026-05-29",
+                "symbol": "161725",
+                "unit_nav": 0.5866,
+                "accumulated_nav": 2.3027,
+                "change_pct": 3.11,
             },
         )
 

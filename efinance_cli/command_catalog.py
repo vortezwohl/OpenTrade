@@ -21,6 +21,7 @@ from efinance_cli.models import (
 
 
 GROUP_HELP_TEXT: dict[str, str] = {
+    "fund": "���˻�����ֵ��ʷ�����������ϡ�",
     "equity": "跨后端股票与权益类历史价格能力。",
     "instrument": "跨后端的证券检索与标的解析能力。",
     "watch": "为任意子命令开启循环刷新。",
@@ -28,6 +29,11 @@ GROUP_HELP_TEXT: dict[str, str] = {
 
 
 SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
+    "fund.nav.history": CapabilityDescriptor(
+        capability_name="fund.nav.history",
+        description="��ȡ������ʷ��ֵ���ݡ�",
+        result_contract="fund-nav-history",
+    ),
     "equity.profile": CapabilityDescriptor(
         capability_name="equity.profile",
         description="获取权益类标的的基础资料。",
@@ -47,6 +53,35 @@ SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
 
 
 SHARED_COMMANDS: tuple[CommandDefinition, ...] = (
+    CommandDefinition(
+        command_key="fund.nav.history",
+        cli_path=("fund", "nav", "history"),
+        capability="fund.nav.history",
+        request_schema=RequestSchema(
+            schema_name="fund-nav-history-request",
+            fields=(
+                RequestField(
+                    name="symbol",
+                    cli_name="symbol",
+                    annotation=str,
+                    required=True,
+                    help_text="������룬���� 161725��",
+                ),
+                RequestField(
+                    name="record_limit",
+                    cli_name="record-limit",
+                    annotation=int | None,
+                    default=None,
+                    help_text="��ȡ��� N ����ֵ��¼��������ʹ�� provider Ĭ�Ϸ�Χ��",
+                ),
+            ),
+        ),
+        help_text="��ȡ������ʷ��ֵ���ݡ�",
+        kind=CommandKind.SHARED,
+        supported_backends=(BackendName.EFINANCE, BackendName.AKSHARE),
+        allow_watch=True,
+        has_side_effect=False,
+    ),
     CommandDefinition(
         command_key="equity.profile",
         cli_path=("equity", "profile"),

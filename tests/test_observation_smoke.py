@@ -189,6 +189,36 @@ def build_shared_equity_profile_request(trace_window: int = 32) -> InvocationReq
     )
 
 
+def build_shared_fund_nav_history_request(trace_window: int = 32) -> InvocationRequest:
+    """构造共享基金净值历史 observation 组装请求。"""
+    definition = get_shared_command_definition("fund.nav.history")
+
+    return InvocationRequest(
+        spec=CommandSpec(
+            module_name="shared",
+            function_name="fund.nav.history",
+            callback=lambda **_: None,
+            help_text="test",
+        ),
+        kwargs={
+            "symbol": "161725",
+            "record_limit": None,
+        },
+        output=OutputOptions(
+            format_name="table",
+            indicator_level="full",
+            view_mode="observation",
+            trace_window=trace_window,
+        ),
+        command_definition=definition,
+        backend_selection=BackendSelection(
+            requested=BackendName.EFINANCE,
+            resolved=BackendName.EFINANCE,
+            source="explicit",
+        ),
+    )
+
+
 class ObservationSmokeTest(unittest.TestCase):
     """覆盖 observation 结构化输出的关键烟雾场景。"""
 
@@ -370,6 +400,40 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.latest_quote["code"], "000001")
         self.assertIn("close", payload.current_metrics)
         mock_fetch.assert_called_once()
+
+    def test_shared_fund_nav_history_falls_back_to_generic_observation_sections(self) -> None:
+        """共享基金净值历史当前应稳定走 generic observation 输出。"""
+
+        frame = pd.DataFrame(
+            [
+                {
+                    "date": "2026-05-29",
+                    "symbol": "161725",
+                    "unit_nav": 0.5866,
+                    "accumulated_nav": 2.3027,
+                    "change_pct": 3.11,
+                },
+                {
+                    "date": "2026-05-28",
+                    "symbol": "161725",
+                    "unit_nav": 0.5689,
+                    "accumulated_nav": 2.2850,
+                    "change_pct": -2.52,
+                },
+            ]
+        )
+
+        payload = build_observation_output(
+            build_shared_fund_nav_history_request(trace_window=4),
+            frame,
+        )
+
+        print_observation("shared fund nav history payload", payload)
+        self.assertIsInstance(payload, ObservationPayload)
+        self.assertEqual(payload.meta["module"], "shared")
+        self.assertEqual(payload.meta["function"], "fund.nav.history")
+        self.assertEqual(payload.meta["row_count"], 2)
+        self.assertEqual(payload.sections[0].name, "result")
 
     def test_supported_latest_command_can_render_observation_json(self) -> None:
         """最新行情 observation 模式应产出完整 JSON section。"""
