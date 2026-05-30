@@ -26,11 +26,11 @@ def enrich_history_frame(frame: pd.DataFrame, level: str) -> pd.DataFrame:
 def normalize_history_columns(frame: pd.DataFrame) -> dict[str, pd.Series]:
     """识别不同市场 K 线表中的标准列。"""
     column_map = {
-        "open": ["开盘", "今开", "单位净值"],
-        "high": ["最高"],
-        "low": ["最低"],
-        "close": ["收盘", "最新价", "单位净值"],
-        "volume": ["成交量"],
+        "open": ["开盘", "今开", "单位净值", "open"],
+        "high": ["最高", "high"],
+        "low": ["最低", "low"],
+        "close": ["收盘", "最新价", "单位净值", "close"],
+        "volume": ["成交量", "volume"],
     }
     normalized: dict[str, pd.Series] = {}
     for standard_name, candidates in column_map.items():

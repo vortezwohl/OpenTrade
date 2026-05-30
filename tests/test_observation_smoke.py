@@ -120,6 +120,26 @@ def build_single_row_request(function_name: str) -> InvocationRequest:
     )
 
 
+def build_shared_equity_history_request(trace_window: int = 32) -> InvocationRequest:
+    """构造共享权益历史 observation 组装请求。"""
+
+    return InvocationRequest(
+        spec=CommandSpec(
+            module_name="shared",
+            function_name="equity.price.history",
+            callback=lambda **_: None,
+            help_text="test",
+        ),
+        kwargs={"symbol": "000001"},
+        output=OutputOptions(
+            format_name="table",
+            indicator_level="full",
+            view_mode="observation",
+            trace_window=trace_window,
+        ),
+    )
+
+
 class ObservationSmokeTest(unittest.TestCase):
     """覆盖 observation 结构化输出的关键烟雾场景。"""
 
@@ -197,6 +217,21 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIn("| meta", result.output)
         self.assertIn("| trace_points.price_ma", result.output)
         self.assertIn("| recent_events", result.output)
+
+    def test_shared_equity_history_can_build_observation_payload(self) -> None:
+        """共享 equity history 结果当前至少应稳定进入 generic observation 链。"""
+
+        frame = build_history_frame().rename(columns={"股票代码": "symbol"})
+        payload = build_observation_output(build_shared_equity_history_request(trace_window=4), frame)
+        print_observation("shared equity history payload", payload)
+
+        self.assertIsInstance(payload, ObservationPayload)
+        self.assertEqual(payload.meta["module"], "shared")
+        self.assertEqual(payload.meta["function"], "equity.price.history")
+        self.assertEqual(payload.meta["trace_window"], 4)
+        self.assertEqual(payload.meta["result_type"], "DataFrame")
+        self.assertEqual(payload.meta["row_count"], 6)
+        self.assertEqual(payload.sections[0].name, "result")
 
     def test_supported_latest_command_can_render_observation_json(self) -> None:
         """最新行情 observation 模式应产出完整 JSON section。"""
