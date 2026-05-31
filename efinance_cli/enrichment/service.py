@@ -1,11 +1,9 @@
 """技术指标增强服务。
 
-该模块负责把原始结果或共享契约结果补齐为可供 observation 与渲染消费的增强数据。
-当前阶段同时承担两类职责：
-
-1. 兼容旧的函数驱动命令路径；
-2. 为共享 capability 提供标准化的历史补充接口，逐步替换对 `efinance.*.get_quote_history`
-   的直接依赖。
+该模块只服务于当前 shared / provider-extension 多后端执行链，职责收敛为：
+1. 为共享历史结果补充技术指标；
+2. 为共享单标的资料与实时列表通过标准补充接口回补历史；
+3. 不再承载旧函数驱动命令模型的分类常量与直连 provider 回补路径。
 """
 
 from __future__ import annotations
@@ -14,73 +12,42 @@ from typing import Any
 
 import pandas as pd
 
-import efinance
 from efinance_cli.enrichment.indicators import enrich_history_frame
 from efinance_cli.enrichment.levels import LEVELS, normalize_indicator_level
 from efinance_cli.models import InvocationRequest
-from efinance_cli.retry_utils import call_with_network_retry
 
 
-HISTORY_COMMANDS: set[tuple[str, str]] = {
-    ("stock", "get_quote_history"),
-    ("bond", "get_quote_history"),
-    ("futures", "get_quote_history"),
-    ("common", "get_quote_history"),
-    ("fund", "get_quote_history"),
+SHARED_HISTORY_COMMAND_KEYS: set[str] = {
+    "equity.price.history",
 }
 
-SINGLE_ROW_COMMANDS: set[tuple[str, str]] = {
-    ("stock", "get_quote_snapshot"),
-    ("stock", "get_base_info"),
-    ("bond", "get_base_info"),
-    ("common", "get_base_info"),
-    ("shared", "equity.profile"),
+SHARED_SINGLE_ROW_COMMAND_KEYS: set[str] = {
+    "equity.profile",
 }
 
-LATEST_COMMANDS: set[tuple[str, str]] = {
-    ("stock", "get_latest_quote"),
-    ("common", "get_latest_quote"),
-}
-
-REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
-    ("stock", "get_realtime_quotes"),
-    ("bond", "get_realtime_quotes"),
-    ("futures", "get_realtime_quotes"),
-    ("common", "get_realtime_quotes_by_fs"),
-    ("fund", "get_realtime_increase_rate"),
-}
-
-SHARED_HISTORY_COMMANDS: set[tuple[str, str]] = {
-    ("shared", "equity.price.history"),
-}
-
-SHARED_REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
-    ("shared", "equity.price.live"),
+SHARED_REALTIME_LIST_COMMAND_KEYS: set[str] = {
+    "equity.price.live",
 }
 
 
 def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
-    """根据命令和结果类型附加技术指标。"""
-    module_name = request.spec.module_name
-    function_name = request.spec.function_name
-    level = normalize_indicator_level(request.output.indicator_level)
-    command_key = (module_name, function_name)
+    """根据稳定命令键和结果类型附加技术指标。"""
 
-    if module_name == "utils":
-        return value
-    if command_key in HISTORY_COMMANDS or command_key in SHARED_HISTORY_COMMANDS:
+    command_key = resolve_runtime_command_key(request)
+    level = normalize_indicator_level(request.output.indicator_level)
+
+    if command_key in SHARED_HISTORY_COMMAND_KEYS:
         return enrich_history_result(value, level)
-    if command_key in SINGLE_ROW_COMMANDS:
+    if command_key in SHARED_SINGLE_ROW_COMMAND_KEYS:
         return enrich_single_result(request, value, level)
-    if command_key in LATEST_COMMANDS:
-        return enrich_latest_result(request, value, level)
-    if command_key in REALTIME_LIST_COMMANDS or command_key in SHARED_REALTIME_LIST_COMMANDS:
+    if command_key in SHARED_REALTIME_LIST_COMMAND_KEYS:
         return enrich_realtime_list_result(request, value, level)
     return value
 
 
 def enrich_history_result(value: Any, level: str) -> Any:
     """增强历史 K 线结果。"""
+
     if isinstance(value, pd.DataFrame):
         return enrich_history_frame(value, level)
     if isinstance(value, dict):
@@ -89,13 +56,14 @@ def enrich_history_result(value: Any, level: str) -> Any:
 
 
 def enrich_single_result(request: InvocationRequest, value: Any, level: str) -> Any:
-    """增强单标的静态或快照结果。"""
+    """增强单标的静态资料结果。"""
+
     if not isinstance(value, pd.Series):
         return value
     code = extract_code_from_series(value)
     if not code:
         return value
-    history = fetch_history_for_code(request.spec.module_name, code, level)
+    history = fetch_standard_history_for_request(request, code, level)
     if history is None or history.empty:
         return value
     enriched = enrich_history_frame(history, level)
@@ -107,18 +75,9 @@ def enrich_single_result(request: InvocationRequest, value: Any, level: str) -> 
     return result
 
 
-def enrich_latest_result(request: InvocationRequest, value: Any, level: str) -> Any:
-    """增强最新行情结果。"""
-    if not isinstance(value, pd.DataFrame):
-        return value
-    enriched_rows: list[pd.Series] = []
-    for _, row in value.iterrows():
-        enriched_rows.append(enrich_row_with_history(request.spec.module_name, row, level))
-    return pd.DataFrame(enriched_rows)
-
-
 def enrich_realtime_list_result(request: InvocationRequest, value: Any, level: str) -> Any:
     """增强实时列表结果。"""
+
     if not isinstance(value, pd.DataFrame):
         return value
     config = LEVELS[level]
@@ -126,18 +85,23 @@ def enrich_realtime_list_result(request: InvocationRequest, value: Any, level: s
     rows = []
     for idx, (_, row) in enumerate(value.iterrows()):
         if idx < max_rows:
-            rows.append(enrich_row_with_history(request.spec.module_name, row, level))
+            rows.append(enrich_row_with_history(request, row, level))
         else:
             rows.append(row)
     return pd.DataFrame(rows)
 
 
-def enrich_row_with_history(module_name: str, row: pd.Series, level: str) -> pd.Series:
-    """对单行实时结果做历史回补增强。"""
+def enrich_row_with_history(
+    request: InvocationRequest,
+    row: pd.Series,
+    level: str,
+) -> pd.Series:
+    """对单行结果通过标准补充接口做历史回补增强。"""
+
     code = extract_code_from_series(row)
     if not code:
         return row
-    history = fetch_history_for_code(module_name, code, level)
+    history = fetch_standard_history_for_request(request, code, level)
     if history is None or history.empty:
         return row
     enriched = enrich_history_frame(history, level)
@@ -149,75 +113,27 @@ def enrich_row_with_history(module_name: str, row: pd.Series, level: str) -> pd.
     return result
 
 
-def fetch_history_for_code(module_name: str, code: str, level: str) -> pd.DataFrame | None:
-    """按模块回补历史 K 线。"""
-    config = LEVELS[level]
-    try:
-        if module_name == "stock":
-            return call_with_network_retry(
-                efinance.stock.get_quote_history,
-                code,
-                beg="19000101",
-                end="20500101",
-            ).tail(config.history_window)
-        if module_name == "bond":
-            return call_with_network_retry(
-                efinance.bond.get_quote_history,
-                code,
-                beg="19000101",
-                end="20500101",
-            ).tail(config.history_window)
-        if module_name == "futures":
-            if "." not in code:
-                return None
-            return call_with_network_retry(
-                efinance.futures.get_quote_history,
-                code,
-                beg="19000101",
-                end="20500101",
-            ).tail(config.history_window)
-        if module_name == "common":
-            return call_with_network_retry(
-                efinance.common.get_quote_history,
-                code,
-                beg="19000101",
-                end="20500101",
-            ).tail(config.history_window)
-        if module_name == "fund":
-            return call_with_network_retry(
-                efinance.fund.get_quote_history,
-                code,
-            ).tail(config.history_window)
-    except Exception:
-        return None
-    return None
-
-
 def fetch_standard_history_for_request(
     request: InvocationRequest,
     code: str,
     level: str,
 ) -> pd.DataFrame | None:
-    """通过标准补充接口回补共享 capability 的历史结果。
+    """通过标准补充接口回补共享 capability 的历史结果。"""
 
-    设计约束：
-    - 共享 capability 优先走 `CommandFacade`，而不是直接绑到某个 provider 函数；
-    - 返回值统一为标准字段 DataFrame，供 enrichment / observation 继续消费；
-    - 如果请求本身已经是共享历史命令，则优先复用该请求的后端与参数语义。
-    """
+    command_key = resolve_runtime_command_key(request)
+    if command_key not in {"equity.price.history", "equity.profile", "equity.price.live"}:
+        return None
+    if request.backend_selection is None:
+        return None
 
-    command_key = request.command_definition.command_key if request.command_definition is not None else None
-    if command_key not in {"equity.price.history", "equity.profile", "equity.price.live"} or request.backend_selection is None:
-        return fetch_history_for_code(request.spec.module_name, code, level)
-
-    from efinance_cli.facade import CommandFacade
     from efinance_cli.command_catalog import get_shared_command_definition
+    from efinance_cli.facade import CommandFacade
 
     config = LEVELS[level]
     facade = CommandFacade()
     history_definition = (
         request.command_definition
-        if command_key == "equity.price.history"
+        if command_key == "equity.price.history" and request.command_definition is not None
         else get_shared_command_definition("equity.price.history")
     )
     request_data = {
@@ -248,8 +164,19 @@ def fetch_standard_history_for_request(
     return frame.tail(config.history_window).reset_index(drop=True)
 
 
+def resolve_runtime_command_key(request: InvocationRequest) -> str | None:
+    """解析当前请求在新架构下的稳定命令键。"""
+
+    if request.command_definition is not None:
+        return request.command_definition.command_key
+    if request.spec.module_name == "shared":
+        return request.spec.function_name
+    return None
+
+
 def extract_code_from_series(series: pd.Series) -> str | None:
     """从结果行或详情中提取证券代码。"""
+
     candidates = [
         "股票代码",
         "债券代码",
@@ -257,6 +184,9 @@ def extract_code_from_series(series: pd.Series) -> str | None:
         "基金代码",
         "代码",
         "行情ID",
+        "symbol",
+        "code",
+        "quote_id",
     ]
     for candidate in candidates:
         if candidate in series.index and pd.notna(series[candidate]):

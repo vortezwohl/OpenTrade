@@ -69,6 +69,12 @@ class CliFullRegressionTest(unittest.TestCase):
                 self.assertIn("fund", result.output)
                 self.assertIn("instrument", result.output)
                 self.assertIn("akshare", result.output)
+                self.assertNotIn("stock", result.output)
+                self.assertNotIn("bond", result.output)
+                self.assertNotIn("futures", result.output)
+                self.assertNotIn("quote", result.output)
+                self.assertNotIn("market", result.output)
+                self.assertNotIn("resolve", result.output)
                 continue
 
             if path == ("watch",):

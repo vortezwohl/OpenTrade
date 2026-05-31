@@ -2,28 +2,25 @@
 
 ## 1. 文档定位
 
-本文档说明当前版本 `efinance-cli` 的命令组织方式、后端选择语义与迁移边界。
+本文档说明当前版本 `efinance-cli` 的命令组织方式、后端选择语义与运行时边界。
+当前版本已经不再把 CLI 视为 `efinance` 上游函数的自然语言包装，而是以：
 
-当前版本已经不再把 CLI 视为 `efinance` 上游函数的自然语言包装，而是逐步重构为：
+- 后端无关的共享命令；
+- provider 扩展命令；
+- 统一请求 schema、统一结果契约和统一执行骨架；
 
-- 以后端无关的共享命令为主；
-- 以 provider 扩展命令补充后端特有能力；
-- 以统一请求 schema、统一结果契约和统一执行骨架承载运行时行为。
-
-这意味着用户需要优先理解“能力”和“命令语义”，而不是去记忆某个第三方库的函数名。
+作为面向用户和维护者的稳定对象。
 
 ## 2. 当前命令模型
 
-当前 CLI 处于迁移期，同时存在三类命令：
+当前 CLI 只保留两类命令：
 
 1. 共享命令  
    面向稳定业务语义，命令入口和参数定义尽量与具体后端解耦。
-
-2. provider 扩展命令  
+2. Provider 扩展命令  
    保留后端专属能力，不强行压成共享最小公分母。
 
-3. 旧函数驱动命令  
-   仍然存在于命令树中，用于迁移过渡；但它们不再是后续架构演进的核心对象。
+旧函数驱动命令树已经下线，不再作为当前版本的用户入口。
 
 ## 3. 顶层命令树
 
@@ -31,29 +28,22 @@
 
 ```text
 efinance
-├─ search
-├─ watch
-├─ stock
-├─ fund
-├─ bond
-├─ futures
-├─ quote
-├─ market
-├─ resolve
-├─ instrument
-├─ equity
-└─ akshare
+├── search
+├── watch
+├── instrument
+├── equity
+├── fund
+└── akshare
 ```
 
 说明：
 
 - `search` 是共享命令 `instrument.search` 的顶层快捷入口；
-- `instrument`、`equity`、`fund` 中的共享命令逐步进入新的 capability 架构；
-- `stock`、`bond`、`futures`、`quote`、`market`、`resolve` 仍包含较多旧函数驱动命令；
+- `instrument`、`equity`、`fund` 挂载共享命令；
 - `akshare` 是 provider 扩展命令根组，用于承载 `akshare` 特有能力；
 - `watch` 是统一的循环刷新包装命令，会复用同一条请求解析与执行链路。
 
-## 4. 共享命令与 provider 扩展命令
+## 4. 共享命令与 Provider 扩展命令
 
 ### 4.1 共享命令
 
@@ -74,7 +64,7 @@ efinance
 - 非 raw 视图会进入统一的标准化、增强、observation 与渲染管线；
 - raw 视图会保留 `raw_payload`、`provider_fields`、`metadata` 等 provider 原始上下文。
 
-### 4.2 provider 扩展命令
+### 4.2 Provider 扩展命令
 
 provider 扩展命令用于保留特定后端独有能力。当前已经落地的示例是：
 
@@ -87,9 +77,9 @@ efinance akshare industry boards
 - 命令语义属于 `akshare` 专属扩展；
 - 它不伪装成跨后端共享能力；
 - 仍然复用统一执行骨架与结果契约；
-- 错误地显式指定其他 backend 时，会明确失败，而不是静默降级。
+- 错误地显式指定其它 backend 时，会明确失败，而不是静默降级。
 
-未来 `yfinance` 若接入，也会遵循同样的扩展命令挂载方式。
+未来 `yfinance` 若接入，也应遵循同样的扩展命令挂载方式。
 
 ## 5. `--backend` 语义
 
@@ -109,9 +99,9 @@ efinance fund nav history --symbol 161725 --backend akshare
 
 - 不传 `--backend` 时，默认使用 `efinance`；
 - 显式传入的 backend 必须在该命令的支持矩阵内；
-- 不受支持的 backend 会直接报错，不会偷偷回退到默认后端。
+- 不受支持的 backend 会直接报错，不会回退到默认后端。
 
-### 5.2 provider 扩展命令
+### 5.2 Provider 扩展命令
 
 provider 扩展命令也接受 `--backend`，但其默认行为不同：
 
@@ -124,7 +114,7 @@ efinance akshare industry boards --backend akshare
 
 - 不传 `--backend` 时，默认解析到所属 provider；
 - 显式传入相同 provider 允许执行；
-- 显式传入其他 provider 会明确失败。
+- 显式传入其它 provider 会明确失败。
 
 ## 6. 统一运行时参数
 
@@ -150,7 +140,7 @@ efinance akshare industry boards --backend akshare
 
 - `--view raw` 适合调试 provider 差异、核对原始字段和扩展字段；
 - `--view observation` 适合统一阅读结构化观察结果；
-- `watch` 顶层包装命令与命令内 `--watch` 会复用同一请求对象和同一 backend 解析逻辑；
+- 顶层 `watch` 与命令内 `--watch` 复用同一请求对象和同一 backend 解析逻辑；
 - `--count` 仅表示刷新次数，不表示业务记录数量。
 
 ## 7. 当前推荐用法
@@ -180,7 +170,7 @@ efinance fund nav history --symbol 161725
 efinance fund nav history --symbol 161725 --backend akshare --format json
 ```
 
-### 7.4 provider 扩展能力
+### 7.4 Provider 扩展能力
 
 ```bash
 efinance akshare industry boards
@@ -191,24 +181,22 @@ efinance akshare industry boards
 当前版本相对于旧的函数驱动 CLI，有以下重要变化：
 
 1. 命令稳定对象已经从“第三方函数”转为“命令键 + capability + request schema”。
-2. 共享命令的参数定义不再承诺与 `efinance` 上游函数签名一一对应。
+2. 共享命令的参数定义不再承诺与上游 provider 函数签名一一对应。
 3. 同一业务命令在不同后端下允许存在字段完整度差异，但会努力满足相同核心结果契约。
-4. provider 特有能力不再强行伪装成通用命令，而是挂到各自扩展命令根组。
+4. provider 特有能力不再伪装成通用命令，而是挂到各自扩展命令根组。
 5. `--backend` 选择失败时会显式报错，不再依赖隐式兼容或静默回退。
 
-## 9. 迁移期边界
+## 9. 当前边界
 
-当前版本仍是迁移中的过渡态，需要明确以下边界：
+当前版本的主要边界如下：
 
-- 并非所有旧命令都已迁移到共享 capability 架构；
-- 旧函数驱动命令仍可使用，但不建议把它们当作长期稳定接口；
+- 已下线旧函数驱动命令树，新增用户能力应继续走 shared / provider-extension 模型；
 - `yfinance` 目前仅预留 optional provider 挂载点，尚未实现具体能力；
-- 某些 observation 与 enrichment 路径仍同时兼容旧结果形态与新标准契约。
+- observation 与 enrichment 会优先消费标准契约与标准补充接口，不应重新引入旧式 provider 回补分支。
 
 如果你在扩展新命令，应优先判断它属于：
 
 - 共享能力；
-- provider 专属扩展；
-- 还是仅用于迁移过渡的旧路径兼容。
+- provider 专属扩展。
 
 不要再把新的用户能力直接绑定到第三方函数名上。

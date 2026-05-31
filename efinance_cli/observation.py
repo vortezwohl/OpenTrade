@@ -1,16 +1,14 @@
-"""结构化观察输出的组装与事件检测。
+"""结构化 observation 输出的组装与事件检测。
 
-该模块位于指标增强层与渲染层之间，负责把增强后的行情结果整理为统一的 observation
-payload。当前阶段优先支持：
+该模块位于指标增强层与渲染层之间，负责把增强后的 shared / provider-extension
+结果整理为统一 observation payload。当前主链约束如下：
 
-- `get-quote-history`
-- `get-latest-quote`
+1. `equity.price.history` 走历史行情 observation 模板。
+2. `equity.profile` 通过标准历史补充接口回补后走单标的 observation 模板。
+3. `equity.price.live` 对实时列表逐行回补后走多 source observation 模板。
+4. 其他 shared 结果与 provider-extension 结果统一落到 generic observation 兜底。
 
-模块同时提供：
-
-- 最近 N 根 trace 提取
-- 多指标家族的客观事件检测
-- 英文字段名的结构化 observation 数据
+分流依据是稳定 command key 与结果契约，而不是旧函数驱动命令分类。
 """
 
 from __future__ import annotations
@@ -30,13 +28,7 @@ from efinance_cli.contracts import (
 from efinance_cli.enrichment.indicators import enrich_history_frame
 from efinance_cli.enrichment.levels import LEVELS, normalize_indicator_level
 from efinance_cli.enrichment.service import (
-    HISTORY_COMMANDS,
-    LATEST_COMMANDS,
-    SHARED_REALTIME_LIST_COMMANDS,
-    SHARED_HISTORY_COMMANDS,
-    SINGLE_ROW_COMMANDS,
     extract_code_from_series,
-    fetch_history_for_code,
     fetch_standard_history_for_request,
 )
 from efinance_cli.models import (
@@ -150,20 +142,6 @@ TRACE_GROUPS: dict[str, list[str]] = {
     "volume_flow": ["volume", "obv", "volume_ratio_5", "mfi14", "cmf20", "force_index13", "vwap", "vr"],
 }
 
-OBSERVATION_MULTI_HISTORY_COMMANDS: set[tuple[str, str]] = {
-    ("fund", "get_quote_history_multi"),
-}
-
-OBSERVATION_SINGLE_ROW_COMMANDS: set[tuple[str, str]] = set(SINGLE_ROW_COMMANDS)
-OBSERVATION_SINGLE_ROW_COMMANDS.add(("shared", "equity.profile"))
-
-OBSERVATION_REALTIME_LIST_COMMANDS: set[tuple[str, str]] = {
-    ("stock", "get_realtime_quotes"),
-    ("bond", "get_realtime_quotes"),
-    ("futures", "get_realtime_quotes"),
-}
-OBSERVATION_REALTIME_LIST_COMMANDS.update(SHARED_REALTIME_LIST_COMMANDS)
-
 SHARED_OBSERVATION_CONTRACTS: dict[str, ResultContract] = {
     "equity.price.history": HISTORY_BARS_CONTRACT,
     "equity.profile": PROFILE_INFO_CONTRACT,
@@ -173,44 +151,31 @@ SHARED_OBSERVATION_CONTRACTS: dict[str, ResultContract] = {
 
 
 def build_observation_output(request: Any, value: Any) -> Any:
-    """根据命令与结果构建 observation 输出。
-
-    如果当前命令不在首批支持范围内，或用户未选择 observation 视图，则原样返回。
-    """
+    """根据命令与结果构建 observation 输出。"""
 
     if getattr(request.output, "view_mode", "raw") != "observation":
         return value
-    value = normalize_shared_observation_input(request, value)
 
-    command_key = (request.spec.module_name, request.spec.function_name)
-    if (
-        command_key in HISTORY_COMMANDS
-        or command_key in SHARED_HISTORY_COMMANDS
-        or command_key in OBSERVATION_MULTI_HISTORY_COMMANDS
-    ):
+    value = normalize_shared_observation_input(request, value)
+    command_key = resolve_observation_command_key(request)
+
+    if command_key == "equity.price.history":
         return build_history_observation_output(request, value)
-    if command_key in LATEST_COMMANDS:
-        return build_latest_observation_output(request, value)
-    if command_key in OBSERVATION_SINGLE_ROW_COMMANDS:
+    if command_key == "equity.profile":
         return build_single_row_observation_output(request, value)
-    if command_key in OBSERVATION_REALTIME_LIST_COMMANDS:
+    if command_key == "equity.price.live":
         return build_realtime_list_observation_output(request, value)
     return build_generic_observation_output(request, value)
 
 
 def normalize_shared_observation_input(request: Any, value: Any) -> Any:
-    """在 observation 入口按共享结果契约归一化 provider 风格字段。
+    """在 observation 入口按共享结果契约归一化 provider 风格字段。"""
 
-    设计约束：
-    - 共享命令优先消费契约层定义的字段别名，而不是在 observation 内部继续散写映射；
-    - 旧函数驱动命令仍然保留现有宽松兼容逻辑，不在这里强行改写；
-    - 归一化时保留原始字段，便于 generic observation 或调试路径继续查看 provider 数据。
-    """
-
-    if getattr(request.spec, "module_name", None) != "shared":
+    command_key = resolve_observation_command_key(request)
+    if command_key is None:
         return value
 
-    contract = SHARED_OBSERVATION_CONTRACTS.get(getattr(request.spec, "function_name", ""))
+    contract = SHARED_OBSERVATION_CONTRACTS.get(command_key)
     if contract is None:
         return value
 
@@ -262,7 +227,7 @@ def normalize_shared_observation_mapping(mapping: dict[str, Any], contract: Resu
 
 
 def build_generic_observation_output(request: Any, value: Any) -> ObservationPayload:
-    """把未纳入行情 observation 契约的结果包装为通用 observation。"""
+    """把未纳入专门模板的结果包装为通用 observation。"""
 
     meta = build_generic_meta(request, value)
     sections = build_generic_sections(value)
@@ -292,29 +257,8 @@ def build_history_observation_output(request: Any, value: Any) -> Any:
     return value
 
 
-def build_latest_observation_output(request: Any, value: Any) -> Any:
-    """把最新行情结果转换为 observation payload。"""
-
-    if not isinstance(value, pd.DataFrame):
-        return value
-
-    payloads: dict[str, ObservationPayload] = {}
-    for idx, row in value.iterrows():
-        payload = build_payload_from_latest_row(request, row)
-        if payload is None:
-            continue
-        key = payload.meta.get("code") or payload.meta.get("row_id") or str(idx)
-        payloads[str(key)] = payload
-
-    if not payloads:
-        return value
-    if len(payloads) == 1:
-        return next(iter(payloads.values()))
-    return payloads
-
-
 def build_single_row_observation_output(request: Any, value: Any) -> Any:
-    """把单行结果转换为 observation payload。"""
+    """把单行资料结果转换为 observation payload。"""
 
     if isinstance(value, pd.Series):
         payload = build_payload_from_single_row(request, value)
@@ -356,26 +300,6 @@ def build_payload_from_history_frame(request: Any, frame: pd.DataFrame) -> Obser
         recent_events=recent_events,
         sections=[],
     )
-
-
-def build_payload_from_latest_row(request: Any, row: pd.Series) -> ObservationPayload | None:
-    """根据最新行情行回补历史后构建 observation payload。"""
-
-    code = resolve_history_lookup_code(request, row)
-    if not code:
-        return None
-
-    level = normalize_indicator_level(request.output.indicator_level)
-    history = fetch_standard_history_for_request(request, code, level)
-    if history is None or history.empty:
-        return None
-
-    enriched = enrich_history_frame(history, level)
-    payload = build_payload_from_history_frame(request, enriched)
-    payload.latest_quote = extract_latest_quote_fields(row)
-    if "code" not in payload.meta:
-        payload.meta["code"] = code
-    return payload
 
 
 def build_payload_from_single_row(request: Any, row: pd.Series) -> ObservationPayload | None:
@@ -429,29 +353,30 @@ def resolve_payload_key(payload: ObservationPayload, row: pd.Series, idx: Any) -
 
 
 def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
-    """根据命令上下文解析用于历史回补的标的标识。"""
+    """解析用于历史回补的标的标识。"""
 
-    module_name = request.spec.module_name
-    if module_name == "shared" and request.spec.function_name == "equity.price.live":
+    command_key = resolve_observation_command_key(request)
+    if command_key == "equity.price.live":
         symbol = find_first_present_value(row, ["symbol", "code", "quote_id"])
         if symbol is not None:
             return str(symbol)
-    if module_name == "shared" and request.spec.function_name == "equity.profile":
+    if command_key == "equity.profile":
         symbol = request.kwargs.get("symbol")
         if symbol:
             return str(symbol)
-    if module_name == "common":
-        quote_id = request.kwargs.get("quote_id")
-        if quote_id:
-            return str(quote_id)
-        quote_id_from_row = find_first_present_value(row, ["行情ID"])
-        if quote_id_from_row is not None:
-            return str(quote_id_from_row)
-    if module_name == "futures":
-        quote_id = find_first_present_value(row, ["行情ID"])
-        if quote_id is not None:
-            return str(quote_id)
     return extract_code_from_series(row)
+
+
+def resolve_observation_command_key(request: Any) -> str | None:
+    """解析 observation 主链使用的稳定命令键。"""
+
+    command_definition = getattr(request, "command_definition", None)
+    if command_definition is not None:
+        return command_definition.command_key
+    spec = getattr(request, "spec", None)
+    if spec is not None and getattr(spec, "module_name", None) == "shared":
+        return getattr(spec, "function_name", None)
+    return None
 
 
 def limit_realtime_observation_frame(request: Any, frame: pd.DataFrame) -> pd.DataFrame:
@@ -624,7 +549,7 @@ def normalize_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
 
 
 def extract_latest_quote_fields(row: pd.Series) -> dict[str, Any]:
-    """从结果行中提取英文 latest quote 字段。"""
+    """从结果行中提取英文字段 latest quote。"""
 
     result: dict[str, Any] = {}
     if row.empty:
@@ -661,7 +586,7 @@ def find_first_present_value(row: pd.Series, candidates: Iterable[str]) -> Any |
 
 
 def build_series_map(frame: pd.DataFrame) -> dict[str, pd.Series]:
-    """把 DataFrame 中的可用字段整理为英文命名的数值序列。"""
+    """把 DataFrame 中的可用字段整理为英文字段的数值序列。"""
 
     series_map: dict[str, pd.Series] = {}
     if frame.empty:
@@ -867,7 +792,11 @@ def append_band_touch_events(
     if price_series is None or boundary_series is None:
         return
 
-    comparator = (lambda price, boundary: price >= boundary) if relation == "touched_upper_band" else (lambda price, boundary: price <= boundary)
+    comparator = (
+        (lambda price, boundary: price >= boundary)
+        if relation == "touched_upper_band"
+        else (lambda price, boundary: price <= boundary)
+    )
     for idx in range(1, len(price_series)):
         prev_price = price_series.iloc[idx - 1]
         prev_boundary = boundary_series.iloc[idx - 1]
