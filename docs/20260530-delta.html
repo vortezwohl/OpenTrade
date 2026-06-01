@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>efinance-cli 提交增量研究：0c100203 之后到底变了什么</title>
+    <style>
+      :root {
+        --bg: #f3f7fa;
+        --panel: rgba(255, 255, 255, 0.92);
+        --panel-strong: #eef4f8;
+        --text: #18212b;
+        --text-strong: #0f161d;
+        --muted: #445260;
+        --line: rgba(71, 96, 120, 0.22);
+        --line-strong: rgba(71, 96, 120, 0.34);
+        --accent: #2e6f97;
+        --accent-soft: rgba(46, 111, 151, 0.12);
+        --accent-strong: #16384f;
+        --ok: #1f6f54;
+        --warn: #8f5a16;
+        --danger: #8a2f33;
+        --code-bg: #e8f0f5;
+        --code-strong-bg: #182531;
+        --code-strong-text: #edf8ff;
+        --shadow: 0 22px 70px rgba(27, 48, 66, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top right, rgba(46, 111, 151, 0.16), transparent 24%),
+          linear-gradient(180deg, #edf4f8 0%, var(--bg) 100%);
+        font-family: "Georgia", "Times New Roman", "Noto Serif SC", "Source Han Serif SC", serif;
+        line-height: 1.86;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration-color: rgba(46, 111, 151, 0.32);
+      }
+
+      a:hover {
+        text-decoration-color: rgba(46, 111, 151, 0.88);
+      }
+
+      code,
+      pre {
+        font-family: "Inconsolata", "Cascadia Code", "Consolas", monospace;
+      }
+
+      :not(pre) > code {
+        padding: 0.08rem 0.34rem;
+        background: var(--code-bg);
+        color: var(--accent-strong);
+      }
+
+      pre {
+        margin: 1rem 0 0;
+        padding: 1rem 1.1rem;
+        overflow-x: auto;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--code-strong-bg);
+        color: var(--code-strong-text);
+      }
+
+      .essay {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 18px 64px;
+      }
+
+      .hero,
+      .section {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
+      }
+
+      .hero {
+        position: relative;
+        padding: 34px 32px 30px;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(69, 99, 125, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(69, 99, 125, 0.05) 1px, transparent 1px);
+        background-size: 100% 1.65rem, 1.65rem 100%;
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        position: relative;
+        z-index: 1;
+        margin: 0 0 0.9rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+        color: var(--text-strong);
+        line-height: 1.3;
+      }
+
+      h1 {
+        position: relative;
+        z-index: 1;
+        font-size: clamp(2rem, 4vw, 2.8rem);
+        letter-spacing: 0.01em;
+      }
+
+      h2 {
+        font-size: 1.72rem;
+        margin-bottom: 0.85rem;
+      }
+
+      h3 {
+        font-size: 1.2rem;
+        margin-bottom: 0.5rem;
+      }
+
+      p {
+        margin: 0.86rem 0;
+      }
+
+      ul,
+      ol {
+        margin: 0.8rem 0 0.8rem 1.28rem;
+        padding: 0;
+      }
+
+      li {
+        margin: 0.34rem 0;
+      }
+
+      .lead {
+        position: relative;
+        z-index: 1;
+        max-width: 60rem;
+        margin-top: 1rem;
+        color: var(--muted);
+        font-size: 1.03rem;
+      }
+
+      .hero-grid,
+      .card-grid,
+      .tri-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero-grid {
+        position: relative;
+        z-index: 1;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        margin-top: 1.4rem;
+      }
+
+      .card-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        margin-top: 1rem;
+      }
+
+      .tri-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: 1rem;
+      }
+
+      .meta-card,
+      .info-card,
+      .decision-card,
+      .timeline-card {
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 252, 0.95));
+        padding: 1rem 1.05rem;
+      }
+
+      .meta-label {
+        display: block;
+        margin-bottom: 0.35rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      .meta-value {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .badge-row {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 1.2rem;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0.38rem 0.76rem;
+        border: 1px solid var(--line);
+        background: #f8fbfd;
+        color: var(--accent-strong);
+        font-size: 0.82rem;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      .badge.ok {
+        color: var(--ok);
+        border-color: rgba(31, 111, 84, 0.26);
+        background: rgba(31, 111, 84, 0.08);
+      }
+
+      .badge.warn {
+        color: var(--warn);
+        border-color: rgba(143, 90, 22, 0.24);
+        background: rgba(143, 90, 22, 0.08);
+      }
+
+      .badge.danger {
+        color: var(--danger);
+        border-color: rgba(138, 47, 51, 0.24);
+        background: rgba(138, 47, 51, 0.08);
+      }
+
+      .section {
+        margin-top: 22px;
+        padding: 26px 28px;
+      }
+
+      .kicker {
+        margin-bottom: 0.6rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      .callout,
+      .note,
+      .risk,
+      .summary-box {
+        margin: 1rem 0;
+        padding: 0.95rem 1rem;
+        border-left: 3px solid var(--accent);
+        border-top: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(248, 251, 253, 0.92), rgba(238, 245, 249, 0.92));
+      }
+
+      .risk {
+        border-left-color: var(--warn);
+      }
+
+      .summary-box {
+        border-left-color: var(--ok);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+      }
+
+      th,
+      td {
+        padding: 0.82rem 0.86rem;
+        text-align: left;
+        vertical-align: top;
+        border: 1px solid var(--line);
+      }
+
+      th {
+        background: var(--panel-strong);
+      }
+
+      .timeline {
+        display: grid;
+        gap: 14px;
+        margin-top: 1rem;
+      }
+
+      .timeline-card h3 {
+        margin-bottom: 0.3rem;
+      }
+
+      .timeline-meta {
+        color: var(--muted);
+        font-size: 0.86rem;
+        font-family: "Roboto", "Microsoft YaHei", sans-serif;
+      }
+
+      .subtle {
+        color: var(--muted);
+      }
+
+      .footer-note {
+        margin-top: 1.2rem;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 720px) {
+        .essay {
+          padding: 18px 12px 42px;
+        }
+
+        .hero,
+        .section {
+          padding: 20px 18px;
+        }
+
+        h1 {
+          font-size: 1.95rem;
+        }
+
+        h2 {
+          font-size: 1.48rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="essay">
+      <section class="hero">
+        <p class="eyebrow">Commit Delta Research</p>
+        <h1>efinance-cli 提交增量研究：从 <code>0c100203</code> 到当前 HEAD，到底改了什么</h1>
+        <p class="lead">
+          本文档梳理 <code>0c1002039cbccffe1adecd43e951d7258dfaecd2</code> 之后的全部提交，
+          目标不是复述提交标题，而是回答更关键的问题：这段历史里哪些是内部重构，哪些是真正用户可见的变化，
+          以及它们最终把 <code>efinance-cli</code> 从什么形态推到了什么形态。
+        </p>
+        <div class="hero-grid">
+          <article class="meta-card">
+            <span class="meta-label">提交范围</span>
+            <span class="meta-value">15 个提交，覆盖 2026-05-31 当天的整轮架构迁移</span>
+          </article>
+          <article class="meta-card">
+            <span class="meta-label">主线判断</span>
+            <span class="meta-value">不是零散加命令，而是从函数驱动 CLI 迁到多后端命令运行时</span>
+          </article>
+          <article class="meta-card">
+            <span class="meta-label">最终净新增命令</span>
+            <span class="meta-value">相对基线业务路径只净增 1 条：<code>stock industry boards</code></span>
+          </article>
+          <article class="meta-card">
+            <span class="meta-label">最重要的表层变化</span>
+            <span class="meta-value">帮助页、参数模型、后端选择、错误提示、observation 契约几乎全部重写</span>
+          </article>
+        </div>
+        <div class="badge-row">
+          <span class="badge ok">命令树大体保住了</span>
+          <span class="badge warn">命令背后的语义骨架已经换掉</span>
+          <span class="badge warn">中途出现过明显 BREAKING 中间态</span>
+          <span class="badge ok">最终重新收束回业务语义命令面</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">1. Thesis</p>
+        <h2>一句话结论</h2>
+        <p>
+          这 15 个提交做的不是“在原有 CLI 上顺手加个 <code>akshare</code>”，而是一次完整的命令运行时迁移：
+          从“直接反射 <code>efinance</code> 函数签名生成 Click 命令”，迁移为“命令目录
+          + request schema + capability + result contract + backend/provider” 驱动的多后端 CLI。
+        </p>
+        <div class="summary-box">
+          <strong>因此最重要的区别不在命令数量，而在命令定义权发生了转移。</strong>
+          基线版本里，命令的稳定对象还是 <code>efinance.stock.get_quote_history</code> 这类上游函数；
+          现在稳定对象已经变成 <code>stock.price.history</code>、<code>fund.nav.history</code>、
+          <code>instrument.search</code> 这类命令键和能力语义。
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">2. Inventory</p>
+        <h2>先看最终总差异</h2>
+        <div class="card-grid">
+          <article class="info-card">
+            <h3>命令路径层面</h3>
+            <ul>
+              <li>基线版本有 50 条业务命令路径。</li>
+              <li>当前版本有 52 条叶子路径，其中 1 条是 <code>watch</code>，1 条是新增业务命令 <code>stock industry boards</code>。</li>
+              <li>旧的 50 条业务路径最终全部保留，没有在最终 HEAD 中永久消失。</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>帮助页层面</h3>
+            <ul>
+              <li>旧版帮助页围绕“对应函数: <code>efinance.module.function</code>”。</li>
+              <li>新版 shared 命令帮助页围绕“命令键 / 能力标识 / 支持后端 / 命令类别”。</li>
+              <li>也就是说，帮助页已经不再把第三方函数视为一等公民。</li>
+            </ul>
+          </article>
+          <article class="info-card">
+            <h3>参数与执行层面</h3>
+            <ul>
+              <li>旧版大部分参数由 Python 函数签名动态反射。</li>
+              <li>新版 shared 命令参数来自显式 <code>RequestSchema</code>。</li>
+              <li>新版引入统一 <code>--backend</code>，并开始对 backend 约束做显式校验。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>最容易误判的一点：</strong>
+          如果只看最终命令路径，会以为“几乎没怎么改”；但如果看帮助页、参数定义来源、错误提示、raw/observation
+          输出契约，就会发现这其实已经不是同一套 CLI 运行时了。
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">3. Timeline</p>
+        <h2>按提交时间线逐个拆</h2>
+        <div class="timeline">
+          <article class="timeline-card">
+            <h3><code>076befc</code> 文档开题：多后端方案先落 OpenSpec</h3>
+            <p class="timeline-meta">docs(openspec): 新增多后端能力架构实施方案</p>
+            <p>这一提交只新增 OpenSpec proposal / design / tasks / specs。代码不动，CLI 不变，作用是把后续重构目标从“想法”变成“已定约的迁移任务”。</p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>fcf4e5c</code> 文档形态切换：akshare 方案改为 HTML，并加入依赖</h3>
+            <p class="timeline-meta">docs(akshare): 将后端适配方案文档切换为 HTML 版本</p>
+            <ul>
+              <li>删除 <code>docs/akshare后端适配.md</code>，新增 HTML 页面。</li>
+              <li><code>pyproject.toml</code> 新增 <code>akshare&gt;=1.18.64</code>。</li>
+              <li>CLI 行为未变，但安装层已经开始为新后端铺路。</li>
+            </ul>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>20c5998</code> 第一刀：共享命令骨架与首批双后端能力接入</h3>
+            <p class="timeline-meta">feat(multi-backend): 接入共享命令骨架与首批双后端能力</p>
+            <ul>
+              <li>新增 <code>backends/</code>、<code>command_catalog.py</code>、<code>contracts.py</code>、<code>facade.py</code>、<code>request_schema.py</code>。</li>
+              <li>CLI 首次同时承载两套路径：旧的函数驱动命令树 + 新的 shared 命令树。</li>
+              <li>当时用户可见的新顶层组是 <code>instrument</code> 和 <code>equity</code>。</li>
+              <li><code>search</code> 改为 shared 命令包装；新增 <code>equity price history</code>。</li>
+              <li>shared 命令开始支持 <code>--backend</code>。</li>
+            </ul>
+            <div class="note">
+              这是第一次真正的表层断裂点：命令帮助页、参数生成来源、执行请求对象都开始分裂成“旧链路”和“新链路”。
+            </div>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>4d1ed8a</code> 先打兼容补丁：shared history 能进 observation</h3>
+            <p class="timeline-meta">test(observation): 补充共享历史命令的兼容性验证</p>
+            <p>
+              这一步没有加新命令，但 shared <code>equity.price.history</code> 首次能稳定进入 observation 渲染。
+              当时它还主要走 generic observation 输出，只是确保英文列名 <code>open/high/low/close/volume</code>
+              不会把增强链和观察链直接打碎。
+            </p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>4e39e62</code> shared history 从“能进链路”升级到“进标准历史链”</h3>
+            <p class="timeline-meta">refactor(shared-history): 统一执行骨架并接入标准历史补充接口</p>
+            <ul>
+              <li>执行器开始拆出 shared 路径。</li>
+              <li>新增“标准历史补充接口”，不再直接硬绑旧 provider 回补逻辑。</li>
+              <li>observation 开始优先识别 shared history 与标准字段。</li>
+            </ul>
+            <p>
+              用户可见的区别是：历史类 shared 命令开始更像真正的历史 observation，
+              输出不再只是一个泛化 <code>result</code> 表，而会产出更稳定的
+              <code>meta / latest_quote / trace_points / recent_events</code>。
+            </p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>208b62a</code> provider 字段兼容开始下沉到 contract 层</h3>
+            <p class="timeline-meta">test(contracts): 下沉 provider 字段兼容并补齐共享能力合同测试</p>
+            <p>
+              这一步主要改变结果标准化方式：search/history 的 provider 原始字段不再靠 observation 层到处猜别名，
+              而是开始由结果契约显式声明别名表。表现层结果是不同 backend 的输出字段更稳定、更容易统一。
+            </p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>2c93ff6</code> 新增 shared <code>equity profile</code></h3>
+            <p class="timeline-meta">feat(shared-profile): 接入共享权益资料命令与双后端适配</p>
+            <ul>
+              <li>新增 shared <code>equity profile</code>。</li>
+              <li>支持 <code>efinance</code> 和 <code>akshare</code> 双后端。</li>
+              <li>资料类命令开始进入 shared observation/enrichment 闭环。</li>
+            </ul>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>152701d</code> 解决 shared 与 legacy 根组冲突</h3>
+            <p class="timeline-meta">refactor(cli): 合并 shared 与 legacy 同名根组</p>
+            <p>
+              这是为后续把 shared 命令挂回业务域路径做准备。直接影响是 <code>fund</code> 这类根组不再因为 shared/legacy
+              同名而互相覆盖。
+            </p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>3ea9b4c</code> <code>fund nav history</code> 迁入 shared 链</h3>
+            <p class="timeline-meta">feat(fund-nav): 接入共享基金净值历史命令与双后端适配</p>
+            <p>
+              命令路径还是 <code>fund nav history</code>，但它背后的定义权从旧函数签名转到了 shared schema
+              与 shared contract。路径没变，不等于行为没变。
+            </p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>1fdaeff</code> 新增 shared <code>equity price live</code></h3>
+            <p class="timeline-meta">feat(equity-live): 接入共享权益实时行情命令与双后端适配</p>
+            <ul>
+              <li>新增 shared <code>equity price live</code>。</li>
+              <li>开始支持实时列表的双后端 observation/enrichment。</li>
+              <li>此时命令面临时处于 <code>equity</code> 资产域，而不是最终的 <code>stock</code>。</li>
+            </ul>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>30a4753</code> provider 扩展命令第一次出现：<code>akshare industry boards</code></h3>
+            <p class="timeline-meta">feat(provider-ext): 接入 akshare 扩展命令目录与运行时约束</p>
+            <ul>
+              <li>新增 provider 扩展命令模型。</li>
+              <li>用户第一次能看到 <code>akshare industry boards</code>。</li>
+              <li>backend 约束开始进入表层：传错 backend 会明确失败。</li>
+              <li>同时预留 <code>yfinance</code> 挂载点。</li>
+            </ul>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>d7f9027</code> provider 负例测试补齐</h3>
+            <p class="timeline-meta">test(provider): 补充 provider 层异常路径与约束测试</p>
+            <p>这一步没有引入新表层能力，但它把“不支持的 capability / 非法 payload / 扩展命令缺字段”这些失败路径固定成了显式契约。</p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>37ebb44</code> 文档与兼容层统一到 shared 语义</h3>
+            <p class="timeline-meta">refactor(multi-backend): 收拢共享命令文档与 observation 契约兼容</p>
+            <ul>
+              <li>重写 CLI 与架构文档。</li>
+              <li>shared 命令帮助页与 schema 驱动错误提示更稳定。</li>
+              <li>observation 对 shared 命令的字段别名兼容继续增强。</li>
+            </ul>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>192ff4c</code> 最大 BREAKING：legacy 命令路径被整体清场</h3>
+            <p class="timeline-meta">refactor(cli): 清理 legacy 命令路径并收口 shared 回归</p>
+            <ul>
+              <li>删除 <code>registry.py</code>、<code>introspection.py</code>、<code>fund_compat.py</code>。</li>
+              <li>CLI 根命令与执行器收口到 shared/provider-extension 调度链。</li>
+              <li>如果某条 legacy 路径当时还没迁完，它会在这个节点直接消失。</li>
+            </ul>
+            <div class="risk">
+              这是整段历史里最像真正 BREAKING RELEASE 的提交。它不只是重构内部代码，而是明确宣布旧函数驱动命令面不再是主路径。
+            </div>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>08279ee</code> 清理 runtime 阴影与过时文档叙述</h3>
+            <p class="timeline-meta">refactor(runtime): 收尾清理 legacy 影子与无效导入</p>
+            <p>
+              功能不再新增，重点变成“让文档、测试、observation/enrichment 主链和真实运行时一致”，
+              并清理残留的 legacy 分类影子。
+            </p>
+          </article>
+
+          <article class="timeline-card">
+            <h3><code>9424f4a</code> 最终收口：跨资产运行时补齐，命令面回到业务语义</h3>
+            <p class="timeline-meta">refactor(runtime): 完成跨资产运行时支持并归档变更</p>
+            <ul>
+              <li>把 <code>stock / fund / bond / futures / quote</code> 这套业务域命令面补齐到真实运行时。</li>
+              <li>把中间态的 <code>equity</code> 语义残留清掉。</li>
+              <li>把 provider 扩展命令从 <code>akshare industry boards</code> 收束为最终的 <code>stock industry boards</code>。</li>
+              <li>归档已完成的 OpenSpec changes。</li>
+            </ul>
+            <div class="summary-box">
+              最终 HEAD 不是停在中间态的“多几个顶层组”，而是完成了一次回摆：用户仍然看到熟悉的业务语义命令树，但底层已经换成多后端命令运行时。
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">4. Surface Layer</p>
+        <h2>表现层差异总表</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>维度</th>
+              <th><code>0c100203</code> 当时</th>
+              <th>当前 HEAD</th>
+              <th>差异判断</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>顶层根组</td>
+              <td><code>stock fund bond futures quote market resolve search watch</code></td>
+              <td>最终仍是这 9 个根组</td>
+              <td>最终表面稳定，但中间过程出现过 <code>instrument / equity / akshare</code> 中间态</td>
+            </tr>
+            <tr>
+              <td>业务命令路径数量</td>
+              <td>50</td>
+              <td>50 条旧路径保留，净增 1 条业务命令 <code>stock industry boards</code></td>
+              <td>命令数量变化不大，语义骨架变化极大</td>
+            </tr>
+            <tr>
+              <td>帮助页叙事中心</td>
+              <td>“对应函数: <code>efinance.module.function</code>”</td>
+              <td>“命令键 / 能力标识 / 支持后端 / 命令类别”</td>
+              <td>帮助页已经从 API 包装器视角，改成能力目录视角</td>
+            </tr>
+            <tr>
+              <td>参数来源</td>
+              <td>动态反射 Python 函数签名</td>
+              <td>shared 命令走显式 <code>RequestSchema</code></td>
+              <td>这是最核心的底层变化之一</td>
+            </tr>
+            <tr>
+              <td>backend 选择</td>
+              <td>没有统一 <code>--backend</code> 模型</td>
+              <td>shared / provider-extension 命令支持统一 <code>--backend</code></td>
+              <td>当前命令运行时具备多后端显式语义</td>
+            </tr>
+            <tr>
+              <td>错误提示</td>
+              <td>主要是 Click 参数错误和旧式异常</td>
+              <td>增加 backend 不支持、schema 缺参、provider 约束等显式报错</td>
+              <td>用户可读性更强，也更硬</td>
+            </tr>
+            <tr>
+              <td>JSON / raw 输出</td>
+              <td>更贴近上游原始返回值</td>
+              <td>更偏标准结果契约、metadata、provider fields</td>
+              <td>输出已经开始服务统一 runtime，而不是单一 provider</td>
+            </tr>
+            <tr>
+              <td>observation 输出</td>
+              <td>依赖旧函数分类与旧历史回补路径</td>
+              <td>shared history/profile/live/search/fund-nav 进入统一链路</td>
+              <td>结构化观察结果更稳定，字段归一化更强</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <p class="kicker">5. Exhaustive Deltas</p>
+        <h2>最终差异穷举</h2>
+        <div class="tri-grid">
+          <article class="decision-card">
+            <h3>命令面</h3>
+            <ul>
+              <li>最终保留基线全部 50 条业务路径。</li>
+              <li>最终净新增 1 条业务命令：<code>stock industry boards</code>。</li>
+              <li>中间态曾新增 <code>instrument search</code>、<code>equity price history</code>、<code>equity profile</code>、<code>equity price live</code>、<code>akshare industry boards</code>，但最终已被回摆或重挂载。</li>
+            </ul>
+          </article>
+          <article class="decision-card">
+            <h3>帮助与参数</h3>
+            <ul>
+              <li>shared 命令帮助页新增命令键、能力标识、支持后端。</li>
+              <li>shared 命令参数不再依赖第三方函数签名。</li>
+              <li>缺参报错从“函数签名侧漏”变成“schema 驱动的可读错误”。</li>
+            </ul>
+          </article>
+          <article class="decision-card">
+            <h3>运行时</h3>
+            <ul>
+              <li>新增 <code>backends/</code> provider 注册与 resolver。</li>
+              <li>新增 result contract 和字段别名归一化。</li>
+              <li>enrichment / observation 逐步从 legacy 回补转向标准历史补充接口。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>如果必须用最准确的话描述这段历史：</strong>
+          “命令面尽量维持用户熟悉的业务语义，但命令的来源、执行、结果标准化和观察链已经彻底从单后端思维迁到了多后端 runtime 思维。”
+        </div>
+      </section>
+
+      <section class="section">
+        <p class="kicker">6. Special Focus</p>
+        <h2>特别说明：为什么看起来没怎么加命令，却其实变化极大</h2>
+        <p>
+          因为这次迁移的目标从来不是“让用户多记几条新命令”，而是把命令定义权从第三方函数手里拿回来。
+          一旦定义权转移完成，后续新增 provider、接入扩展命令、统一结果契约、修 observation 字段兼容，就都不需要再围着
+          <code>efinance</code> 某个函数的签名打补丁。
+        </p>
+        <div class="risk">
+          对使用者而言，这种迁移最危险的地方恰恰是“路径没怎么变，所以容易低估风险”。
+          实际上帮助页、参数、输出字段、backend 行为、错误提示的细节都已经发生了结构性变化。
+        </div>
+        <pre><code>旧世界：
+命令 = 上游函数 + CLI_PATH_OVERRIDES + introspection
+
+新世界：
+命令 = command key + request schema + capability + backend selection + result contract</code></pre>
+      </section>
+
+      <section class="section">
+        <p class="kicker">7. Final Assessment</p>
+        <h2>最后的工程判断</h2>
+        <p>
+          从工程质量看，这段历史最难得的地方不是“代码量很大”，而是它没有停在最危险的中间态。
+          项目一度确实进入过 <code>instrument / equity / akshare</code> 这种过渡命令面，但最终又把表层收束回
+          <code>stock / fund / bond / futures / quote / market / resolve</code> 这套用户更容易理解的业务命令树。
+        </p>
+        <p>
+          换句话说，这不是一次单纯的“内部换血”，也不是一次只追求表面稳定的“保守兼容”。
+          它做的是更难的那件事：在底层 runtime 大迁移之后，把最终用户看到的命令语言重新打磨回业务语义。
+        </p>
+        <div class="summary-box">
+          <strong>最终判断：</strong>
+          相对 <code>0c100203</code>，当前版本最本质的变化不是“多了哪些命令”，而是“命令已经不再从第三方函数自然长出来”，
+          而是从仓库自己维护的命令目录、能力契约和后端运行时长出来。
+        </div>
+        <p class="footer-note">
+          研究范围：<code>git log 0c1002039cbccffe1adecd43e951d7258dfaecd2..HEAD</code>；
+          报告时间：2026-05-31；输出文件：<code>docs/20260530-delta.html</code>。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
