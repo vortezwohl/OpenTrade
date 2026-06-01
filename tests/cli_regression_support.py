@@ -1,4 +1,4 @@
-"""CLI 回归测试的共享辅助工具。
+﻿"""CLI 回归测试的共享辅助工具。
 
 该文件集中处理命令树枚举、样例参数构造和测试统计，避免各个测试文件重复维护同一份
 命令目录理解逻辑。当前命令面已经收敛为 shared 命令与 provider-extension 命令，
@@ -259,3 +259,63 @@ def print_observation(title: str, value: object) -> None:
         return
     safe_repr = pformat(value, sort_dicts=False).encode("ascii", errors="backslashreplace").decode("ascii")
     sys.stdout.write(f"{safe_repr}\n")
+
+
+
+def make_request_field(
+    name: str = "test_field",
+    cli_name: str = "test-field",
+    annotation: type = str,
+    required: bool = False,
+    default: object = None,
+    help_text: str = "测试字段说明。",
+    choices: tuple[str, ...] = (),
+    multiple: bool = False,
+) -> "RequestField":  # noqa: F821
+    """快速构造一个 RequestField 实例，用于 request_schema 单元测试。
+
+    所有参数均有合理默认值，调用方可按需覆盖。
+    """
+    from efinance_cli.models import RequestField
+
+    return RequestField(
+        name=name,
+        cli_name=cli_name,
+        annotation=annotation,
+        required=required,
+        default=default,
+        help_text=help_text,
+        choices=choices,
+        multiple=multiple,
+    )
+
+
+def make_request_schema(
+    schema_name: str = "test-schema",
+    fields: tuple | None = None,
+    allow_extra: bool = False,
+) -> "RequestSchema":  # noqa: F821
+    """快速构造一个 RequestSchema 实例，用于 request_schema 单元测试。
+
+    Args:
+        schema_name: schema 的稳定名称。
+        fields: 字段元组；不传时使用单个默认必填 str 字段。
+        allow_extra: 是否允许额外字段。
+    """
+    from efinance_cli.models import RequestField, RequestSchema
+
+    if fields is None:
+        fields = (
+            RequestField(
+                name="keyword",
+                cli_name="query",
+                annotation=str,
+                required=True,
+                help_text="搜索关键字。",
+            ),
+        )
+    return RequestSchema(
+        schema_name=schema_name,
+        fields=fields,
+        allow_extra=allow_extra,
+    )
