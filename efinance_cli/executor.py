@@ -29,6 +29,8 @@ class CommandExecutor:
         """执行一次命令请求。"""
         if request.command_definition is None or request.backend_selection is None:
             raise click.ClickException("Legacy function-driven commands are no longer supported.")
+        if request.backend_selection.is_auto:
+            request.backend_selection.final_backend = None
         value = self._execute_shared_command(request)
         value = enrich_market_data(request, value)
         value = build_observation_output(request, value)
@@ -52,6 +54,8 @@ class CommandExecutor:
         iteration = 0
         while True:
             iteration += 1
+            if request.backend_selection is not None and request.backend_selection.is_auto:
+                request.backend_selection.final_backend = None
             result = self.invoke(request)
             if request.watch.clear_screen:
                 click.clear()
@@ -123,12 +127,38 @@ class CommandExecutor:
             materialized = pd.Series(data)
 
         if request.output.view_mode == "raw":
+            backend_selection = request.backend_selection
+            backend_metadata = {
+                "requested_backend": (
+                    backend_selection.requested.value
+                    if backend_selection is not None and backend_selection.requested is not None
+                    else None
+                ),
+                "resolved_backend": (
+                    backend_selection.resolved.value
+                    if backend_selection is not None
+                    else None
+                ),
+                "final_backend": (
+                    backend_selection.final_backend.value
+                    if backend_selection is not None and backend_selection.final_backend is not None
+                    else None
+                ),
+                "candidate_chain": (
+                    [item.value for item in backend_selection.candidate_chain]
+                    if backend_selection is not None
+                    else []
+                ),
+            }
             return {
                 "contract_name": getattr(standard_result, "contract_name", None),
                 "data": data,
                 "raw_payload": getattr(standard_result, "raw_payload", None),
                 "provider_fields": getattr(standard_result, "provider_fields", {}),
-                "metadata": getattr(standard_result, "metadata", {}),
+                "metadata": {
+                    **getattr(standard_result, "metadata", {}),
+                    **backend_metadata,
+                },
             }
         return materialized
 

@@ -56,13 +56,35 @@ JSON_ANNOTATION_TO_TYPE: dict[str, Any] = {
 def _supported_backends_for_command(command_path: str) -> tuple[BackendName, ...]:
     if command_path in {
         "stock price history",
-        "stock price live",
         "stock profile",
         "fund nav history",
+        "quote price history",
+        "quote price latest",
+        "quote profile",
+        "fund profile",
+        "stock price latest",
+        "stock price snapshot",
     }:
+        return (
+            BackendName.EFINANCE,
+            BackendName.AKSHARE,
+            BackendName.YFINANCE,
+        ) if command_path in {
+            "stock price history",
+            "stock profile",
+            "fund nav history",
+        } else (
+            BackendName.EFINANCE,
+            BackendName.YFINANCE,
+        )
+    if command_path == "stock price live":
         return (BackendName.EFINANCE, BackendName.AKSHARE)
     if command_path == "search":
-        return (BackendName.EFINANCE, BackendName.AKSHARE)
+        return (
+            BackendName.EFINANCE,
+            BackendName.AKSHARE,
+            BackendName.YFINANCE,
+        )
     return (BackendName.EFINANCE,)
 
 
@@ -203,7 +225,11 @@ DEFAULT_SEARCH_COMMAND = CommandDefinition(
     ),
     help_text="根据关键字搜索证券候选项。",
     kind=CommandKind.SHARED,
-    supported_backends=(BackendName.EFINANCE, BackendName.AKSHARE),
+    supported_backends=(
+        BackendName.EFINANCE,
+        BackendName.AKSHARE,
+        BackendName.YFINANCE,
+    ),
     allow_watch=True,
     has_side_effect=False,
 )

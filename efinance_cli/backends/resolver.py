@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import click
 
+from efinance_cli.backends.factory import list_backend_providers
 from efinance_cli.command_catalog import get_shared_command_definition
 from efinance_cli.models import BackendName, BackendSelection, CommandDefinition
 
 
-DEFAULT_BACKEND = BackendName.EFINANCE
+DEFAULT_BACKEND = BackendName.AUTO
+AUTO_CANDIDATE_ORDER: tuple[BackendName, ...] = (
+    BackendName.AKSHARE,
+    BackendName.YFINANCE,
+    BackendName.EFINANCE,
+)
 
 
 def normalize_backend_name(value: str | BackendName | None) -> BackendName | None:
@@ -23,6 +29,17 @@ def normalize_backend_name(value: str | BackendName | None) -> BackendName | Non
         if member.value == lowered:
             return member
     raise click.ClickException(f"Unknown backend: {value}")
+
+
+def _build_auto_candidate_chain(definition: CommandDefinition) -> tuple[BackendName, ...]:
+    """基于支持矩阵与当前注册表构造 auto 候选链。"""
+
+    registry = list_backend_providers()
+    return tuple(
+        backend_name
+        for backend_name in AUTO_CANDIDATE_ORDER
+        if definition.supports_backend(backend_name) and backend_name in registry
+    )
 
 
 def resolve_backend_selection(
@@ -45,9 +62,27 @@ def resolve_backend_selection(
             normalized = DEFAULT_BACKEND
             source = "default"
     else:
-        source = "explicit"
+        if (
+            normalized == BackendName.AUTO
+            and definition.kind.value == "provider-extension"
+            and definition.provider_name is not None
+        ):
+            normalized = definition.provider_name
+            source = "auto-adapted"
+        else:
+            source = "explicit"
 
-    if not definition.supports_backend(normalized):
+    candidate_chain: tuple[BackendName, ...] = ()
+    if normalized == BackendName.AUTO:
+        candidate_chain = _build_auto_candidate_chain(definition)
+        if not candidate_chain:
+            supported = ", ".join(item.value for item in definition.supported_backends)
+            raise click.ClickException(
+                f"命令 '{' '.join(definition.cli_path)}' 没有可用的 auto backend 候选。"
+                f"支持的 backend: {supported}"
+            )
+
+    if normalized != BackendName.AUTO and not definition.supports_backend(normalized):
         supported = ", ".join(item.value for item in definition.supported_backends)
         if definition.kind.value == "provider-extension" and definition.provider_name is not None:
             default_backend = definition.provider_name.value
@@ -59,4 +94,10 @@ def resolve_backend_selection(
             f"命令 '{' '.join(definition.cli_path)}' 不支持 backend '{normalized.value}'。"
             f"支持的 backend: {supported}"
         )
-    return BackendSelection(requested=normalize_backend_name(requested_backend), resolved=normalized, source=source)
+    return BackendSelection(
+        requested=normalize_backend_name(requested_backend),
+        resolved=normalized,
+        source=source,
+        candidate_chain=candidate_chain,
+        final_backend=(normalized if normalized != BackendName.AUTO else None),
+    )

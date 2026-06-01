@@ -32,6 +32,7 @@ from efinance_cli.enrichment.service import (
     fetch_standard_history_for_request,
 )
 from efinance_cli.models import (
+    BackendName,
     ObservationEvent,
     ObservationPayload,
     ObservationSection,
@@ -472,6 +473,8 @@ def build_meta(request: Any, frame: pd.DataFrame, latest_quote: dict[str, Any]) 
         "trace_window": normalize_trace_window(request.output.trace_window),
         "row_count": int(len(frame)),
     }
+    backend_meta = build_backend_meta(request)
+    meta.update(backend_meta)
     for key in ("code", "name", "date"):
         if key in latest_quote:
             meta[key] = latest_quote[key]
@@ -491,6 +494,7 @@ def build_generic_meta(request: Any, value: Any) -> dict[str, Any]:
         "trace_window": normalize_trace_window(request.output.trace_window),
         "result_type": type(value).__name__,
     }
+    meta.update(build_backend_meta(request))
     if isinstance(value, pd.DataFrame):
         meta["row_count"] = int(len(value))
         meta["column_count"] = int(len(value.columns))
@@ -502,6 +506,31 @@ def build_generic_meta(request: Any, value: Any) -> dict[str, Any]:
     elif isinstance(value, (list, tuple, set)):
         meta["item_count"] = int(len(value))
     return meta
+
+
+def build_backend_meta(request: Any) -> dict[str, Any]:
+    """把当前请求中的 backend 解析结果转成 observation 可见元信息。"""
+
+    backend_selection = getattr(request, "backend_selection", None)
+    if backend_selection is None:
+        return {}
+    final_backend = backend_selection.final_backend
+    if final_backend is None and backend_selection.resolved != BackendName.AUTO:
+        final_backend = backend_selection.resolved
+    return {
+        "requested_backend": (
+            backend_selection.requested.value
+            if backend_selection.requested is not None
+            else None
+        ),
+        "resolved_backend": backend_selection.resolved.value,
+        "final_backend": (
+            final_backend.value
+            if final_backend is not None
+            else None
+        ),
+        "candidate_chain": [item.value for item in backend_selection.candidate_chain],
+    }
 
 
 def build_generic_sections(value: Any) -> list[ObservationSection]:

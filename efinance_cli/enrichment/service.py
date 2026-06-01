@@ -168,10 +168,19 @@ def fetch_standard_history_for_request(
         else get_shared_command_definition(history_command_key)
     )
     request_data = build_history_lookup_request_data(request, history_command_key, code)
+    backend_selection = request.backend_selection
+    if getattr(backend_selection, "final_backend", None) is not None:
+        backend_selection = type(backend_selection)(
+            requested=backend_selection.requested,
+            resolved=backend_selection.final_backend,
+            source=backend_selection.source,
+            candidate_chain=backend_selection.candidate_chain,
+            final_backend=backend_selection.final_backend,
+        )
     try:
         standard_result = facade.invoke(
             history_definition,
-            request.backend_selection,
+            backend_selection,
             request_data,
         )
     except Exception:

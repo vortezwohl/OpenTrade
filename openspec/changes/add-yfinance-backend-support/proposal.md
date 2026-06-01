@@ -1,8 +1,17 @@
 ## Why
 
-当前多后端架构已经为 `yfinance` 预留了 `BackendName.YFINANCE` 与 optional provider 挂载点，但运行时注册表、共享命令支持矩阵、结果标准化、观察链路与回归测试仍停留在 `efinance + akshare` 双后端状态。项目已经把 `yfinance>=1.4.1` 安装进本地 `.venv`，现在正是把“预留扩展点”落成“真实可用后端”的窗口期，否则现有架构对 `yfinance` 的可扩展性仍停留在设计层假设。
+当前代码基线已经完成多后端执行骨架与单 backend 命令重分类：
+
+- `shared` 只保留真正多 backend 的命令；
+- 单 backend 命令已经稳定下沉到 `provider-extension`；
+- `CommandExecutor -> CommandFacade -> BackendProvider -> CapabilityHandler` 主链可复用；
+- `BackendName.YFINANCE` 与 optional provider 占位已经存在。
+
+但运行时注册表、共享命令支持矩阵、结果标准化、观察链路与回归测试仍停留在 `efinance + akshare` 双后端状态。也就是说，`yfinance` 目前只是一个“被枚举但不可执行”的预留标识，还没有变成正式 provider。
 
 之所以要先做完整提案，而不是直接补几个 handler，是因为 `yfinance` 的能力结构与现有后端明显不同：它把搜索、历史、快照、资料面、基金资料、WebSocket 实时流和期权链拆在不同入口，并且真实网络访问受 Yahoo 限流影响明显。如果不先在架构层明确共享能力、扩展能力、降级策略与验证边界，后续实现很容易退化成“能调通几个 API 就算支持”的伪集成。
+
+当前还需要明确一个边界：`add-auto-backend-routing` 尚未落地，所以 `yfinance` 首轮接入必须先保证显式 `--backend yfinance` 路径可用，而不能把“默认 auto 自动参与降级链”当成已经存在的运行时前提。
 
 ## What Changes
 
@@ -18,6 +27,7 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `yfinance-backend-enablement`: 把 `yfinance` 从预留 provider 升级为正式 provider，并定义其运行时注册、依赖探测、错误暴露与支持矩阵约束。
 - `yfinance-shared-command-support`: 定义 `yfinance` 在共享命令面上的最小闭环支持范围、参数映射、标准化行为与不支持场景。
 - `yfinance-provider-extensions`: 定义 Yahoo 专属能力如何通过 provider-extension 命令暴露，而不污染共享命令树。
@@ -47,3 +57,4 @@
   - 会扩大 `--backend yfinance` 的共享命令可用面；
   - 会新增 Yahoo 专属扩展命令；
   - 不承诺所有现有共享命令都能被 `yfinance` 覆盖，未覆盖能力必须显式报错而不是静默回退。
+- 这项 change 以前置归档 `reclassify-single-backend-commands` 为命令分类基线，并与 `add-auto-backend-routing` 保持解耦：先保证显式 `--backend yfinance` 路径成立，再让未来 `auto` 路由消费它。

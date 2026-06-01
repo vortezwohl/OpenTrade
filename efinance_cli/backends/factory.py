@@ -8,7 +8,11 @@
 from __future__ import annotations
 
 from efinance_cli.backends.base import BackendProvider
-from efinance_cli.backends.providers import build_akshare_provider, build_efinance_provider
+from efinance_cli.backends.providers import (
+    build_akshare_provider,
+    build_efinance_provider,
+    build_yfinance_provider,
+)
 from efinance_cli.models import BackendName, CommandDefinition
 
 
@@ -18,13 +22,14 @@ def list_backend_providers() -> dict[BackendName, BackendProvider]:
     return {
         BackendName.EFINANCE: build_efinance_provider(),
         BackendName.AKSHARE: build_akshare_provider(),
+        BackendName.YFINANCE: build_yfinance_provider(),
     }
 
 
 def list_optional_provider_names() -> tuple[BackendName, ...]:
     """返回当前仅预留挂载点、尚未默认接入的 provider 名称。"""
 
-    return (BackendName.YFINANCE,)
+    return ()
 
 
 def get_backend_provider(backend_name: BackendName) -> BackendProvider:

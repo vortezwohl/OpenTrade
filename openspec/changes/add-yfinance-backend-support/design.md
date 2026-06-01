@@ -6,7 +6,14 @@
 - `list_optional_provider_names()` 已把 `yfinance` 标记为预留 provider；
 - `CommandExecutor -> CommandFacade -> BackendProvider -> CapabilityHandler` 的执行主链已经稳定；
 - 共享命令的 schema、结果契约、observation 和 rendering 已经围绕标准结果工作；
-- 现有正式 provider 仍只有 `efinance` 与 `akshare`。
+- 现有正式 provider 仍只有 `efinance` 与 `akshare`；
+- 单 backend 命令重分类已经归档完成，后续新增仅由 `yfinance` 支持的命令必须直接建模为 `provider-extension`。
+
+这也意味着本 change 的起点已经比最早提案时更清晰：
+
+- 命令分类边界已经稳定，不需要再讨论“是否允许单 backend 命令继续挂在 shared catalog”；
+- `add-auto-backend-routing` 仍未实现，因此首轮 `yfinance` 接入必须先围绕显式 `--backend yfinance` 路径闭环；
+- 只要 `yfinance` 还未正式注册，未来的 `auto` 候选链就应该跳过它，而不是假设它已经可执行。
 
 本轮调研基于项目 `.venv` 中已安装的 `yfinance==1.4.1` 源码完成，重点事实如下：
 
@@ -16,13 +23,6 @@
 - 基金画像走 `FundsData`，能提供概览、费率、资产配置、前十大持仓、债券评级、行业权重；
 - 实时流走 `live.WebSocket` / `AsyncWebSocket`，与当前 CLI 的同步轮询式 `watch` 不是一回事；
 - 真实运行验证中，`Search`、`Ticker.history()`、`FastInfo`、`FundsData` 都可能直接抛出 `YFRateLimitError`，说明 Yahoo 限流必须被视作一等设计约束。
-
-这意味着 `yfinance` 接入不能简单照搬 `efinance` / `akshare`：
-
-- 它天然更偏全球 ticker / Yahoo symbol 语义，而不是国内市场代码表；
-- 它的资料面与实时字段来自不同入口，字段完整度不稳定；
-- 它具备一些很强的 Yahoo 专属能力，但并不适合全部塞进共享命令；
-- 它的网络稳定性更依赖速率控制、错误收束和显式降级。
 
 ## Goals / Non-Goals
 
@@ -42,6 +42,7 @@
 - 不承诺所有 `yfinance` 支持的 Yahoo 页面能力都被 CLI 暴露。
 - 不为了 `yfinance` 牺牲现有共享 schema 的稳定性，去把整个命令面重写成 Yahoo 原生参数语义。
 - 不以“静默回退到其他 backend”作为 `yfinance` 不支持场景的兼容策略。
+- 不在本轮顺手实现 `auto` 默认路由或多 backend failover，那属于 `add-auto-backend-routing` 的范围。
 
 ## Decisions
 
@@ -66,17 +67,7 @@
    - `bond.*`
    - `futures.*`
    - `market.price.live`
-   - 国内市场专属 flow / trades / report-dates / disclosure 之类 Yahoo 无稳定对应的数据面
-
-原因：
-
-- `yfinance` 对股票 / ETF / mutual fund / quote 通路最自然；
-- 当前共享命令里大量中国市场专属命令并没有 Yahoo 等价物；
-- 先把“能稳定标准化”的链路做扎实，比扩大名义覆盖面更重要。
-
-备选方案：
-
-- 直接把所有 `quote.*`、`stock.*` 标成支持。放弃，因为这会制造大量“路由成功但字段不完整”的伪支持。
+   - 国内市场专属 flow / trades / report-dates / disclosure 等 Yahoo 无稳定对应的数据面
 
 ### 决策二：历史类能力统一优先走 `Ticker.history()`，批量历史按受控方式使用 `download()`
 
@@ -88,16 +79,6 @@
 
 只有在共享命令已经天然是批量语义、且验证过返回 shape 可稳定物化时，才允许受控引入 `download()`。
 
-原因：
-
-- `Ticker.history()` 返回 shape 更稳定，metadata 也更容易与 symbol 绑定；
-- `download()` 会引入 MultiIndex、批量失败聚合、线程控制、去重与索引对齐的额外复杂度；
-- 先把单标的主链打通，更符合当前架构的最小闭环原则。
-
-备选方案：
-
-- 所有历史都统一用 `download()`。放弃，因为它会让标准化、错误定位和 observation 输入复杂化。
-
 ### 决策三：最新价 / 快照能力拆成 `FastInfo` 优先，`Quote.info` 兜底
 
 `yfinance` 的实时近似能力不应直接等同于 `live.WebSocket`。共享命令中的 `quote.price.latest`、可能的 `stock.price.latest` / `snapshot` 将采用：
@@ -106,37 +87,12 @@
 - 必要时从 `history_metadata` 与 `Quote.info` 补 `currency/market/exchange/quoteType/shortName`
 - 明确把其语义定义为“最近一次 Yahoo 提供的快照”，而不是强实时 streaming
 
-原因：
-
-- `FastInfo` 与现有 `realtime-quotes` 契约更接近；
-- `WebSocket` 是长连接订阅模型，暂时不适合硬塞进轮询命令；
-- `Quote.info` 字段更多，但慢且不稳定，适合作为资料面补充而不是首选快照源。
-
-备选方案：
-
-- 首轮就把 `watch --backend yfinance` 接到 WebSocket。放弃，因为这会把执行模型从同步拉取改成事件驱动，超出本轮范围。
-
 ### 决策四：资料面分成股票资料与基金资料两条标准化路径
 
 `stock.profile` / `quote.profile` 与 `fund.profile` 不能复用一套粗糙映射：
 
 - 股票 / 普通 quote 资料面来自 `Quote.info`、`history_metadata`、必要时补 `FastInfo`
 - 基金资料面来自 `FundsData`，优先暴露 fund overview、operations、asset classes、top holdings、bond ratings、sector weightings
-
-这要求结果契约层允许：
-
-- 共享核心字段继续统一，例如 `code/name/quote_id/market`
-- provider_fields 保留 Yahoo 特有字段块，避免强行压平导致信息流失
-
-原因：
-
-- `FundsData` 自带明显不同于股票资料面的结构；
-- 强行套用现有 `profile-info` 的扁平思路会损失大量基金专属信息；
-- 共享命令可以保留统一入口，但标准结果必须允许不同类型的补充载荷。
-
-备选方案：
-
-- 把基金资料也全塞成一个扁平 dict。放弃，因为会让基金画像退化成几项弱字段。
 
 ### 决策五：Yahoo 专属高价值能力进入 provider-extension，而不是继续扩张共享命令
 
@@ -146,16 +102,6 @@
 - 期权链 `Ticker.option_chain()`
 - 基金前十大持仓 / 资产配置 / 债券评级 / 行业权重的细分视图
 - 后续可能的 earnings calendar、recommendations、analyst targets
-
-原因：
-
-- 它们属于 Yahoo 明显更强但不具备多后端对等性的能力；
-- 放进扩展命令树后，帮助页和测试边界更清晰；
-- 可以避免为了抽象共享能力而弱化这些数据面的表达力。
-
-备选方案：
-
-- 继续扩张共享命令树，为每种资料面都寻找“跨 provider 最小公分母”。放弃，因为当前真实需求是把 `yfinance` 接进来，而不是再发起一轮命令面大战略重构。
 
 补充约束：
 
@@ -173,15 +119,6 @@
 - 对未支持命令返回明确 backend 不支持错误，不走 fallback；
 - 对字段缺失走“契约级最小成功 + provider_fields 保留 + observation 降级”，而不是伪造字段。
 
-原因：
-
-- 调研时四条最小验证链就复现了限流，这不是边缘异常；
-- 如果只在 retry 层吞掉，会让用户误以为 `yfinance` 天然等价于现有国内数据源。
-
-备选方案：
-
-- 增加更多重试并假设大多数问题会消失。放弃，因为限流是平台行为，不是单纯瞬时网络抖动。
-
 ## Risks / Trade-offs
 
 - [风险] Yahoo 限流会让自动化测试和手工验证不稳定。 → 缓解：provider 层主测 contract/unit tests，以 mock/fake payload 为主；少量 live smoke test 标记为可选或手工。
@@ -197,6 +134,11 @@
 3. 为 `yfinance` 增加契约测试与标准化测试，确保输出能进入现有 enrichment / observation / rendering 主链。
 4. 增加 Yahoo 专属扩展命令组，把新闻 / 期权链 / 基金画像等高差异能力从共享命令面隔离出来。
 5. 最后再视稳定性评估是否扩大 `stock.price.latest`、`snapshot`、`history-batch` 等条件支持面。
+
+实施顺序补充：
+
+- 第一步必须先让 `--backend yfinance` 在 provider 注册、解析、执行、标准化和错误处理链路上闭环；
+- 只有在显式 backend 路径稳定后，后续 `add-auto-backend-routing` 才能把 `yfinance` 纳入默认候选链。
 
 回退策略：
 

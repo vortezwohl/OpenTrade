@@ -55,11 +55,13 @@ efinance
 
 | 命令键 | CLI 路径 | 说明 | 支持后端 |
 | --- | --- | --- | --- |
-| `instrument.search` | `search` | 搜索证券候选项 | `efinance`、`akshare` |
-| `stock.price.history` | `stock price history` | 股票历史行情 | `efinance`、`akshare` |
+| `instrument.search` | `search` | 搜索证券候选项 | `efinance`、`akshare`、`yfinance` |
+| `stock.price.history` | `stock price history` | 股票历史行情 | `efinance`、`akshare`、`yfinance` |
 | `stock.price.live` | `stock price live` | 股票实时行情列表 | `efinance`、`akshare` |
-| `stock.profile` | `stock profile` | 股票基础资料 | `efinance`、`akshare` |
-| `fund.nav.history` | `fund nav history` | 基金净值历史 | `efinance`、`akshare` |
+| `stock.profile` | `stock profile` | 股票基础资料 | `efinance`、`akshare`、`yfinance` |
+| `fund.nav.history` | `fund nav history` | 基金净值历史 | `efinance`、`akshare`、`yfinance` |
+| `quote.price.history` / `quote.price.latest` / `quote.profile` | `quote ...` | 通用行情历史、最新价与资料 | `efinance`、`yfinance` |
+| `fund.profile` | `fund profile` | 基金资料 | `efinance`、`yfinance` |
 
 共享命令的共同特征：
 
@@ -87,7 +89,17 @@ efinance stock industry boards
 - 仍然复用统一执行骨架与结果契约；
 - 错误地显式指定其它 backend 时，会明确失败，而不是静默降级。
 
-未来 `yfinance` 若接入，也应遵循同样的扩展命令挂载方式。
+`yfinance` 当前已经按同样规则接入扩展命令，例如：
+
+```bash
+efinance quote news --quote-id AAPL --result-count 5
+```
+
+补充说明：
+
+- `quote news` 是首个 Yahoo 专属扩展命令，仍复用统一执行骨架、标准化输出与错误 backend 约束；
+- 这里的 `quote-id` 实际上遵循 Yahoo ticker / symbol 语义，典型输入是 `AAPL`、`MSFT`、`0700.HK`、`9988.HK`；
+- `--result-count` 表示业务返回的新闻条数，避免与统一 watch 运行时的 `--count` 刷新次数语义混淆。
 
 ## 5. `--backend` 语义
 
@@ -105,9 +117,11 @@ efinance fund nav history --symbol 161725 --backend akshare
 
 规则如下：
 
-- 不传 `--backend` 时，默认使用 `efinance`；
+- 不传 `--backend` 时，默认按 `auto` 语义解析，并按 `akshare -> yfinance -> efinance` 的固定顺序尝试可用 backend；
 - 显式传入的 backend 必须在该命令的支持矩阵内；
 - 不受支持的 backend 会直接报错，不会回退到默认后端。
+- 当命令支持 `yfinance` 时，帮助页会额外提示 Yahoo ticker / symbol 语义与限流边界。
+- 对 `yfinance` 来说，`market` 与 `symbol` 的历史习惯只会做最小映射；跨市场场景应优先直接传 Yahoo ticker，而不要假设所有本地代码都能被自动翻译。
 
 ### 5.2 Provider 扩展命令
 
@@ -121,6 +135,7 @@ efinance stock industry boards --backend akshare
 规则如下：
 
 - 不传 `--backend` 时，默认解析到所属 provider；
+- 显式传入 `--backend auto` 时，也会直接自动适配到所属 provider，而不是参与共享命令的多 backend 降级链；
 - 显式传入相同 provider 允许执行；
 - 显式传入其它 provider 会明确失败，并提示该命令默认会路由到所属 provider。
 
@@ -148,7 +163,7 @@ efinance stock industry boards --backend akshare
 
 - `--view raw` 适合调试 provider 差异、核对原始字段和扩展字段；
 - `--view observation` 适合统一阅读结构化观察结果；
-- 顶层 `watch` 与命令内 `--watch` 复用同一请求对象和同一 backend 解析逻辑；
+- 顶层 `watch` 与命令内 `--watch` 复用同一请求对象和同一 backend 解析逻辑；当共享命令走 `auto` 时，每轮刷新都会重新按相同候选链顺序执行；
 - `--count` 仅表示刷新次数，不表示业务记录数量。
 
 ## 7. 当前推荐用法
@@ -192,7 +207,24 @@ efinance bond catalog
 efinance quote price latest --quote-ids 1.000001
 efinance search local --query 贵州茅台
 efinance stock industry boards
+efinance quote news --quote-id AAPL --result-count 5
 ```
+
+### 7.5 `yfinance` 可选 live smoke 验证
+
+`yfinance` 的自动化主验证应继续以 mock / contract tests 为主；如果需要做人工 live smoke，建议只做小样本、显式 backend 的快速检查，例如：
+
+```bash
+efinance search --query AAPL --backend yfinance --format json
+efinance stock price history --symbols AAPL --backend yfinance --start-date 20250102 --end-date 20250501 --format json
+efinance quote news --quote-id AAPL --backend yfinance --result-count 3 --format json
+```
+
+说明：
+
+- 这些 smoke 仅用于确认显式 `--backend yfinance` 的真实网络路径可工作；
+- Yahoo 可能因为限流、地区网络差异或上游字段波动直接失败，因此不应把 live smoke 当成稳定 CI 前提；
+- 若 live smoke 失败，应优先结合单元测试、合同测试与报错内容判断是限流边界还是实现回归。
 
 ## 8. BREAKING 变化
 
@@ -235,7 +267,9 @@ efinance stock industry boards
 当前版本的主要边界如下：
 
 - 已下线旧函数驱动命令树，新增用户能力应继续走 shared / provider-extension 模型；
-- `yfinance` 目前仅预留 optional provider 挂载点，尚未实现具体能力；
+- `yfinance` 已正式接入搜索、历史、最新价 / 快照、股票 / 基金 / quote 资料与 `quote news` 扩展命令；
+- `yfinance` 以 Yahoo ticker / symbol 语义为主，对 bond / futures / 国内市场专属命令面并不承诺支持；
+- Yahoo 侧可能触发显式限流错误，当前实现会直接返回可读失败，而不是静默回退或伪造空结果；
 - observation 与 enrichment 会优先消费标准契约与标准补充接口，不应重新引入旧式 provider 回补分支。
 
 如果你在扩展新命令，应优先判断它属于：

@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from efinance_cli.command_catalog import get_shared_command_definition
+from efinance_cli.command_catalog import get_command_definition, get_shared_command_definition
 from efinance_cli.enrichment.service import fetch_standard_history_for_request
 from efinance_cli.models import (
     BackendName,
@@ -164,7 +164,7 @@ def build_shared_fund_nav_history_request(trace_window: int = 32) -> InvocationR
 
 def build_shared_fund_nav_history_batch_request(trace_window: int = 32) -> InvocationRequest:
     """构造 shared 基金批量净值历史 observation 请求。"""
-    definition = get_shared_command_definition("fund.nav.history-batch")
+    definition = get_command_definition("fund.nav.history-batch")
     return InvocationRequest(
         spec=CommandSpec(
             module_name="shared",
@@ -190,7 +190,7 @@ def build_shared_fund_nav_history_batch_request(trace_window: int = 32) -> Invoc
 
 def build_shared_bond_history_request(trace_window: int = 32) -> InvocationRequest:
     """构造 shared 债券历史 observation 请求。"""
-    definition = get_shared_command_definition("bond.price.history")
+    definition = get_command_definition("bond.price.history")
     return InvocationRequest(
         spec=CommandSpec(
             module_name="shared",
@@ -336,9 +336,42 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.meta["trace_window"], 4)
         self.assertEqual(payload.meta["row_count"], 4)
         self.assertEqual(payload.meta["code"], "000001")
+        self.assertEqual(payload.meta["resolved_backend"], "efinance")
+        self.assertEqual(payload.meta["final_backend"], "efinance")
+        self.assertEqual(payload.meta["candidate_chain"], [])
         self.assertEqual(payload.latest_quote["close"], 106.0)
         self.assertTrue(payload.trace_points)
         self.assertTrue(payload.recent_events)
+
+    def test_shared_stock_history_observation_exposes_final_backend_under_auto(self) -> None:
+        frame = build_history_frame().rename(
+            columns={
+                "股票代码": "symbol",
+                "股票名称": "name",
+                "日期": "date",
+                "收盘": "close",
+                "开盘": "open",
+                "最高": "high",
+                "最低": "low",
+                "成交量": "volume",
+            }
+        )
+        frame["symbol"] = "AAPL"
+        request = build_shared_stock_history_request(trace_window=4)
+        request.backend_selection = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
+            final_backend=BackendName.YFINANCE,
+        )
+
+        payload = build_observation_output(request, frame)
+        self.assertIsInstance(payload, ObservationPayload)
+        self.assertEqual(payload.meta["requested_backend"], None)
+        self.assertEqual(payload.meta["resolved_backend"], "auto")
+        self.assertEqual(payload.meta["final_backend"], "yfinance")
+        self.assertEqual(payload.meta["candidate_chain"], ["akshare", "yfinance", "efinance"])
 
     def test_shared_stock_history_observation_normalizes_provider_alias_columns(self) -> None:
         """shared stock history 应优先通过契约层兼容 provider 别名列。"""

@@ -246,6 +246,8 @@ def build_shared_help_text(definition: CommandDefinition) -> str:
     supported = ", ".join(item.value for item in definition.supported_backends)
     lines.append(f"支持后端: {supported}")
     lines.append(f"命令类别: {definition.kind.value}")
+    if BackendName.YFINANCE in definition.supported_backends:
+        lines.append("注意: yfinance 以 Yahoo ticker / symbol 语义为主，本地市场专属命令面并不完整。")
     if definition.provider_name is not None:
         lines.append(f"所属 Provider: {definition.provider_name.value}")
     if definition.has_side_effect:

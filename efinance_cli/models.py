@@ -27,6 +27,7 @@ class BackendName(str, Enum):
     EFINANCE = "efinance"
     AKSHARE = "akshare"
     YFINANCE = "yfinance"
+    AUTO = "auto"
 
 
 class CommandKind(str, Enum):
@@ -167,6 +168,14 @@ class BackendSelection:
     requested: BackendName | None
     resolved: BackendName
     source: str = "explicit"
+    candidate_chain: tuple[BackendName, ...] = field(default_factory=tuple)
+    final_backend: BackendName | None = None
+
+    @property
+    def is_auto(self) -> bool:
+        """判断当前解析结果是否仍保留 auto 语义。"""
+
+        return self.resolved == BackendName.AUTO
 
 
 @dataclass(slots=True)

@@ -570,6 +570,22 @@ efinance quote price latest --quote-ids 105.NVDA</code></pre>
   </tr>
 </table>
 
+<a id="yahoo-finance-backend"></a>
+## Yahoo Finance Backend
+
+`yfinance` is now a first-class backend for a focused subset of shared commands. Use `--backend yfinance` when you want Yahoo Finance data explicitly, and keep the following boundaries in mind:
+
+- Supported shared coverage includes search, stock and quote history, quote latest, conditional stock latest/snapshot, stock and quote profile, fund NAV history, and fund profile.
+- Yahoo-only capability currently starts with `quote news`, exposed as a provider-extension command instead of pretending to be backend-agnostic.
+- Symbol semantics follow Yahoo tickers first. Typical inputs are `AAPL`, `MSFT`, `0700.HK`, or `9988.HK`; not every domestic-market symbol style can be inferred safely.
+- Live smoke verification is intentionally optional because Yahoo may return explicit rate-limit failures even for valid requests.
+
+```bash
+efinance search --query AAPL --backend yfinance --format json
+efinance quote price latest --quote-ids AAPL --backend yfinance --format json
+efinance quote news --quote-id AAPL --result-count 5 --format json
+```
+
 <a id="notes"></a>
 ## Notes
 
@@ -581,6 +597,8 @@ efinance quote price latest --quote-ids 105.NVDA</code></pre>
         <li>The CLI depends on upstream market-data availability.</li>
         <li>Realtime stability depends on network conditions and source-side behavior.</li>
         <li>Some commands support richer indicator enrichment than others.</li>
+        <li><code>yfinance</code>-backed commands use Yahoo ticker / symbol semantics and may fail with explicit rate-limit errors.</li>
+        <li>Optional live smoke checks should be run manually against a small symbol set because Yahoo throttling makes them non-deterministic.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
