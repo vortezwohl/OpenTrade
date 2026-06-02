@@ -1,11 +1,13 @@
 <div align="center">
-  <h1>efinance-cli</h1>
+  <h1>OpenTrade</h1>
   <p><strong>终端里的市场数据，专为人、脚本与 Agent 而设计。</strong></p>
   <p>用一套统一命令树完成证券搜索、行情 ID 解析、实时行情查看、历史行情查询、数据导出，以及指标信息丰富的 <code>observation</code> 结构化输出。</p>
   <p>
     <a href="https://www.python.org/"><img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-2F5D8C"></a>
-    <a href="https://pypi.org/project/the-efinance-cli/"><img alt="PyPI 包" src="https://img.shields.io/badge/PyPI-the--efinance--cli-2563EB"></a>
-    <a href="https://pypi.org/project/efinance/"><img alt="上游 efinance" src="https://img.shields.io/badge/Upstream-efinance-B45309"></a>
+    <a href="https://pypi.org/project/opentrade/"><img alt="PyPI 包" src="https://img.shields.io/badge/PyPI-opentrade-2563EB"></a>
+    <a href="https://pypi.org/project/akshare/"><img alt="后端 akshare" src="https://img.shields.io/badge/Backend-akshare-1D4ED8"></a>
+    <a href="https://pypi.org/project/efinance/"><img alt="后端 efinance" src="https://img.shields.io/badge/Backend-efinance-B45309"></a>
+    <a href="https://pypi.org/project/yfinance/"><img alt="后端 yfinance" src="https://img.shields.io/badge/Backend-yfinance-15803D"></a>
     <img alt="默认视图 observation" src="https://img.shields.io/badge/Default%20View-observation-0F766E">
     <img alt="指标增强" src="https://img.shields.io/badge/Indicators-basic%20%7C%20advanced%20%7C%20full-7C3AED">
   </p>
@@ -41,19 +43,19 @@
 <a id="installation"></a>
 ## 安装
 
-安装已发布到 PyPI 的 `the-efinance-cli`。安装后可使用 `efinance` 和 `efi` 两个命令。
+安装已发布到 PyPI 的 `opentrade`。安装后可使用 `opentrade` 和 `optr` 两个命令。
 
 <table width="100%">
   <tr>
     <td width="50%" valign="top">
       <strong>uv</strong>
-      <pre lang="bash"><code>uv add -U the-efinance-cli
-efinance --help</code></pre>
+      <pre lang="bash"><code>uv add -U opentrade
+opentrade --help</code></pre>
     </td>
     <td width="50%" valign="top">
       <strong>pip</strong>
-      <pre lang="bash"><code>pip install -U the-efinance-cli
-efinance --help</code></pre>
+      <pre lang="bash"><code>pip install -U opentrade
+opentrade --help</code></pre>
     </td>
   </tr>
 </table>
@@ -63,7 +65,7 @@ efinance --help</code></pre>
 <a id="what-this-tool-is"></a>
 ## 这个工具是什么
 
-> `efinance-cli` 不是一组零散脚本，而是构建在 `efinance` 之上的命令行产品层。
+> `OpenTrade` 不是一组零散脚本，而是构建在上游市场数据提供方之上的命令行产品层。
 
 它把上游能力重新整理成一个更适合终端浏览、更适合脚本自动化、也更适合结构化消费的公开命令树。目标不是替代上游行情库，而是把原有能力变成一个更稳定、更好用的 CLI。
 
@@ -74,17 +76,17 @@ efinance --help</code></pre>
   <tr>
     <td width="33%" valign="top">
       <strong>1. 先搜索</strong>
-      <pre lang="bash"><code>efinance search --query AAPL --market US_stock --result-count 5 --format json</code></pre>
+      <pre lang="bash"><code>opentrade search --query AAPL --market US_stock --result-count 5 --format json</code></pre>
       当你只知道代码、关键字或公司名时，最稳妥的入口就是先搜索。
     </td>
     <td width="33%" valign="top">
       <strong>2. 解析 <code>quote_id</code></strong>
-      <pre lang="bash"><code>efinance resolve quote-id --symbol AAPL --market us_stock --format json</code></pre>
+      <pre lang="bash"><code>opentrade resolve quote-id --symbol AAPL --market us_stock --format json</code></pre>
       常见美股会被解析成类似 <code>105.AAPL</code> 这样的统一行情标识。
     </td>
     <td width="33%" valign="top">
       <strong>3. 查询行情</strong>
-      <pre lang="bash"><code>efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format json</code></pre>
+      <pre lang="bash"><code>opentrade stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format json</code></pre>
       后续可以继续进入历史行情、最新行情、循环刷新和导出流程。
     </td>
   </tr>
@@ -264,7 +266,7 @@ efinance --help</code></pre>
 <a id="indicator-coverage"></a>
 ## 指标覆盖
 
-`efinance-cli` 内置了一套覆盖面很广的技术指标集合。兼容命令不仅能返回原始行情，也能暴露大量指标上下文，因此适合筛选、复盘与后续量化分析。
+`OpenTrade` 内置了一套覆盖面很广的技术指标集合。兼容命令不仅能返回原始行情，也能暴露大量指标上下文，因此适合筛选、复盘与后续量化分析。
 
 <details open>
 <summary><strong>均线与基础变换</strong></summary>
@@ -333,7 +335,7 @@ efinance --help</code></pre>
 <summary><strong>最新行情 observation</strong></summary>
 
 <p><strong>命令</strong></p>
-<pre lang="bash"><code>efinance quote price latest --quote-ids 105.AAPL --format table --indicator-level full --trace-window 4</code></pre>
+<pre lang="bash"><code>opentrade quote price latest --quote-ids 105.AAPL --format table --indicator-level full --trace-window 4</code></pre>
 
 <p><strong>典型输出</strong></p>
 
@@ -410,7 +412,7 @@ efinance --help</code></pre>
 <summary><strong>历史行情 observation</strong></summary>
 
 <p><strong>命令</strong></p>
-<pre lang="bash"><code>efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format table --indicator-level advanced --trace-window 4</code></pre>
+<pre lang="bash"><code>opentrade stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format table --indicator-level advanced --trace-window 4</code></pre>
 
 <p><strong>典型输出</strong></p>
 
@@ -480,7 +482,7 @@ efinance --help</code></pre>
 <summary><strong>多标的基金 observation</strong></summary>
 
 <p><strong>命令</strong></p>
-<pre lang="bash"><code>efinance fund nav history-batch --symbols 161725 --symbols 005827 --format table --view observation --trace-window 4</code></pre>
+<pre lang="bash"><code>opentrade fund nav history-batch --symbols 161725 --symbols 005827 --format table --view observation --trace-window 4</code></pre>
 
 <p><strong>典型输出</strong></p>
 
@@ -549,23 +551,23 @@ efinance --help</code></pre>
   <tr>
     <td width="50%" valign="top">
       <strong>搜索并查看</strong>
-      <pre lang="bash"><code>efinance search --query NVDA --market US_stock
-efinance resolve quote-id --symbol NVDA --market us_stock
-efinance quote price latest --quote-ids 105.NVDA</code></pre>
+      <pre lang="bash"><code>opentrade search --query NVDA --market US_stock
+opentrade resolve quote-id --symbol NVDA --market us_stock
+opentrade quote price latest --quote-ids 105.NVDA</code></pre>
     </td>
     <td width="50%" valign="top">
       <strong>循环观察单个行情</strong>
-      <pre lang="bash"><code>efinance watch --interval 5 --count 3 quote price latest --quote-ids 105.AAPL --format json</code></pre>
+      <pre lang="bash"><code>opentrade watch --interval 5 --count 3 quote price latest --quote-ids 105.AAPL --format json</code></pre>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <strong>批量基金净值历史</strong>
-      <pre lang="bash"><code>efinance fund nav history-batch --symbols 161725 --symbols 005827 --format json</code></pre>
+      <pre lang="bash"><code>opentrade fund nav history-batch --symbols 161725 --symbols 005827 --format json</code></pre>
     </td>
     <td width="50%" valign="top">
       <strong>市场级实时扫描</strong>
-      <pre lang="bash"><code>efinance market price live --market m:105+t:3 --format json</code></pre>
+      <pre lang="bash"><code>opentrade market price live --market m:105+t:3 --format json</code></pre>
     </td>
   </tr>
 </table>
