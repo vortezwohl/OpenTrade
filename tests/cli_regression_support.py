@@ -16,7 +16,7 @@ from typing import Iterator
 
 import click
 
-from efinance_cli.commands import create_root_command
+from opentrade.commands import create_root_command
 
 
 SearchRecord = namedtuple(
@@ -276,7 +276,7 @@ def make_request_field(
 
     所有参数均有合理默认值，调用方可按需覆盖。
     """
-    from efinance_cli.models import RequestField
+    from opentrade.models import RequestField
 
     return RequestField(
         name=name,
@@ -302,7 +302,7 @@ def make_request_schema(
         fields: 字段元组；不传时使用单个默认必填 str 字段。
         allow_extra: 是否允许额外字段。
     """
-    from efinance_cli.models import RequestField, RequestSchema
+    from opentrade.models import RequestField, RequestSchema
 
     if fields is None:
         fields = (

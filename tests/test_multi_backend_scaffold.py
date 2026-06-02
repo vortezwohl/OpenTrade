@@ -5,18 +5,18 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from efinance_cli.backends.base import BackendProvider, CapabilityHandler
-from efinance_cli.backends.resolver import resolve_backend_selection
-from efinance_cli.backends.factory import get_backend_provider, list_backend_providers
-from efinance_cli.command_catalog import (
+from opentrade.backends.base import BackendProvider, CapabilityHandler
+from opentrade.backends.resolver import resolve_backend_selection
+from opentrade.backends.factory import get_backend_provider, list_backend_providers
+from opentrade.command_catalog import (
     SHARED_COMMANDS,
     get_capability_descriptor,
     get_command_definition,
     get_shared_command_definition,
     get_single_backend_command_definitions,
 )
-from efinance_cli.facade import AutoBackendExecutionError, CommandFacade
-from efinance_cli.models import BackendName, BackendSelection, StandardResult
+from opentrade.facade import AutoBackendExecutionError, CommandFacade
+from opentrade.models import BackendName, BackendSelection, StandardResult
 
 
 class MultiBackendScaffoldTest(unittest.TestCase):
@@ -147,7 +147,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": SuccessHandler()}),
             BackendName.EFINANCE: BackendProvider(BackendName.EFINANCE, {"stock.price.history": SuccessHandler()}),
         }
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             result = CommandFacade().invoke(definition, backend, {"stock_codes": ["AAPL"]})
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(backend.final_backend, BackendName.YFINANCE)
@@ -172,7 +172,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": FailingHandler("akshare failed")}),
             BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": FailingHandler("yfinance failed")}),
         }
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             with self.assertRaises(AutoBackendExecutionError) as context:
                 CommandFacade().invoke(definition, backend, {"stock_codes": ["AAPL"]})
         self.assertIn("akshare failed", str(context.exception))
@@ -199,7 +199,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": InvalidRequestHandler()}),
             BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": SuccessHandler()}),
         }
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             with self.assertRaisesRegex(ValueError, "bad request"):
                 CommandFacade().invoke(definition, backend, {"stock_codes": ["AAPL"]})
         self.assertIsNone(backend.final_backend)

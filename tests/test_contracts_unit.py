@@ -13,7 +13,7 @@ import unittest
 
 import pandas as pd
 
-from efinance_cli.contracts import (
+from opentrade.contracts import (
     HISTORY_BARS_CONTRACT,
     PROFILE_INFO_CONTRACT,
     REALTIME_QUOTES_CONTRACT,

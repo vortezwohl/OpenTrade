@@ -14,7 +14,7 @@ import unittest
 
 import pandas as pd
 
-from efinance_cli import indicators
+from opentrade import indicators
 from tests.cli_regression_support import print_observation
 
 

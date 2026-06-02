@@ -1,6 +1,6 @@
 """技术指标算子子包的全覆盖单元测试。
 
-对 efinance_cli.indicators 中 __all__ 列出的全部指标函数进行最小可用性验证：
+对 opentrade.indicators 中 __all__ 列出的全部指标函数进行最小可用性验证：
 每个函数至少验证可调用性与不崩溃。关键指标（ATR、RSI、ADX）额外补充手工公式交叉验证。
 """
 
@@ -11,7 +11,7 @@ import unittest
 import pandas as pd
 import numpy as np
 
-from efinance_cli import indicators
+from opentrade import indicators
 from tests.cli_regression_support import print_observation
 
 
@@ -50,7 +50,7 @@ class IndicatorsFullTest(unittest.TestCase):
 
         module_funcs: dict[str, list[str]] = {}
         for mod_name in ["base", "trend", "momentum", "volume", "volatility", "price", "chinese"]:
-            full_name = f"efinance_cli.indicators.{mod_name}"
+            full_name = f"opentrade.indicators.{mod_name}"
             mod = __import__(full_name, fromlist=["*"])
             funcs = sorted(
                 name for name, obj in inspect.getmembers(mod)

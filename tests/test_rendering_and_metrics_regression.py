@@ -13,15 +13,15 @@ import unittest
 
 import pandas as pd
 
-from efinance_cli import indicators
-from efinance_cli.models import (
+from opentrade import indicators
+from opentrade.models import (
     ObservationEvent,
     ObservationPayload,
     ObservationSection,
     ObservationTraceGroup,
     OutputOptions,
 )
-from efinance_cli.rendering import render_csv, render_json, render_table, render_value
+from opentrade.rendering import render_csv, render_json, render_table, render_value
 from tests.cli_regression_support import print_observation
 
 

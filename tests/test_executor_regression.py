@@ -14,9 +14,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from efinance_cli.command_catalog import get_shared_command_definition
-from efinance_cli.executor import CommandExecutor
-from efinance_cli.models import (
+from opentrade.command_catalog import get_shared_command_definition
+from opentrade.executor import CommandExecutor
+from opentrade.models import (
     BackendName,
     BackendSelection,
     CommandSpec,
@@ -70,8 +70,8 @@ class ExecutorRegressionTest(unittest.TestCase):
         }
 
         with patch.object(executor, "_execute_shared_command", return_value=raw_payload):
-            with patch("efinance_cli.executor.enrich_market_data") as mock_enrich:
-                with patch("efinance_cli.executor.build_observation_output") as mock_observation:
+            with patch("opentrade.executor.enrich_market_data") as mock_enrich:
+                with patch("opentrade.executor.build_observation_output") as mock_observation:
                     result = executor.invoke(request)
 
         self.assertIsInstance(result, InvocationResult)
@@ -84,9 +84,9 @@ class ExecutorRegressionTest(unittest.TestCase):
         request = self._build_request(view_mode="observation")
 
         with patch.object(executor, "_execute_shared_command", return_value={"rows": []}):
-            with patch("efinance_cli.executor.enrich_market_data", return_value={"enriched": True}) as mock_enrich:
+            with patch("opentrade.executor.enrich_market_data", return_value={"enriched": True}) as mock_enrich:
                 with patch(
-                    "efinance_cli.executor.build_observation_output",
+                    "opentrade.executor.build_observation_output",
                     return_value={"observed": True},
                 ) as mock_observation:
                     result = executor.invoke(request)
@@ -101,7 +101,7 @@ class ExecutorRegressionTest(unittest.TestCase):
         result = InvocationResult(value="bad:\ufffd")
 
         with patch.object(executor, "_render", return_value="bad:\ufffd"):
-            with patch("efinance_cli.executor.sys.stdout", new=_FakeStdout()):
+            with patch("opentrade.executor.sys.stdout", new=_FakeStdout()):
                 with patch("click.echo") as mock_echo:
                     executor._emit(request, result)
 

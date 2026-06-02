@@ -1,9 +1,9 @@
-# efinance-cli 设计与使用说明
+﻿# opentrade 设计与使用说明
 
 ## 1. 文档定位
 
-本文档说明当前版本 `efinance-cli` 的命令组织方式、后端选择语义与运行时边界。
-当前版本已经不再把 CLI 视为 `efinance` 上游函数的自然语言包装，而是以：
+本文档说明当前版本 `opentrade` 的命令组织方式、后端选择语义与运行时边界。
+当前版本已经不再把 CLI 视为上游函数的自然语言包装，而是以：
 
 - 后端无关的共享命令；
 - provider 扩展命令；
@@ -27,7 +27,7 @@
 当前用户可见的顶层入口包含：
 
 ```text
-efinance
+opentrade
 ├── search
 ├── watch
 ├── stock
@@ -55,13 +55,13 @@ efinance
 
 | 命令键 | CLI 路径 | 说明 | 支持后端 |
 | --- | --- | --- | --- |
-| `instrument.search` | `search` | 搜索证券候选项 | `efinance`、`akshare`、`yfinance` |
-| `stock.price.history` | `stock price history` | 股票历史行情 | `efinance`、`akshare`、`yfinance` |
-| `stock.price.live` | `stock price live` | 股票实时行情列表 | `efinance`、`akshare` |
-| `stock.profile` | `stock profile` | 股票基础资料 | `efinance`、`akshare`、`yfinance` |
-| `fund.nav.history` | `fund nav history` | 基金净值历史 | `efinance`、`akshare`、`yfinance` |
-| `quote.price.history` / `quote.price.latest` / `quote.profile` | `quote ...` | 通用行情历史、最新价与资料 | `efinance`、`yfinance` |
-| `fund.profile` | `fund profile` | 基金资料 | `efinance`、`yfinance` |
+| `instrument.search` | `search` | 搜索证券候选项 | `opentrade`、`akshare`、`yfinance` |
+| `stock.price.history` | `stock price history` | 股票历史行情 | `opentrade`、`akshare`、`yfinance` |
+| `stock.price.live` | `stock price live` | 股票实时行情列表 | `opentrade`、`akshare` |
+| `stock.profile` | `stock profile` | 股票基础资料 | `opentrade`、`akshare`、`yfinance` |
+| `fund.nav.history` | `fund nav history` | 基金净值历史 | `opentrade`、`akshare`、`yfinance` |
+| `quote.price.history` / `quote.price.latest` / `quote.profile` | `quote ...` | 通用行情历史、最新价与资料 | `opentrade`、`yfinance` |
+| `fund.profile` | `fund profile` | 基金资料 | `opentrade`、`yfinance` |
 
 共享命令的共同特征：
 
@@ -75,10 +75,10 @@ efinance
 provider 扩展命令用于保留特定后端独有能力。只要某个命令当前只支持单一 backend，它在内部就必须被归类为 provider-extension，即使它仍挂在 `bond`、`quote`、`market`、`resolve` 这类业务语义路径下。当前已经落地的示例包括：
 
 ```bash
-efinance bond catalog
-efinance quote price latest --quote-ids 1.000001
-efinance search local --query 贵州茅台
-efinance stock industry boards
+opentrade bond catalog
+opentrade quote price latest --quote-ids 1.000001
+opentrade search local --query 贵州茅台
+opentrade stock industry boards
 ```
 
 这类命令表示：
@@ -92,7 +92,7 @@ efinance stock industry boards
 `yfinance` 当前已经按同样规则接入扩展命令，例如：
 
 ```bash
-efinance quote news --quote-id AAPL --result-count 5
+opentrade quote news --quote-id AAPL --result-count 5
 ```
 
 补充说明：
@@ -110,9 +110,9 @@ efinance quote news --quote-id AAPL --result-count 5
 共享命令支持显式传入 `--backend`：
 
 ```bash
-efinance stock price history --symbols 600519 --backend efinance
-efinance stock price history --symbols 600519 --backend akshare
-efinance fund nav history --symbol 161725 --backend akshare
+opentrade stock price history --symbols 600519 --backend efinance
+opentrade stock price history --symbols 600519 --backend akshare
+opentrade fund nav history --symbol 161725 --backend akshare
 ```
 
 规则如下：
@@ -128,8 +128,8 @@ efinance fund nav history --symbol 161725 --backend akshare
 provider 扩展命令也接受 `--backend`，但其默认行为不同：
 
 ```bash
-efinance stock industry boards
-efinance stock industry boards --backend akshare
+opentrade stock industry boards
+opentrade stock industry boards --backend akshare
 ```
 
 规则如下：
@@ -171,43 +171,43 @@ efinance stock industry boards --backend akshare
 ### 7.1 共享搜索
 
 ```bash
-efinance search --query 贵州茅台
-efinance search --query 腾讯 --backend akshare --format json
+opentrade search --query 贵州茅台
+opentrade search --query 腾讯 --backend akshare --format json
 ```
 
-`search local` 仍可继续使用，但它属于 `efinance` 单 backend 的 provider-extension，而不是共享搜索命令面的一部分。
+`search local` 仍可继续使用，但它属于 `opentrade` 单 backend 的 provider-extension，而不是共享搜索命令面的一部分。
 
 ### 7.2 股票、债券与期货行情
 
 ```bash
-efinance stock price history --symbols 600519 --start-date 20250101 --end-date 20250501
-efinance stock price history --symbols 600519 --backend akshare --view raw --format json
-efinance stock price live
-efinance bond price history --symbols 113519
-efinance futures price live
-efinance watch --interval 3 stock price live --backend akshare
+opentrade stock price history --symbols 600519 --start-date 20250101 --end-date 20250501
+opentrade stock price history --symbols 600519 --backend akshare --view raw --format json
+opentrade stock price live
+opentrade bond price history --symbols 113519
+opentrade futures price live
+opentrade watch --interval 3 stock price live --backend akshare
 ```
 
 ### 7.3 股票资料、基金净值与 utility 入口
 
 ```bash
-efinance stock profile --symbols 000001
-efinance stock profile --symbols 000001 --backend akshare --view raw
-efinance fund nav history --symbol 161725
-efinance fund nav history --symbol 161725 --backend akshare --format json
-efinance quote price latest --quote-ids 1.000001
-efinance market price live --market m:105+t:3
-efinance resolve quote-id --symbol 000001
+opentrade stock profile --symbols 000001
+opentrade stock profile --symbols 000001 --backend akshare --view raw
+opentrade fund nav history --symbol 161725
+opentrade fund nav history --symbol 161725 --backend akshare --format json
+opentrade quote price latest --quote-ids 1.000001
+opentrade market price live --market m:105+t:3
+opentrade resolve quote-id --symbol 000001
 ```
 
 ### 7.4 Provider 扩展能力
 
 ```bash
-efinance bond catalog
-efinance quote price latest --quote-ids 1.000001
-efinance search local --query 贵州茅台
-efinance stock industry boards
-efinance quote news --quote-id AAPL --result-count 5
+opentrade bond catalog
+opentrade quote price latest --quote-ids 1.000001
+opentrade search local --query 贵州茅台
+opentrade stock industry boards
+opentrade quote news --quote-id AAPL --result-count 5
 ```
 
 ### 7.5 `yfinance` 可选 live smoke 验证
@@ -215,9 +215,9 @@ efinance quote news --quote-id AAPL --result-count 5
 `yfinance` 的自动化主验证应继续以 mock / contract tests 为主；如果需要做人工 live smoke，建议只做小样本、显式 backend 的快速检查，例如：
 
 ```bash
-efinance search --query AAPL --backend yfinance --format json
-efinance stock price history --symbols AAPL --backend yfinance --start-date 20250102 --end-date 20250501 --format json
-efinance quote news --quote-id AAPL --backend yfinance --result-count 3 --format json
+opentrade search --query AAPL --backend yfinance --format json
+opentrade stock price history --symbols AAPL --backend yfinance --start-date 20250102 --end-date 20250501 --format json
+opentrade quote news --quote-id AAPL --backend yfinance --result-count 3 --format json
 ```
 
 说明：
@@ -278,3 +278,4 @@ efinance quote news --quote-id AAPL --backend yfinance --result-count 3 --format
 - provider 专属扩展。
 
 不要再把新的用户能力直接绑定到第三方函数名上。
+

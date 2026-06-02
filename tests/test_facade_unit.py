@@ -9,10 +9,10 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from efinance_cli.backends.base import BackendProvider, CapabilityHandler
-from efinance_cli.command_catalog import get_shared_command_definition
-from efinance_cli.facade import AutoBackendExecutionError, CommandFacade
-from efinance_cli.models import (
+from opentrade.backends.base import BackendProvider, CapabilityHandler
+from opentrade.command_catalog import get_shared_command_definition
+from opentrade.facade import AutoBackendExecutionError, CommandFacade
+from opentrade.models import (
     BackendName,
     BackendSelection,
     CommandDefinition,
@@ -73,7 +73,7 @@ class FacadeUnitTest(unittest.TestCase):
             source="explicit",
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", return_value=provider):
+        with patch("opentrade.facade.get_backend_provider", return_value=provider):
             result = self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
 
         print_observation("单后端成功结果", {"contract_name": result.contract_name, "data": result.data})
@@ -94,7 +94,7 @@ class FacadeUnitTest(unittest.TestCase):
             source="explicit",
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", return_value=provider):
+        with patch("opentrade.facade.get_backend_provider", return_value=provider):
             with self.assertRaises(RuntimeError) as ctx:
                 self.facade.invoke(self.definition, backend, {"stock_codes": ["AAPL"]})
 
@@ -118,7 +118,7 @@ class FacadeUnitTest(unittest.TestCase):
             candidate_chain=(BackendName.AKSHARE, BackendName.EFINANCE),
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", return_value=akshare_provider):
+        with patch("opentrade.facade.get_backend_provider", return_value=akshare_provider):
             result = self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
 
         print_observation("auto 第一候选成功", {"final_backend": backend.final_backend.value})
@@ -142,7 +142,7 @@ class FacadeUnitTest(unittest.TestCase):
             candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE),
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             result = self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
 
         print_observation("auto 第二候选成功", {"final_backend": backend.final_backend.value})
@@ -164,7 +164,7 @@ class FacadeUnitTest(unittest.TestCase):
             candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             with self.assertRaises(AutoBackendExecutionError) as ctx:
                 self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
 
@@ -191,7 +191,7 @@ class FacadeUnitTest(unittest.TestCase):
             candidate_chain=(BackendName.YFINANCE, BackendName.EFINANCE),
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             result = self.facade.invoke(self.definition, backend, {"stock_codes": ["AAPL"]})
 
         print_observation("auto 限流后继续兜底", {"final_backend": backend.final_backend.value})
@@ -228,7 +228,7 @@ class FacadeUnitTest(unittest.TestCase):
             source="explicit",
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", return_value=provider):
+        with patch("opentrade.facade.get_backend_provider", return_value=provider):
             result = self.facade.invoke(definition, backend, {"fund_code": "161725"})
 
         self.assertEqual(result.contract_name, "side-effect-status")
