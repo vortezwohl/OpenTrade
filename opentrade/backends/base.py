@@ -11,12 +11,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
-
-from vortezwohl.func.retry import MaxRetriesReachedError
+from typing import Any, Callable
 
 from opentrade.models import BackendName, CommandDefinition, StandardResult
-from opentrade.retry_utils import call_with_network_retry
+from opentrade.retry_utils import with_network_retry
 
 
 class BackendRateLimitError(RuntimeError):
@@ -74,6 +72,10 @@ class BackendProvider:
     handlers: dict[str, CapabilityHandler] = field(default_factory=dict)
     extension_commands: tuple[CommandDefinition, ...] = field(default_factory=tuple)
     retry_policy: ProviderRetryPolicy = field(default_factory=ProviderRetryPolicy)
+    _retry_wrapper_cache: dict[
+        tuple[str, tuple[type[BaseException], ...]],
+        Callable[[dict[str, Any]], StandardResult],
+    ] = field(default_factory=dict, init=False, repr=False)
 
     def supports(self, capability_name: str) -> bool:
         """判断 provider 是否支持指定 capability。"""
@@ -117,30 +119,32 @@ class BackendProvider:
         if not effective_retryable:
             return handler.execute(request_data)
 
-        wrapped = self._build_retryable_handler_call(handler, policy)
-        return call_with_network_retry(
-            wrapped,
-            request_data,
-            retry_exceptions=effective_retryable,
+        wrapped = self._get_retry_wrapper(
+            definition.capability,
+            handler,
+            effective_retryable,
         )
+        return wrapped(request_data)
 
-    def _build_retryable_handler_call(
+    def _get_retry_wrapper(
         self,
+        capability_name: str,
         handler: CapabilityHandler,
-        policy: ProviderRetryPolicy,
-    ):
-        """构造带异常分层的 handler 调用闭包。"""
+        retry_exceptions: tuple[type[BaseException], ...],
+    ) -> Callable[[dict[str, Any]], StandardResult]:
+        """返回当前 handler 的稳定重试包装器。"""
 
-        passthrough_exceptions = policy.passthrough_exceptions
+        cache_key = (capability_name, retry_exceptions)
+        cached = self._retry_wrapper_cache.get(cache_key)
+        if cached is not None:
+            return cached
 
         def invoke(request_data: dict[str, Any]) -> StandardResult:
-            try:
-                return handler.execute(request_data)
-            except passthrough_exceptions:
-                raise
-            except MaxRetriesReachedError:
-                raise
-            except Exception:
-                raise
+            return handler.execute(request_data)
 
-        return invoke
+        wrapped = with_network_retry(
+            invoke,
+            retry_exceptions=retry_exceptions,
+        )
+        self._retry_wrapper_cache[cache_key] = wrapped
+        return wrapped

@@ -9,7 +9,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from opentrade.backends.base import BackendProvider, CapabilityHandler
+from opentrade.backends.base import BackendProvider, BackendRateLimitError, CapabilityHandler
 from opentrade.command_catalog import get_shared_command_definition
 from opentrade.facade import AutoBackendExecutionError, CommandFacade
 from opentrade.models import (
@@ -101,6 +101,29 @@ class FacadeUnitTest(unittest.TestCase):
 
         print_observation("单后端失败异常", str(ctx.exception))
         self.assertIn("backend error", str(ctx.exception))
+
+    def test_single_backend_retry_exhaustion_preserves_provider_error(self) -> None:
+        """provider 内部重试耗尽后应继续暴露最后一次 provider 异常。"""
+        handler = _make_mock_handler(side_effect=BackendRateLimitError("Yahoo rate limited the request. Please retry later."))
+        provider = BackendProvider(
+            backend_name=BackendName.YFINANCE,
+            handlers={self.definition.capability: handler},
+        )
+        provider.retry_policy.rate_limit_exceptions = (BackendRateLimitError,)
+
+        backend = BackendSelection(
+            requested=BackendName.YFINANCE,
+            resolved=BackendName.YFINANCE,
+            source="explicit",
+        )
+
+        with patch("opentrade.facade.get_backend_provider", return_value=provider):
+            with patch("vortezwohl.func.retry.sleep", return_value=None):
+                with self.assertRaises(BackendRateLimitError) as ctx:
+                    self.facade.invoke(self.definition, backend, {"stock_codes": ["AAPL"]})
+
+        print_observation("单后端重试耗尽最终异常", str(ctx.exception))
+        self.assertIn("Yahoo rate limited", str(ctx.exception))
 
     # ------------------------------------------------------------------
     # auto failover
@@ -196,6 +219,38 @@ class FacadeUnitTest(unittest.TestCase):
             result = self.facade.invoke(self.definition, backend, {"stock_codes": ["AAPL"]})
 
         print_observation("auto 限流后继续兜底", {"final_backend": backend.final_backend.value})
+        self.assertEqual(result.contract_name, "history-bars")
+        self.assertEqual(backend.final_backend, BackendName.EFINANCE)
+
+    def test_auto_retryable_network_error_after_internal_retry_still_fails_over(self) -> None:
+        """当前 backend 内部重试耗尽后，若异常允许 failover，auto 仍继续下一候选。"""
+        fail_handler = _make_mock_handler(side_effect=OSError("temporary failure"))
+        success_handler = _make_mock_handler(
+            return_value=StandardResult(contract_name="history-bars", data=[{"close": 10.5}])
+        )
+
+        retrying_provider = BackendProvider(
+            backend_name=BackendName.AKSHARE,
+            handlers={self.definition.capability: fail_handler},
+        )
+        retrying_provider.retry_policy.retryable_exceptions = (OSError,)
+
+        providers = {
+            BackendName.AKSHARE: retrying_provider,
+            BackendName.EFINANCE: _make_mock_provider(BackendName.EFINANCE, success_handler),
+        }
+
+        backend = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.AKSHARE, BackendName.EFINANCE),
+        )
+
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+            with patch("vortezwohl.func.retry.sleep", return_value=None):
+                result = self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
+
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(backend.final_backend, BackendName.EFINANCE)
 

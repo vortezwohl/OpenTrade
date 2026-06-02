@@ -52,7 +52,9 @@ def with_network_retry(
         保留原始签名的包装函数。
     """
 
-    normalized_retry_exceptions = retry_exceptions or NETWORK_RELATED_EXCEPTIONS
+    normalized_retry_exceptions = (
+        NETWORK_RELATED_EXCEPTIONS if retry_exceptions is None else retry_exceptions
+    )
     wrappers = getattr(function, NETWORK_RETRY_WRAPPERS_ATTR, None)
     if wrappers is None:
         wrappers = {}
@@ -77,9 +79,9 @@ def with_network_retry(
         decorated = _NETWORK_RETRY.on_exceptions(*normalized_retry_exceptions)(tracked_call)
         try:
             return decorated(*args, **kwargs)
-        except MaxRetriesReachedError as exc:
+        except MaxRetriesReachedError:
             if last_error is not None:
-                raise exc from last_error
+                raise last_error
             raise
 
     wrapper.__signature__ = inspect.signature(function)
