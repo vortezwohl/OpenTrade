@@ -1,11 +1,13 @@
 <div align="center">
-  <h1>opentrade</h1>
+  <h1>OpenTrade</h1>
   <p><strong>Market data in your terminal, shaped for humans, scripts, and agents.</strong></p>
   <p>Search instruments, resolve quote IDs, inspect live quotes, review history, export datasets, and read indicator-rich <code>observation</code> output from one consistent command tree.</p>
   <p>
     <a href="https://www.python.org/"><img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-2F5D8C"></a>
     <a href="https://pypi.org/project/opentrade/"><img alt="PyPI package" src="https://img.shields.io/badge/PyPI-opentrade-2563EB"></a>
-    <a href="https://pypi.org/project/efinance/"><img alt="Upstream efinance" src="https://img.shields.io/badge/Upstream-efinance-B45309"></a>
+    <a href="https://pypi.org/project/akshare/"><img alt="Backend akshare" src="https://img.shields.io/badge/Backend-akshare-1D4ED8"></a>
+    <a href="https://pypi.org/project/efinance/"><img alt="Backend efinance" src="https://img.shields.io/badge/Backend-efinance-B45309"></a>
+    <a href="https://pypi.org/project/yfinance/"><img alt="Backend yfinance" src="https://img.shields.io/badge/Backend-yfinance-15803D"></a>
     <img alt="Default view observation" src="https://img.shields.io/badge/Default%20View-observation-0F766E">
     <img alt="Indicator enrichment" src="https://img.shields.io/badge/Indicators-basic%20%7C%20advanced%20%7C%20full-7C3AED">
   </p>
