@@ -45,6 +45,7 @@ def _make_mock_provider(backend_name: BackendName, handler: CapabilityHandler) -
     """构造一个带有指定 handler 的 mock provider。"""
     provider = MagicMock(spec=BackendProvider)
     provider.get_handler.return_value = handler
+    provider.execute.side_effect = lambda definition, request_data: handler.execute(request_data)
     provider.backend_name = backend_name
     return provider
 
@@ -203,7 +204,7 @@ class FacadeUnitTest(unittest.TestCase):
     # ------------------------------------------------------------------
 
     def test_side_effect_command_skips_retry(self) -> None:
-        """副作用命令的 handler.execute 在 facade 层被直接调用。"""
+        """副作用命令通过 provider 执行入口执行，且仍只调用一次 handler。"""
         handler = _make_mock_handler(
             return_value=StandardResult(contract_name="side-effect-status", data=[{"status": "ok"}])
         )
@@ -232,6 +233,7 @@ class FacadeUnitTest(unittest.TestCase):
             result = self.facade.invoke(definition, backend, {"fund_code": "161725"})
 
         self.assertEqual(result.contract_name, "side-effect-status")
+        provider.execute.assert_called_once()
         handler.execute.assert_called_once()
 
 

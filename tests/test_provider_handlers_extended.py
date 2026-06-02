@@ -19,9 +19,10 @@ from opentrade.backends.providers import (
     AkshareStockPriceLiveHandler,
     AkshareStockProfileHandler,
     EfinanceGenericHandler,
+    build_efinance_provider,
     YfinanceRealtimeHandler,
 )
-from opentrade.command_catalog import get_command_binding
+from opentrade.command_catalog import get_command_binding, get_command_definition
 from tests.cli_regression_support import print_observation
 
 
@@ -180,9 +181,10 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
     # EfinanceGenericHandler
     # ------------------------------------------------------------------
 
-    def test_efinance_generic_handler_forwards_to_bound_function(self) -> None:
-        """EfinanceGenericHandler 应按 command_key 绑定调用正确的上游函数。"""
-        handler = EfinanceGenericHandler("bond.catalog")
+    def test_efinance_provider_execute_wraps_generic_handler_with_retry(self) -> None:
+        """efinance provider 应在统一执行入口为普通命令挂载 retry。"""
+        provider = build_efinance_provider()
+        definition = get_command_definition("bond.catalog")
 
         mock_result = pd.DataFrame(
             [
@@ -190,34 +192,44 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             ]
         )
 
-        with patch("opentrade.backends.providers.call_with_network_retry") as mock_retry:
-            mock_retry.return_value = mock_result
+        with patch(
+            "opentrade.backends.base.call_with_network_retry",
+            side_effect=lambda function, *args, **kwargs: function(
+                *args,
+                **{key: value for key, value in kwargs.items() if key != "retry_exceptions"},
+            ),
+        ) as mock_retry:
+            with patch("efinance.bond.get_all_base_info", return_value=mock_result):
+                result = provider.execute(definition, {})
 
-            result = handler.execute({})
-
-        print_observation("EfinanceGenericHandler bond.catalog 结果", {
+        print_observation("efinance provider execute bond.catalog 结果", {
             "contract_name": result.contract_name,
         })
 
-        # 验证 call_with_network_retry 被调用
         mock_retry.assert_called_once()
+        self.assertEqual(result.contract_name, "provider-records")
 
-    def test_efinance_generic_handler_for_side_effect_command(self) -> None:
-        """副作用命令（如 fund.reports.download）不走 retry 包装。"""
-        handler = EfinanceGenericHandler("fund.reports.download")
+    def test_efinance_provider_execute_skips_retry_for_side_effect_command(self) -> None:
+        """副作用命令（如 fund.reports.download）应在 provider 入口跳过 retry。"""
+        provider = build_efinance_provider()
+        definition = get_command_definition("fund.reports.download")
 
         mock_result = {"status": "ok"}
 
-        with patch("efinance.fund.get_pdf_reports", return_value=mock_result) as mock_fn:
-            # 不走 call_with_network_retry
-            result = handler.execute({"fund_code": "161725", "max_count": 2, "save_dir": "pdf"})
+        with patch("opentrade.backends.base.call_with_network_retry") as mock_retry:
+            with patch("efinance.fund.get_pdf_reports", return_value=mock_result) as mock_fn:
+                result = provider.execute(
+                    definition,
+                    {"fund_code": "161725", "max_count": 2, "save_dir": "pdf"},
+                )
 
-        print_observation("EfinanceGenericHandler side-effect 结果", {
+        print_observation("efinance provider execute side-effect 结果", {
             "contract_name": result.contract_name,
             "data": result.data,
         })
 
-        # 不走 call_with_network_retry，直接调用
+        mock_retry.assert_not_called()
+        mock_fn.assert_called_once()
 
 
 if __name__ == "__main__":

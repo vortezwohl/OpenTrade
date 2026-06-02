@@ -19,6 +19,7 @@ from vortezwohl.func.retry import MaxRetriesReachedError
 
 from opentrade.retry_utils import (
     NETWORK_RELATED_EXCEPTIONS,
+    NETWORK_RETRY_WRAPPERS_ATTR,
     _NETWORK_RETRY,
     call_with_network_retry,
     with_network_retry,
@@ -57,6 +58,20 @@ class RetryRegressionTest(unittest.TestCase):
             },
         )
         self.assertEqual(inspect.signature(sample), inspect.signature(wrapped))
+
+    def test_with_network_retry_reuses_cached_wrapper_for_same_exception_set(self) -> None:
+        """同一异常集合重复包装时应复用缓存 wrapper。"""
+
+        def sample() -> str:
+            return "ok"
+
+        wrapped_1 = with_network_retry(sample)
+        wrapped_2 = with_network_retry(sample)
+
+        wrappers = getattr(sample, NETWORK_RETRY_WRAPPERS_ATTR)
+        print_observation("retry wrapper cache keys", [tuple(item.__name__ for item in key) for key in wrappers])
+        self.assertIs(wrapped_1, wrapped_2)
+        self.assertEqual(len(wrappers), 1)
 
     def test_wrapped_network_call_recovers_after_retry_limit_transient_failures(self) -> None:
         """当前策略应能容忍前 max_retries 次瞬时失败，并在下一次成功时恢复。"""

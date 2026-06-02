@@ -13,7 +13,39 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from vortezwohl.func.retry import MaxRetriesReachedError
+
 from opentrade.models import BackendName, CommandDefinition, StandardResult
+from opentrade.retry_utils import call_with_network_retry
+
+
+class BackendRateLimitError(RuntimeError):
+    """表示 backend 在网络访问阶段命中了限流。"""
+
+
+@dataclass(slots=True)
+class ProviderRetryPolicy:
+    """描述 provider 级统一重试策略。
+
+    Args:
+        retryable_exceptions: 允许自动重试的异常集合。
+        rate_limit_exceptions: 限流异常集合，语义上属于可重试错误的一部分。
+        passthrough_exceptions: 必须直接透传、不得进入自动重试的异常集合。
+    """
+
+    retryable_exceptions: tuple[type[BaseException], ...] = ()
+    rate_limit_exceptions: tuple[type[BaseException], ...] = ()
+    passthrough_exceptions: tuple[type[BaseException], ...] = ()
+
+    @property
+    def effective_retryable_exceptions(self) -> tuple[type[BaseException], ...]:
+        """返回合并后的可重试异常集合，并去重保持顺序稳定。"""
+
+        merged: list[type[BaseException]] = []
+        for item in self.retryable_exceptions + self.rate_limit_exceptions:
+            if item not in merged:
+                merged.append(item)
+        return tuple(merged)
 
 
 class CapabilityHandler:
@@ -35,11 +67,13 @@ class BackendProvider:
         backend_name: provider 名称。
         handlers: capability -> handler 映射。
         extension_commands: provider 专属扩展命令定义。
+        retry_policy: provider 级统一重试策略。
     """
 
     backend_name: BackendName
     handlers: dict[str, CapabilityHandler] = field(default_factory=dict)
     extension_commands: tuple[CommandDefinition, ...] = field(default_factory=tuple)
+    retry_policy: ProviderRetryPolicy = field(default_factory=ProviderRetryPolicy)
 
     def supports(self, capability_name: str) -> bool:
         """判断 provider 是否支持指定 capability。"""
@@ -55,3 +89,58 @@ class BackendProvider:
             raise KeyError(
                 f"Backend '{self.backend_name.value}' 不支持 capability '{capability_name}'"
             ) from exc
+
+    def execute(
+        self,
+        definition: CommandDefinition,
+        request_data: dict[str, Any],
+    ) -> StandardResult:
+        """通过 provider 统一执行入口调用 capability handler。
+
+        Args:
+            definition: 当前命令定义，用于识别 capability 与 side-effect 边界。
+            request_data: 已通过 schema 校验的业务请求数据。
+
+        Returns:
+            handler 返回的标准结果。
+
+        Raises:
+            Exception: 透传 handler 自身错误，或在重试耗尽后保留原有异常语义。
+        """
+
+        handler = self.get_handler(definition.capability)
+        if definition.has_side_effect:
+            return handler.execute(request_data)
+
+        policy = self.retry_policy
+        effective_retryable = policy.effective_retryable_exceptions
+        if not effective_retryable:
+            return handler.execute(request_data)
+
+        wrapped = self._build_retryable_handler_call(handler, policy)
+        return call_with_network_retry(
+            wrapped,
+            request_data,
+            retry_exceptions=effective_retryable,
+        )
+
+    def _build_retryable_handler_call(
+        self,
+        handler: CapabilityHandler,
+        policy: ProviderRetryPolicy,
+    ):
+        """构造带异常分层的 handler 调用闭包。"""
+
+        passthrough_exceptions = policy.passthrough_exceptions
+
+        def invoke(request_data: dict[str, Any]) -> StandardResult:
+            try:
+                return handler.execute(request_data)
+            except passthrough_exceptions:
+                raise
+            except MaxRetriesReachedError:
+                raise
+            except Exception:
+                raise
+
+        return invoke
