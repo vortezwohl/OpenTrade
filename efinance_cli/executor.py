@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -32,8 +33,9 @@ class CommandExecutor:
         if request.backend_selection.is_auto:
             request.backend_selection.final_backend = None
         value = self._execute_shared_command(request)
-        value = enrich_market_data(request, value)
-        value = build_observation_output(request, value)
+        if request.output.view_mode != "raw":
+            value = enrich_market_data(request, value)
+            value = build_observation_output(request, value)
         return InvocationResult(value=value)
 
     def run(self, request: InvocationRequest) -> None:
@@ -77,11 +79,26 @@ class CommandExecutor:
             output_path = Path(request.output.output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(text, encoding=request.output.encoding)
-        click.echo(text)
+        click.echo(self._sanitize_console_text(text))
 
-    def _render(self, request: InvocationRequest, result: InvocationResult) -> str:
+    @staticmethod
+    def _render(request: InvocationRequest, result: InvocationResult) -> str:
         """渲染结果文本。"""
         return render_value(result.value, request.output)
+
+    @staticmethod
+    def _sanitize_console_text(text: str) -> str:
+        """按当前终端编码做安全替换，避免 Windows GBK 控制台崩溃。"""
+
+        encoding = sys.stdout.encoding or "utf-8"
+        try:
+            text.encode(encoding)
+            return text
+        except UnicodeEncodeError:
+            return text.encode(encoding, errors="replace").decode(
+                encoding,
+                errors="replace",
+            )
 
     def _execute_shared_command(self, request: InvocationRequest) -> Any:
         """执行基于共享命令目录的新调用路径。"""

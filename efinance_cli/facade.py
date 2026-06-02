@@ -26,19 +26,11 @@ class AutoBackendExecutionError(RuntimeError):
 def is_failover_eligible_error(exc: Exception) -> bool:
     """判断异常是否允许进入下一个 auto 候选 backend。"""
 
-    if isinstance(exc, click.ClickException):
+    if isinstance(exc, (click.ClickException, ValueError, TypeError)):
         return False
-    if isinstance(exc, ValueError):
-        return False
-    if isinstance(exc, TypeError):
-        return False
-    if isinstance(exc, KeyError):
+    if isinstance(exc, (RuntimeError, OSError, KeyError)):
         return True
-    if isinstance(exc, RuntimeError):
-        return True
-    if isinstance(exc, OSError):
-        return True
-    return False
+    return True
 
 
 class CommandFacade:

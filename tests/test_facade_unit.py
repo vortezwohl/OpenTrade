@@ -22,6 +22,12 @@ from efinance_cli.models import (
 )
 from tests.cli_regression_support import print_observation
 
+try:
+    from yfinance.exceptions import YFRateLimitError
+except Exception:  # pragma: no cover - 测试环境缺依赖时回退
+    class YFRateLimitError(Exception):
+        """yfinance 不可用时的测试回退异常。"""
+
 
 def _make_mock_handler(return_value: StandardResult | None = None, side_effect: Exception | None = None) -> CapabilityHandler:
     """构造一个可控的 mock handler。"""
@@ -166,6 +172,31 @@ class FacadeUnitTest(unittest.TestCase):
         print_observation("全失败异常消息", message)
         for name in ("akshare", "yfinance", "efinance"):
             self.assertIn(name, message)
+
+    def test_auto_ratelimit_error_fails_over_to_next_backend(self) -> None:
+        fail_handler = _make_mock_handler(side_effect=YFRateLimitError())
+        success_handler = _make_mock_handler(
+            return_value=StandardResult(contract_name="history-bars", data=[{"close": 10.5}])
+        )
+
+        providers = {
+            BackendName.YFINANCE: _make_mock_provider(BackendName.YFINANCE, fail_handler),
+            BackendName.EFINANCE: _make_mock_provider(BackendName.EFINANCE, success_handler),
+        }
+
+        backend = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.YFINANCE, BackendName.EFINANCE),
+        )
+
+        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+            result = self.facade.invoke(self.definition, backend, {"stock_codes": ["AAPL"]})
+
+        print_observation("auto 限流后继续兜底", {"final_backend": backend.final_backend.value})
+        self.assertEqual(result.contract_name, "history-bars")
+        self.assertEqual(backend.final_backend, BackendName.EFINANCE)
 
     # ------------------------------------------------------------------
     # 副作用命令
