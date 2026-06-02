@@ -58,8 +58,7 @@ class CommandFacade:
         """执行单个 concrete backend。"""
 
         provider = get_backend_provider(backend.resolved)
-        handler = provider.get_handler(definition.capability)
-        result = handler.execute(request_data)
+        result = provider.execute(definition, request_data)
         backend.final_backend = backend.resolved
         return result
 
@@ -75,8 +74,7 @@ class CommandFacade:
         for candidate in backend.candidate_chain:
             provider = get_backend_provider(candidate)
             try:
-                handler = provider.get_handler(definition.capability)
-                result = handler.execute(request_data)
+                result = provider.execute(definition, request_data)
             except Exception as exc:
                 attempts.append((candidate, exc))
                 if not is_failover_eligible_error(exc):
