@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from opentrade.backends.base import BackendProvider, CapabilityHandler
+from opentrade.backends.base import BackendProvider, BackendRateLimitError, CapabilityHandler
 from opentrade.backends.resolver import resolve_backend_selection
 from opentrade.backends.factory import get_backend_provider, list_backend_providers
 from opentrade.command_catalog import (
@@ -635,15 +635,18 @@ class MultiBackendScaffoldTest(unittest.TestCase):
     def test_yfinance_rate_limit_error_is_exposed_readably(self) -> None:
         definition = get_shared_command_definition("stock.profile")
         facade = CommandFacade()
-        with patch("yfinance.Ticker") as mock_ticker:
-            rate_limit_error = __import__("yfinance.exceptions", fromlist=["YFRateLimitError"]).YFRateLimitError
-            type(mock_ticker.return_value).info = property(lambda _self: (_ for _ in ()).throw(rate_limit_error()))
-            with self.assertRaisesRegex(RuntimeError, "Yahoo rate limited"):
-                facade.invoke(
-                    definition,
-                    BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                    {"stock_codes": ["AAPL"]},
-                )
+        with patch("opentrade.backends.providers._build_yfinance_ticker", return_value=object()):
+            with patch(
+                "opentrade.backends.providers._extract_yfinance_quote_info",
+                side_effect=BackendRateLimitError("Yahoo rate limited the request. Please retry later."),
+            ):
+                with patch("vortezwohl.func.retry.sleep", return_value=None):
+                    with self.assertRaisesRegex(RuntimeError, "Yahoo rate limited"):
+                        facade.invoke(
+                            definition,
+                            BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                            {"stock_codes": ["AAPL"]},
+                        )
 
 
 if __name__ == "__main__":

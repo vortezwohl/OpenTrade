@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping, Sequence
-from typing import Any
 
 import efinance
 import pandas as pd
 
-from opentrade.backends.base import BackendProvider, CapabilityHandler
+from opentrade.backends.base import (
+    BackendProvider,
+    BackendRateLimitError,
+    CapabilityHandler,
+    ProviderRetryPolicy,
+)
 from opentrade.command_catalog import (
     SHARED_COMMANDS,
     get_command_binding,
@@ -37,8 +41,7 @@ from opentrade.models import (
     RequestField,
     RequestSchema,
 )
-from opentrade.retry_utils import call_with_network_retry
-
+from opentrade.retry_utils import NETWORK_RELATED_EXCEPTIONS
 
 PRICE_HISTORY_COMMAND_KEYS = {
     "stock.price.history",
@@ -94,12 +97,11 @@ class EfinanceSearchHandler(CapabilityHandler):
 
     def execute(self, request_data: dict[str, object]):
         market_type = _get_request_value(request_data, "market_type", "market")
-        result = call_with_network_retry(
-            efinance.utils.search_quote,
-            keyword=_get_request_value(request_data, "keyword", "query"),
+        result = efinance.utils.search_quote(
+            keyword=str(_get_request_value(request_data, "keyword", "query")),
             market_type=_resolve_efinance_market_type(market_type),
-            count=_get_request_value(request_data, "count", "result_count", default=5),
-            use_local=_get_request_value(request_data, "use_local", "use_local_cache", default=True),
+            count=int(_get_request_value(request_data, "count", "result_count", default=5)),
+            use_local=bool(_get_request_value(request_data, "use_local", "use_local_cache", default=True)),
         )
         return _build_search_standard_result(result)
 
@@ -118,10 +120,7 @@ class EfinanceGenericHandler(CapabilityHandler):
             raise RuntimeError(f"命令 {self.capability_name} 缺少上游绑定")
 
         callback = getattr(getattr(efinance, module_name), function_name)
-        if self.capability_name in SIDE_EFFECT_COMMAND_KEYS:
-            result = callback(**request_data)
-        else:
-            result = call_with_network_retry(callback, **request_data)
+        result = callback(**request_data)
         return _standardize_efinance_result(self.capability_name, request_data, result)
 
 
@@ -142,6 +141,8 @@ class AkshareSearchHandler(CapabilityHandler):
         for classify, loader in loaders:
             try:
                 frame = loader()
+            except NETWORK_RELATED_EXCEPTIONS:
+                raise
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{classify}: {exc}")
                 continue
@@ -922,10 +923,38 @@ def _run_yfinance_with_guardrails(callback, *args, **kwargs):
         rate_limit_error = getattr(exceptions_module, "YFRateLimitError")
         invalid_period_error = getattr(exceptions_module, "YFInvalidPeriodError")
         if isinstance(exc, rate_limit_error):
-            raise RuntimeError("Yahoo rate limited the request. Please retry later.") from exc
+            raise BackendRateLimitError("Yahoo rate limited the request. Please retry later.") from exc
         if isinstance(exc, invalid_period_error):
             raise ValueError(str(exc)) from exc
         raise
+
+
+def _build_efinance_retry_policy() -> ProviderRetryPolicy:
+    """返回 efinance 的 provider 级统一重试策略。"""
+
+    return ProviderRetryPolicy(
+        retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
+        passthrough_exceptions=(ValueError, TypeError),
+    )
+
+
+def _build_akshare_retry_policy() -> ProviderRetryPolicy:
+    """返回 akshare 的 provider 级统一重试策略。"""
+
+    return ProviderRetryPolicy(
+        retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
+        passthrough_exceptions=(ValueError, TypeError),
+    )
+
+
+def _build_yfinance_retry_policy() -> ProviderRetryPolicy:
+    """返回 yfinance 的 provider 级统一重试策略。"""
+
+    return ProviderRetryPolicy(
+        retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
+        rate_limit_exceptions=(BackendRateLimitError,),
+        passthrough_exceptions=(ValueError, TypeError),
+    )
 
 
 def _build_yfinance_ticker(symbol: str):
@@ -1467,6 +1496,7 @@ def build_efinance_provider() -> BackendProvider:
         backend_name=BackendName.EFINANCE,
         handlers=handlers,
         extension_commands=extension_commands,
+        retry_policy=_build_efinance_retry_policy(),
     )
 
 
@@ -1498,6 +1528,7 @@ def build_akshare_provider() -> BackendProvider:
                 provider_name=BackendName.AKSHARE,
             ),
         ),
+        retry_policy=_build_akshare_retry_policy(),
     )
 
 
@@ -1551,4 +1582,5 @@ def build_yfinance_provider() -> BackendProvider:
                 provider_name=BackendName.YFINANCE,
             ),
         ),
+        retry_policy=_build_yfinance_retry_policy(),
     )
