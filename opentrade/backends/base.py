@@ -73,7 +73,11 @@ class BackendProvider:
     extension_commands: tuple[CommandDefinition, ...] = field(default_factory=tuple)
     retry_policy: ProviderRetryPolicy = field(default_factory=ProviderRetryPolicy)
     _retry_wrapper_cache: dict[
-        tuple[str, tuple[type[BaseException], ...]],
+        tuple[
+            str,
+            tuple[type[BaseException], ...],
+            tuple[type[BaseException], ...],
+        ],
         Callable[[dict[str, Any]], StandardResult],
     ] = field(default_factory=dict, init=False, repr=False)
 
@@ -123,6 +127,7 @@ class BackendProvider:
             definition.capability,
             handler,
             effective_retryable,
+            policy.passthrough_exceptions,
         )
         return wrapped(request_data)
 
@@ -131,10 +136,11 @@ class BackendProvider:
         capability_name: str,
         handler: CapabilityHandler,
         retry_exceptions: tuple[type[BaseException], ...],
+        passthrough_exceptions: tuple[type[BaseException], ...],
     ) -> Callable[[dict[str, Any]], StandardResult]:
         """返回当前 handler 的稳定重试包装器。"""
 
-        cache_key = (capability_name, retry_exceptions)
+        cache_key = (capability_name, retry_exceptions, passthrough_exceptions)
         cached = self._retry_wrapper_cache.get(cache_key)
         if cached is not None:
             return cached
@@ -145,6 +151,7 @@ class BackendProvider:
         wrapped = with_network_retry(
             invoke,
             retry_exceptions=retry_exceptions,
+            passthrough_exceptions=passthrough_exceptions,
         )
         self._retry_wrapper_cache[cache_key] = wrapped
         return wrapped

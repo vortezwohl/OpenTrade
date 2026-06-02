@@ -125,6 +125,30 @@ class FacadeUnitTest(unittest.TestCase):
         print_observation("单后端重试耗尽最终异常", str(ctx.exception))
         self.assertIn("Yahoo rate limited", str(ctx.exception))
 
+    def test_single_backend_passthrough_error_bypasses_retry(self) -> None:
+        """命中 provider passthrough 策略的异常应直接透传且不重试。"""
+        handler = _make_mock_handler(side_effect=ValueError("bad request"))
+        provider = BackendProvider(
+            backend_name=BackendName.YFINANCE,
+            handlers={self.definition.capability: handler},
+        )
+        provider.retry_policy.retryable_exceptions = (ValueError,)
+        provider.retry_policy.passthrough_exceptions = (ValueError,)
+
+        backend = BackendSelection(
+            requested=BackendName.YFINANCE,
+            resolved=BackendName.YFINANCE,
+            source="explicit",
+        )
+
+        with patch("opentrade.facade.get_backend_provider", return_value=provider):
+            with patch("vortezwohl.func.retry.sleep", return_value=None):
+                with self.assertRaises(ValueError) as ctx:
+                    self.facade.invoke(self.definition, backend, {"stock_codes": ["AAPL"]})
+
+        self.assertIn("bad request", str(ctx.exception))
+        handler.execute.assert_called_once()
+
     # ------------------------------------------------------------------
     # auto failover
     # ------------------------------------------------------------------

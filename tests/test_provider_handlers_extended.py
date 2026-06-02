@@ -201,7 +201,11 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             "contract_name": result.contract_name,
         })
 
-        cache_key = (definition.capability, provider.retry_policy.effective_retryable_exceptions)
+        cache_key = (
+            definition.capability,
+            provider.retry_policy.effective_retryable_exceptions,
+            provider.retry_policy.passthrough_exceptions,
+        )
         self.assertIn(cache_key, provider._retry_wrapper_cache)
         self.assertEqual(result.contract_name, "provider-records")
 
@@ -214,14 +218,51 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         with patch("efinance.bond.get_all_base_info", return_value=pd.DataFrame([{"债券代码": "019641"}])):
             provider.execute(definition, {})
             wrapper = provider._retry_wrapper_cache[
-                (definition.capability, provider.retry_policy.effective_retryable_exceptions)
+                (
+                    definition.capability,
+                    provider.retry_policy.effective_retryable_exceptions,
+                    provider.retry_policy.passthrough_exceptions,
+                )
             ]
             provider.execute(definition, {})
 
         self.assertEqual(len(provider._retry_wrapper_cache), 1)
-        cache_key = (definition.capability, provider.retry_policy.effective_retryable_exceptions)
+        cache_key = (
+            definition.capability,
+            provider.retry_policy.effective_retryable_exceptions,
+            provider.retry_policy.passthrough_exceptions,
+        )
         self.assertIn(cache_key, provider._retry_wrapper_cache)
         self.assertIs(provider._retry_wrapper_cache[cache_key], wrapper)
+
+    def test_efinance_provider_execute_distinguishes_passthrough_cache_keys(self) -> None:
+        """不同 passthrough 策略必须落到不同 provider wrapper cache key。"""
+        provider = build_efinance_provider()
+        definition = get_command_definition("bond.catalog")
+        original_passthrough = provider.retry_policy.passthrough_exceptions
+
+        with patch("efinance.bond.get_all_base_info", return_value=pd.DataFrame([{"债券代码": "019641"}])):
+            provider.execute(definition, {})
+            provider.retry_policy.passthrough_exceptions = (ValueError,)
+            provider.execute(definition, {})
+
+        self.assertEqual(len(provider._retry_wrapper_cache), 2)
+        self.assertIn(
+            (
+                definition.capability,
+                provider.retry_policy.effective_retryable_exceptions,
+                original_passthrough,
+            ),
+            provider._retry_wrapper_cache,
+        )
+        self.assertIn(
+            (
+                definition.capability,
+                provider.retry_policy.effective_retryable_exceptions,
+                (ValueError,),
+            ),
+            provider._retry_wrapper_cache,
+        )
 
     def test_efinance_provider_execute_skips_retry_for_side_effect_command(self) -> None:
         """副作用命令（如 fund.reports.download）应在 provider 入口跳过 retry。"""

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import inspect
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from requests.exceptions import ConnectionError
 
@@ -24,6 +24,21 @@ from opentrade.retry_utils import (
     with_network_retry,
 )
 from tests.cli_regression_support import print_observation
+
+
+def _render_wrapper_keys(wrappers: dict[object, object]) -> list[tuple[object, ...]]:
+    """把 wrapper cache key 渲染成便于断言与观察的结构。"""
+
+    rendered: list[tuple[object, ...]] = []
+    for key in wrappers:
+        parts: list[object] = []
+        for item in key:
+            if isinstance(item, tuple):
+                parts.append(tuple(member.__name__ for member in item))
+            else:
+                parts.append(item)
+        rendered.append(tuple(parts))
+    return rendered
 
 
 def build_flaky_network_call(failures_before_success: int):
@@ -68,9 +83,23 @@ class RetryRegressionTest(unittest.TestCase):
         wrapped_2 = with_network_retry(sample)
 
         wrappers = getattr(sample, NETWORK_RETRY_WRAPPERS_ATTR)
-        print_observation("retry wrapper cache keys", [tuple(item.__name__ for item in key) for key in wrappers])
+        print_observation("retry wrapper cache keys", _render_wrapper_keys(wrappers))
         self.assertIs(wrapped_1, wrapped_2)
         self.assertEqual(len(wrappers), 1)
+
+    def test_with_network_retry_distinguishes_passthrough_exception_sets(self) -> None:
+        """不同 passthrough 集合不得复用同一个 wrapper。"""
+
+        def sample() -> str:
+            return "ok"
+
+        wrapped_1 = with_network_retry(sample, passthrough_exceptions=(ValueError,))
+        wrapped_2 = with_network_retry(sample, passthrough_exceptions=(TypeError,))
+        wrappers = getattr(sample, NETWORK_RETRY_WRAPPERS_ATTR)
+
+        self.assertIsNot(wrapped_1, wrapped_2)
+        self.assertIn((NETWORK_RELATED_EXCEPTIONS, (ValueError,)), wrappers)
+        self.assertIn((NETWORK_RELATED_EXCEPTIONS, (TypeError,)), wrappers)
 
     def test_with_network_retry_keeps_empty_retry_exception_tuple_distinct(self) -> None:
         """显式空异常集合应表示禁用自动重试，而不是回退到默认集合。"""
@@ -80,11 +109,46 @@ class RetryRegressionTest(unittest.TestCase):
 
         wrapped = with_network_retry(sample, retry_exceptions=())
         wrappers = getattr(sample, NETWORK_RETRY_WRAPPERS_ATTR)
-        print_observation("retry wrapper empty-exception keys", [tuple(item.__name__ for item in key) for key in wrappers])
-        self.assertIn((), wrappers)
-        self.assertNotIn(NETWORK_RELATED_EXCEPTIONS, {key for key in wrappers if key == ()})
+        print_observation("retry wrapper empty-exception keys", _render_wrapper_keys(wrappers))
+        self.assertIn(((), ()), wrappers)
         with self.assertRaises(ConnectionError):
             wrapped()
+
+    def test_with_network_retry_passthrough_exceptions_bypass_retry(self) -> None:
+        """命中 passthrough 异常时应直接透传，且不进入自动重试。"""
+        state = {"count": 0}
+
+        def sample() -> str:
+            state["count"] += 1
+            raise ValueError("bad request")
+
+        wrapped = with_network_retry(
+            sample,
+            retry_exceptions=(ValueError,),
+            passthrough_exceptions=(ValueError,),
+        )
+
+        with patch("vortezwohl.func.retry.sleep", return_value=None):
+            with self.assertRaises(ValueError):
+                wrapped()
+
+        self.assertEqual(state["count"], 1)
+
+    def test_with_network_retry_reuses_stable_retry_decorator_across_calls(self) -> None:
+        """同一 wrapper 多次调用时不应重复构造底层 decorator。"""
+
+        def sample() -> str:
+            return "ok"
+
+        original_on_exceptions = _NETWORK_RETRY.on_exceptions
+        on_exceptions_spy = MagicMock(wraps=original_on_exceptions)
+
+        with patch.object(_NETWORK_RETRY, "on_exceptions", on_exceptions_spy):
+            wrapped = with_network_retry(sample)
+            wrapped()
+            wrapped()
+
+        self.assertEqual(on_exceptions_spy.call_count, 1)
 
     def test_wrapped_network_call_recovers_after_retry_limit_transient_failures(self) -> None:
         """当前策略应能容忍前 max_retries 次瞬时失败，并在下一次成功时恢复。"""
