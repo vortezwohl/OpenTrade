@@ -15,6 +15,7 @@ import pandas as pd
 
 from opentrade.backends.providers import (
     AkshareFundNavHistoryHandler,
+    AkshareSearchHandler,
     AkshareStockPriceHistoryHandler,
     AkshareStockPriceLiveHandler,
     AkshareStockProfileHandler,
@@ -192,22 +193,35 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             ]
         )
 
-        with patch(
-            "opentrade.backends.base.call_with_network_retry",
-            side_effect=lambda function, *args, **kwargs: function(
-                *args,
-                **{key: value for key, value in kwargs.items() if key != "retry_exceptions"},
-            ),
-        ) as mock_retry:
-            with patch("efinance.bond.get_all_base_info", return_value=mock_result):
+        with patch("efinance.bond.get_all_base_info", return_value=mock_result):
+            with patch("vortezwohl.func.retry.sleep", return_value=None):
                 result = provider.execute(definition, {})
 
         print_observation("efinance provider execute bond.catalog 结果", {
             "contract_name": result.contract_name,
         })
 
-        mock_retry.assert_called_once()
+        cache_key = (definition.capability, provider.retry_policy.effective_retryable_exceptions)
+        self.assertIn(cache_key, provider._retry_wrapper_cache)
         self.assertEqual(result.contract_name, "provider-records")
+
+    def test_efinance_provider_execute_reuses_retry_wrapper_for_same_capability(self) -> None:
+        """同一 capability 重复执行时应复用 provider 内部的稳定 retry wrapper。"""
+        provider = build_efinance_provider()
+        definition = get_command_definition("bond.catalog")
+        handler = provider.get_handler(definition.capability)
+
+        with patch("efinance.bond.get_all_base_info", return_value=pd.DataFrame([{"债券代码": "019641"}])):
+            provider.execute(definition, {})
+            wrapper = provider._retry_wrapper_cache[
+                (definition.capability, provider.retry_policy.effective_retryable_exceptions)
+            ]
+            provider.execute(definition, {})
+
+        self.assertEqual(len(provider._retry_wrapper_cache), 1)
+        cache_key = (definition.capability, provider.retry_policy.effective_retryable_exceptions)
+        self.assertIn(cache_key, provider._retry_wrapper_cache)
+        self.assertIs(provider._retry_wrapper_cache[cache_key], wrapper)
 
     def test_efinance_provider_execute_skips_retry_for_side_effect_command(self) -> None:
         """副作用命令（如 fund.reports.download）应在 provider 入口跳过 retry。"""
@@ -216,20 +230,56 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
 
         mock_result = {"status": "ok"}
 
-        with patch("opentrade.backends.base.call_with_network_retry") as mock_retry:
-            with patch("efinance.fund.get_pdf_reports", return_value=mock_result) as mock_fn:
-                result = provider.execute(
-                    definition,
-                    {"fund_code": "161725", "max_count": 2, "save_dir": "pdf"},
-                )
+        with patch("efinance.fund.get_pdf_reports", return_value=mock_result) as mock_fn:
+            result = provider.execute(
+                definition,
+                {"fund_code": "161725", "max_count": 2, "save_dir": "pdf"},
+            )
 
         print_observation("efinance provider execute side-effect 结果", {
             "contract_name": result.contract_name,
             "data": result.data,
         })
 
-        mock_retry.assert_not_called()
+        self.assertEqual(provider._retry_wrapper_cache, {})
         mock_fn.assert_called_once()
+
+    # ------------------------------------------------------------------
+    # AkshareSearchHandler
+    # ------------------------------------------------------------------
+
+    def test_akshare_search_handler_reraises_retryable_network_error(self) -> None:
+        """命中 provider retry policy 的网络异常应直接上抛。"""
+        handler = AkshareSearchHandler()
+
+        with patch.object(
+            handler,
+            "_build_catalog_loaders",
+            return_value=[("A_stock", MagicMock(side_effect=OSError("catalog down")))],
+        ):
+            with patch("opentrade.backends.providers._load_akshare_module", return_value=MagicMock()):
+                with self.assertRaises(OSError):
+                    handler.execute({"keyword": "AAPL"})
+
+    def test_akshare_search_handler_keeps_non_retryable_loader_errors_in_payload(self) -> None:
+        """非 retryable 的目录局部失败仍可保留 errors 聚合并返回有效结果。"""
+        handler = AkshareSearchHandler()
+        success_frame = pd.DataFrame([{"A股代码": "AAPL", "A股简称": "Apple"}])
+
+        with patch.object(
+            handler,
+            "_build_catalog_loaders",
+            return_value=[
+                ("A_stock", MagicMock(side_effect=RuntimeError("catalog unavailable"))),
+                ("A_stock", MagicMock(return_value=success_frame)),
+            ],
+        ):
+            with patch("opentrade.backends.providers._load_akshare_module", return_value=MagicMock()):
+                result = handler.execute({"keyword": "AAPL", "market_type": "A_stock"})
+
+        self.assertEqual(result.contract_name, "search-results")
+        self.assertEqual(result.data[0]["code"], "AAPL")
+        self.assertIn("catalog unavailable", result.raw_payload["errors"][0])
 
 
 if __name__ == "__main__":

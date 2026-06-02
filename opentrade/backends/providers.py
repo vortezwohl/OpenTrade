@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping, Sequence
-from typing import Any
 
 import efinance
 import pandas as pd
@@ -142,6 +141,8 @@ class AkshareSearchHandler(CapabilityHandler):
         for classify, loader in loaders:
             try:
                 frame = loader()
+            except NETWORK_RELATED_EXCEPTIONS:
+                raise
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{classify}: {exc}")
                 continue

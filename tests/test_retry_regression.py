@@ -15,7 +15,6 @@ import unittest
 from unittest.mock import patch
 
 from requests.exceptions import ConnectionError
-from vortezwohl.func.retry import MaxRetriesReachedError
 
 from opentrade.retry_utils import (
     NETWORK_RELATED_EXCEPTIONS,
@@ -73,6 +72,20 @@ class RetryRegressionTest(unittest.TestCase):
         self.assertIs(wrapped_1, wrapped_2)
         self.assertEqual(len(wrappers), 1)
 
+    def test_with_network_retry_keeps_empty_retry_exception_tuple_distinct(self) -> None:
+        """显式空异常集合应表示禁用自动重试，而不是回退到默认集合。"""
+
+        def sample() -> str:
+            raise ConnectionError("fail once")
+
+        wrapped = with_network_retry(sample, retry_exceptions=())
+        wrappers = getattr(sample, NETWORK_RETRY_WRAPPERS_ATTR)
+        print_observation("retry wrapper empty-exception keys", [tuple(item.__name__ for item in key) for key in wrappers])
+        self.assertIn((), wrappers)
+        self.assertNotIn(NETWORK_RELATED_EXCEPTIONS, {key for key in wrappers if key == ()})
+        with self.assertRaises(ConnectionError):
+            wrapped()
+
     def test_wrapped_network_call_recovers_after_retry_limit_transient_failures(self) -> None:
         """当前策略应能容忍前 max_retries 次瞬时失败，并在下一次成功时恢复。"""
         max_retries = getattr(_NETWORK_RETRY, "_max_retries", 0)
@@ -88,14 +101,14 @@ class RetryRegressionTest(unittest.TestCase):
         self.assertEqual(state["count"], max_retries + 1)
 
     def test_wrapped_network_call_still_fails_after_retry_limit_transient_failures(self) -> None:
-        """超过上限时应显式失败。"""
+        """超过上限时应恢复抛出最后一次真实异常。"""
         max_retries = getattr(_NETWORK_RETRY, "_max_retries", 0)
         flaky, state = build_flaky_network_call(failures_before_success=max_retries + 1)
         with patch("vortezwohl.func.retry.sleep", return_value=None):
-            with self.assertRaises(MaxRetriesReachedError):
+            with self.assertRaises(ConnectionError) as ctx:
                 call_with_network_retry(flaky)
 
-        print_observation("retry 超上限失败次数", {"attempts": state["count"]})
+        print_observation("retry 超上限失败次数", {"attempts": state["count"], "error": str(ctx.exception)})
         self.assertEqual(state["count"], max_retries + 1)
 
     def test_network_exception_registry_contains_only_base_network_exceptions(self) -> None:
