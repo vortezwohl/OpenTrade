@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import unittest
 from unittest.mock import patch
@@ -6,14 +6,14 @@ from unittest.mock import patch
 import click
 from click.testing import CliRunner
 
-from efinance_cli.backends.base import BackendProvider, CapabilityHandler
-from efinance_cli.backends.factory import list_provider_extension_commands
-from efinance_cli.command_catalog import get_shared_command_definition
-from efinance_cli.command_catalog import SHARED_COMMANDS
-from efinance_cli.commands import create_root_command
-from efinance_cli.executor import CommandExecutor
-from efinance_cli.facade import AutoBackendExecutionError
-from efinance_cli.models import BackendName, BackendSelection, CommandSpec, InvocationRequest, OutputOptions, StandardResult, WatchOptions
+from opentrade.backends.base import BackendProvider, CapabilityHandler
+from opentrade.backends.factory import list_provider_extension_commands
+from opentrade.command_catalog import get_shared_command_definition
+from opentrade.command_catalog import SHARED_COMMANDS
+from opentrade.commands import create_root_command
+from opentrade.executor import CommandExecutor
+from opentrade.facade import AutoBackendExecutionError
+from opentrade.models import BackendName, BackendSelection, CommandSpec, InvocationRequest, OutputOptions, StandardResult, WatchOptions
 
 
 def collect_leaf_paths(command: click.Command, prefix: tuple[str, ...] = ()) -> list[tuple[str, ...]]:
@@ -68,7 +68,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 }
             )
 
-        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+        with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(self.cli, ["search", "--query", "AAPL"])
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -105,7 +105,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 }
             )
 
-        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+        with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             for args, _, _ in commands:
                 result = self.runner.invoke(self.cli, args)
                 self.assertEqual(result.exit_code, 0, msg=f"{args}: {result.output}")
@@ -127,7 +127,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 }
             )
 
-        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+        with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(self.cli, ["stock", "industry", "boards"])
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -146,7 +146,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 }
             )
 
-        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+        with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(
                 self.cli,
                 ["quote", "news", "--quote-id", "AAPL", "--backend", "auto"],
@@ -201,7 +201,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 }
             )
 
-        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+        with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(
                 self.cli,
                 ["watch", "--interval", "3", "--count", "2", "stock", "industry", "boards"],
@@ -228,7 +228,7 @@ class CliFullRegressionTest(unittest.TestCase):
                 }
             )
 
-        with patch("efinance_cli.executor.CommandExecutor.run", new=fake_run):
+        with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(
                 self.cli,
                 ["watch", "--interval", "3", "--count", "2", "stock", "price", "history", "--symbols", "000001"],
@@ -252,7 +252,7 @@ class CliFullRegressionTest(unittest.TestCase):
         providers = {
             BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": RuntimeFailHandler("akshare failed")}),
             BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": RuntimeFailHandler("yfinance failed")}),
-            BackendName.EFINANCE: BackendProvider(BackendName.EFINANCE, {"stock.price.history": RuntimeFailHandler("efinance failed")}),
+            BackendName.EFINANCE: BackendProvider(BackendName.EFINANCE, {"stock.price.history": RuntimeFailHandler("opentrade failed")}),
         }
         backend = BackendSelection(
             requested=None,
@@ -261,16 +261,16 @@ class CliFullRegressionTest(unittest.TestCase):
             candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
         )
 
-        with patch("efinance_cli.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
             with self.assertRaises(AutoBackendExecutionError) as context:
-                from efinance_cli.facade import CommandFacade
+                from opentrade.facade import CommandFacade
 
                 CommandFacade().invoke(definition, backend, {"stock_codes": ["000001"]})
 
         message = str(context.exception)
         self.assertIn("akshare failed", message)
         self.assertIn("yfinance failed", message)
-        self.assertIn("efinance failed", message)
+        self.assertIn("opentrade failed", message)
 
     def test_watch_mode_retries_same_auto_chain_each_iteration(self) -> None:
         request = InvocationRequest(
@@ -331,3 +331,4 @@ class CliFullRegressionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

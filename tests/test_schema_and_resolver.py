@@ -1,7 +1,8 @@
 """request_schema 与 backend resolver 的独立单元测试。
 
 验证 uild_click_options_for_schema 对各类 RequestField 的正确 Click 参数映射，
-以及 esolve_backend_selection 在各种输入下的后端选择逻辑。
+以及 
+esolve_backend_selection 在各种输入下的后端选择逻辑。
 """
 
 from __future__ import annotations
@@ -10,10 +11,10 @@ import unittest
 
 import click
 
-from efinance_cli.backends.resolver import resolve_backend_selection
-from efinance_cli.command_catalog import get_shared_command_definition
-from efinance_cli.models import BackendName, CommandDefinition, CommandKind, RequestField, RequestSchema
-from efinance_cli.request_schema import build_click_option, build_click_options_for_schema
+from opentrade.backends.resolver import resolve_backend_selection
+from opentrade.command_catalog import get_shared_command_definition
+from opentrade.models import BackendName, CommandDefinition, CommandKind, RequestField, RequestSchema
+from opentrade.request_schema import build_click_option, build_click_options_for_schema
 from tests.cli_regression_support import make_request_field, make_request_schema, print_observation
 
 

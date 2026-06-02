@@ -15,9 +15,9 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from efinance_cli.command_catalog import get_command_definition, get_shared_command_definition
-from efinance_cli.enrichment.service import fetch_standard_history_for_request
-from efinance_cli.models import (
+from opentrade.command_catalog import get_command_definition, get_shared_command_definition
+from opentrade.enrichment.service import fetch_standard_history_for_request
+from opentrade.models import (
     BackendName,
     BackendSelection,
     CommandSpec,
@@ -25,7 +25,7 @@ from efinance_cli.models import (
     ObservationPayload,
     OutputOptions,
 )
-from efinance_cli.observation import build_observation_output, detect_recent_events
+from opentrade.observation import build_observation_output, detect_recent_events
 from tests.cli_regression_support import print_observation
 
 
@@ -431,7 +431,7 @@ class ObservationSmokeTest(unittest.TestCase):
         ]
 
         standard_result = type("MockStandardResult", (), {"data": standard_rows})()
-        with patch("efinance_cli.facade.CommandFacade.invoke", return_value=standard_result) as mock_invoke:
+        with patch("opentrade.facade.CommandFacade.invoke", return_value=standard_result) as mock_invoke:
             frame = fetch_standard_history_for_request(request, "000001", "basic")
 
         print_observation(
@@ -466,7 +466,7 @@ class ObservationSmokeTest(unittest.TestCase):
         )
         history_frame["symbol"] = "000001"
 
-        with patch("efinance_cli.facade.CommandFacade.invoke") as mock_invoke:
+        with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
             mock_invoke.return_value = type(
                 "MockStandardResult",
                 (),
@@ -505,7 +505,7 @@ class ObservationSmokeTest(unittest.TestCase):
             }
         )
 
-        with patch("efinance_cli.facade.CommandFacade.invoke") as mock_invoke:
+        with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
             mock_invoke.side_effect = lambda _definition, _backend, request_data: type(
                 "MockStandardResult",
                 (),
@@ -547,7 +547,7 @@ class ObservationSmokeTest(unittest.TestCase):
         )
         history_frame["symbol"] = "000001"
 
-        with patch("efinance_cli.facade.CommandFacade.invoke") as mock_invoke:
+        with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
             mock_invoke.return_value = type(
                 "MockStandardResult",
                 (),
@@ -630,7 +630,7 @@ class ObservationSmokeTest(unittest.TestCase):
             rows["symbol"] = symbol
             return type("MockStandardResult", (), {"data": rows.to_dict(orient="records")})()
 
-        with patch("efinance_cli.facade.CommandFacade.invoke") as mock_invoke:
+        with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
             mock_invoke.side_effect = lambda _definition, _backend, request_data: build_history_result(
                 request_data["stock_codes"][0]
             )
@@ -666,7 +666,7 @@ class ObservationSmokeTest(unittest.TestCase):
             }
         )
 
-        with patch("efinance_cli.facade.CommandFacade.invoke") as mock_invoke:
+        with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
             mock_invoke.side_effect = lambda _definition, _backend, request_data: type(
                 "MockStandardResult",
                 (),

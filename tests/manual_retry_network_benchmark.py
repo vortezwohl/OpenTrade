@@ -25,7 +25,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from efinance_cli.retry_utils import with_network_retry
+from opentrade.retry_utils import with_network_retry
 
 
 DEFAULT_ROUNDS = 30

@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""efinance-cli 全量真实 API 回归测试。
+"""Open Trade 全量真实 API 回归测试。
 
 覆盖所有 CLI 命令、所有后端、所有模式，记录真实输出、耗时和失败率。
 输出 JSON 结果文件供 HTML 报告生成使用。
@@ -24,7 +24,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VENV_PYTHON = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
-CLI_ENTRY = ["-m", "efinance_cli"]
+CLI_ENTRY = ["-m", "opentrade"]
 OUTPUT_JSON = PROJECT_ROOT / "docs" / "20260601-raw-results.json"
 TIMEOUT_SECONDS = 90  # 单条命令最大执行秒数
 WATCH_TIMEOUT = 15    # watch 模式最大秒数
@@ -336,3 +336,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -1,10 +1,10 @@
 <div align="center">
-  <h1>efinance-cli</h1>
+  <h1>opentrade</h1>
   <p><strong>Market data in your terminal, shaped for humans, scripts, and agents.</strong></p>
   <p>Search instruments, resolve quote IDs, inspect live quotes, review history, export datasets, and read indicator-rich <code>observation</code> output from one consistent command tree.</p>
   <p>
     <a href="https://www.python.org/"><img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-2F5D8C"></a>
-    <a href="https://pypi.org/project/the-efinance-cli/"><img alt="PyPI package" src="https://img.shields.io/badge/PyPI-the--efinance--cli-2563EB"></a>
+    <a href="https://pypi.org/project/opentrade/"><img alt="PyPI package" src="https://img.shields.io/badge/PyPI-opentrade-2563EB"></a>
     <a href="https://pypi.org/project/efinance/"><img alt="Upstream efinance" src="https://img.shields.io/badge/Upstream-efinance-B45309"></a>
     <img alt="Default view observation" src="https://img.shields.io/badge/Default%20View-observation-0F766E">
     <img alt="Indicator enrichment" src="https://img.shields.io/badge/Indicators-basic%20%7C%20advanced%20%7C%20full-7C3AED">
@@ -41,19 +41,19 @@
 <a id="installation"></a>
 ## Installation
 
-Install the published PyPI package `the-efinance-cli`. The package exposes both `efinance` and `efi`.
+Install the published PyPI package `opentrade`. The package exposes both `opentrade` and `optr`.
 
 <table width="100%">
   <tr>
     <td width="50%" valign="top">
       <strong>uv</strong>
-      <pre lang="bash"><code>uv add -U the-efinance-cli
-efinance --help</code></pre>
+      <pre lang="bash"><code>uv add -U opentrade
+opentrade --help</code></pre>
     </td>
     <td width="50%" valign="top">
       <strong>pip</strong>
-      <pre lang="bash"><code>pip install -U the-efinance-cli
-efinance --help</code></pre>
+      <pre lang="bash"><code>pip install -U opentrade
+opentrade --help</code></pre>
     </td>
   </tr>
 </table>
@@ -63,7 +63,7 @@ Python `3.10+` is required.
 <a id="what-this-tool-is"></a>
 ## What This Tool Is
 
-> `efinance-cli` is a product layer on top of `efinance`, not a loose script collection.
+> `opentrade` is a product layer on top of upstream market-data providers, not a loose script collection.
 
 It reorganizes upstream capability into a public command tree that is easier to browse from a terminal, easier to automate from scripts, and easier to consume in structured output. The goal is not to replace the upstream market-data library. The goal is to make that capability more stable and more usable from a CLI.
 
@@ -74,17 +74,17 @@ It reorganizes upstream capability into a public command tree that is easier to 
   <tr>
     <td width="33%" valign="top">
       <strong>1. Search first</strong>
-      <pre lang="bash"><code>efinance search --query AAPL --market US_stock --result-count 5 --format json</code></pre>
+      <pre lang="bash"><code>opentrade search --query AAPL --market US_stock --result-count 5 --format json</code></pre>
       Start here when you only know a ticker, keyword, or company name.
     </td>
     <td width="33%" valign="top">
       <strong>2. Resolve <code>quote_id</code></strong>
-      <pre lang="bash"><code>efinance resolve quote-id --symbol AAPL --market us_stock --format json</code></pre>
+      <pre lang="bash"><code>opentrade resolve quote-id --symbol AAPL --market us_stock --format json</code></pre>
       Common US instruments resolve into identifiers such as <code>105.AAPL</code>.
     </td>
     <td width="33%" valign="top">
       <strong>3. Query market data</strong>
-      <pre lang="bash"><code>efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format json</code></pre>
+      <pre lang="bash"><code>opentrade stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format json</code></pre>
       Continue from there into history, latest quotes, watch loops, and export workflows.
     </td>
   </tr>
@@ -264,7 +264,7 @@ It reorganizes upstream capability into a public command tree that is easier to 
 <a id="indicator-coverage"></a>
 ## Indicator Coverage
 
-`efinance-cli` ships with a broad built-in indicator set. Compatible commands can expose far more than raw quotes, which makes the CLI useful for screening, review, and downstream analytics.
+`opentrade` ships with a broad built-in indicator set. Compatible commands can expose far more than raw quotes, which makes the CLI useful for screening, review, and downstream analytics.
 
 <details open>
 <summary><strong>Moving averages and base transforms</strong></summary>
@@ -333,7 +333,7 @@ The examples below only show the public-facing `observation` format.
 <summary><strong>Latest quote observation</strong></summary>
 
 <p><strong>Command</strong></p>
-<pre lang="bash"><code>efinance quote price latest --quote-ids 105.AAPL --format table --indicator-level full --trace-window 4</code></pre>
+<pre lang="bash"><code>opentrade quote price latest --quote-ids 105.AAPL --format table --indicator-level full --trace-window 4</code></pre>
 
 <p><strong>Typical output</strong></p>
 
@@ -410,7 +410,7 @@ The examples below only show the public-facing `observation` format.
 <summary><strong>History observation</strong></summary>
 
 <p><strong>Command</strong></p>
-<pre lang="bash"><code>efinance stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format table --indicator-level advanced --trace-window 4</code></pre>
+<pre lang="bash"><code>opentrade stock price history --symbols AAPL --market us_stock --start-date 20250102 --end-date 20250501 --format table --indicator-level advanced --trace-window 4</code></pre>
 
 <p><strong>Typical output</strong></p>
 
@@ -480,7 +480,7 @@ The examples below only show the public-facing `observation` format.
 <summary><strong>Multi-source fund observation</strong></summary>
 
 <p><strong>Command</strong></p>
-<pre lang="bash"><code>efinance fund nav history-batch --symbols 161725 --symbols 005827 --format table --view observation --trace-window 4</code></pre>
+<pre lang="bash"><code>opentrade fund nav history-batch --symbols 161725 --symbols 005827 --format table --view observation --trace-window 4</code></pre>
 
 <p><strong>Typical output</strong></p>
 
@@ -549,23 +549,23 @@ The examples below only show the public-facing `observation` format.
   <tr>
     <td width="50%" valign="top">
       <strong>Search and inspect</strong>
-      <pre lang="bash"><code>efinance search --query NVDA --market US_stock
-efinance resolve quote-id --symbol NVDA --market us_stock
-efinance quote price latest --quote-ids 105.NVDA</code></pre>
+      <pre lang="bash"><code>opentrade search --query NVDA --market US_stock
+opentrade resolve quote-id --symbol NVDA --market us_stock
+opentrade quote price latest --quote-ids 105.NVDA</code></pre>
     </td>
     <td width="50%" valign="top">
       <strong>Watch a quote</strong>
-      <pre lang="bash"><code>efinance watch --interval 5 --count 3 quote price latest --quote-ids 105.AAPL --format json</code></pre>
+      <pre lang="bash"><code>opentrade watch --interval 5 --count 3 quote price latest --quote-ids 105.AAPL --format json</code></pre>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <strong>Batch fund history</strong>
-      <pre lang="bash"><code>efinance fund nav history-batch --symbols 161725 --symbols 005827 --format json</code></pre>
+      <pre lang="bash"><code>opentrade fund nav history-batch --symbols 161725 --symbols 005827 --format json</code></pre>
     </td>
     <td width="50%" valign="top">
       <strong>Market-level live scan</strong>
-      <pre lang="bash"><code>efinance market price live --market m:105+t:3 --format json</code></pre>
+      <pre lang="bash"><code>opentrade market price live --market m:105+t:3 --format json</code></pre>
     </td>
   </tr>
 </table>
@@ -581,9 +581,9 @@ efinance quote price latest --quote-ids 105.NVDA</code></pre>
 - Live smoke verification is intentionally optional because Yahoo may return explicit rate-limit failures even for valid requests.
 
 ```bash
-efinance search --query AAPL --backend yfinance --format json
-efinance quote price latest --quote-ids AAPL --backend yfinance --format json
-efinance quote news --quote-id AAPL --result-count 5 --format json
+opentrade search --query AAPL --backend yfinance --format json
+opentrade quote price latest --quote-ids AAPL --backend yfinance --format json
+opentrade quote news --quote-id AAPL --result-count 5 --format json
 ```
 
 <a id="notes"></a>

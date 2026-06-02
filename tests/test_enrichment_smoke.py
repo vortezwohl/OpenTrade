@@ -6,8 +6,8 @@ import unittest
 
 import pandas as pd
 
-from efinance_cli.enrichment.indicators import enrich_history_frame
-from efinance_cli.enrichment.levels import normalize_indicator_level
+from opentrade.enrichment.indicators import enrich_history_frame
+from opentrade.enrichment.levels import normalize_indicator_level
 from tests.cli_regression_support import print_observation
 
 

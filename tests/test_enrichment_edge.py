@@ -10,7 +10,7 @@ import unittest
 
 import pandas as pd
 
-from efinance_cli.enrichment.indicators import enrich_history_frame
+from opentrade.enrichment.indicators import enrich_history_frame
 from tests.cli_regression_support import print_observation
 
 

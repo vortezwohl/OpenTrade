@@ -17,7 +17,7 @@ from unittest.mock import patch
 from requests.exceptions import ConnectionError
 from vortezwohl.func.retry import MaxRetriesReachedError
 
-from efinance_cli.retry_utils import (
+from opentrade.retry_utils import (
     NETWORK_RELATED_EXCEPTIONS,
     _NETWORK_RETRY,
     call_with_network_retry,
