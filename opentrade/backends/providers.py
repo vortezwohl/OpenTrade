@@ -89,6 +89,8 @@ YFINANCE_SHARED_COMMAND_KEYS = {
     "quote.profile",
 }
 
+SHARED_COMMAND_KEYS = {definition.command_key for definition in SHARED_COMMANDS}
+
 
 class EfinanceSearchHandler(CapabilityHandler):
     """`efinance` 的默认搜索能力实现。"""
@@ -96,13 +98,8 @@ class EfinanceSearchHandler(CapabilityHandler):
     capability_name = "instrument.search"
 
     def execute(self, request_data: dict[str, object]):
-        market_type = _get_request_value(request_data, "market_type", "market")
-        result = efinance.utils.search_quote(
-            keyword=str(_get_request_value(request_data, "keyword", "query")),
-            market_type=_resolve_efinance_market_type(market_type),
-            count=int(_get_request_value(request_data, "count", "result_count", default=5)),
-            use_local=bool(_get_request_value(request_data, "use_local", "use_local_cache", default=True)),
-        )
+        adapted_request = _adapt_efinance_search_request(request_data)
+        result = efinance.utils.search_quote(**adapted_request)
         return _build_search_standard_result(result)
 
 
@@ -120,8 +117,251 @@ class EfinanceGenericHandler(CapabilityHandler):
             raise RuntimeError(f"命令 {self.capability_name} 缺少上游绑定")
 
         callback = getattr(getattr(efinance, module_name), function_name)
-        result = callback(**request_data)
+        adapted_request = (
+            _adapt_efinance_shared_request(self.capability_name, request_data)
+            if self.capability_name in SHARED_COMMAND_KEYS
+            else dict(request_data)
+        )
+        result = callback(**adapted_request)
         return _standardize_efinance_result(self.capability_name, request_data, result)
+
+
+def _adapt_efinance_search_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 搜索请求翻译为 `efinance.utils.search_quote` 参数。"""
+
+    market = _get_request_value(request_data, "market", "market_type")
+    return {
+        "keyword": str(_get_request_value(request_data, "keyword", "query")).strip(),
+        "market_type": _resolve_efinance_market_type(market),
+        "count": int(_get_request_value(request_data, "result_count", "count", default=5)),
+        "use_local": bool(_get_request_value(request_data, "use_local_cache", "use_local", default=True)),
+    }
+
+
+def _adapt_efinance_shared_request(
+    command_key: str,
+    request_data: Mapping[str, object],
+) -> dict[str, object]:
+    """把 shared normalized request 翻译为 efinance 上游 kwargs。"""
+
+    if command_key == "stock.price.history":
+        return _adapt_efinance_history_request(request_data, code_field_name="stock_codes")
+    if command_key == "stock.price.latest":
+        return {
+            "stock_codes": _single_or_multi(
+                _coerce_request_sequence(request_data, "symbols", "stock_codes", "symbol"),
+            ),
+        }
+    if command_key == "stock.price.live":
+        return {
+            "fs": _resolve_efinance_live_fs(
+                _get_request_value(request_data, "market", "market_type", "fs"),
+            ),
+        }
+    if command_key == "stock.price.snapshot":
+        return {
+            "stock_code": _get_single_request_value(
+                request_data,
+                command_key,
+                "symbol",
+                "stock_code",
+                "stock_codes",
+            ),
+        }
+    if command_key == "stock.profile":
+        return {
+            "stock_codes": _get_single_request_value(
+                request_data,
+                command_key,
+                "symbol",
+                "symbols",
+                "stock_codes",
+            ),
+        }
+    if command_key == "fund.nav.history":
+        return {
+            "fund_code": _get_single_request_value(
+                request_data,
+                command_key,
+                "symbol",
+                "fund_code",
+            ),
+            "pz": int(_get_request_value(request_data, "max_pages", "pz", default=40000)),
+        }
+    if command_key == "fund.profile":
+        return {
+            "fund_codes": _single_or_multi(
+                _coerce_request_sequence(request_data, "symbols", "fund_codes", "symbol"),
+            ),
+        }
+    if command_key == "quote.price.history":
+        return _adapt_efinance_history_request(request_data, code_field_name="codes")
+    if command_key == "quote.price.latest":
+        return {
+            "quote_id_list": _single_or_multi(
+                _coerce_request_sequence(
+                    request_data,
+                    "quote_ids",
+                    "quote_id_list",
+                    "quote_id",
+                ),
+            ),
+        }
+    if command_key == "quote.profile":
+        return {
+            "quote_id": _get_single_request_value(
+                request_data,
+                command_key,
+                "quote_id",
+                "quote_ids",
+                "symbol",
+            ),
+        }
+    return dict(request_data)
+
+
+def _adapt_efinance_history_request(
+    request_data: Mapping[str, object],
+    *,
+    code_field_name: str,
+) -> dict[str, object]:
+    request_keys = (
+        ("symbols", "stock_codes", "symbol")
+        if code_field_name == "stock_codes"
+        else ("symbols", "codes", "symbol")
+    )
+    return {
+        code_field_name: _single_or_multi(_coerce_request_sequence(request_data, *request_keys)),
+        "beg": str(_get_request_value(request_data, "start_date", "beg", default="19000101")),
+        "end": str(_get_request_value(request_data, "end_date", "end", default="20500101")),
+        "klt": int(_get_request_value(request_data, "timeframe", "klt", "period", default=101)),
+        "fqt": int(_get_request_value(request_data, "adjustment", "fqt", "adjust", default=1)),
+        "market_type": _resolve_efinance_market_type(
+            _get_request_value(request_data, "market", "market_type"),
+        ),
+        "suppress_error": bool(
+            _get_request_value(request_data, "ignore_errors", "suppress_error", default=False),
+        ),
+        "use_id_cache": bool(_get_request_value(request_data, "use_id_cache", default=True)),
+    }
+
+
+def _resolve_efinance_live_fs(market_name: object) -> str | None:
+    market = _extract_market_value(market_name)
+    if market in (None, ""):
+        return None
+    mapping = {
+        "A_stock": "沪深A股",
+        "US_stock": "美股",
+        "Hongkong": "港股",
+        "futures": "期货",
+    }
+    resolved = mapping.get(str(market))
+    if resolved is None:
+        raise ValueError(f"Efinance stock.price.live 不支持 shared market: {market}")
+    return resolved
+
+
+def _coerce_request_sequence(
+    request_data: Mapping[str, object],
+    *keys: str,
+) -> list[str]:
+    return _coerce_symbol_list(_get_request_value(request_data, *keys, default=[]))
+
+
+def _single_or_multi(values: list[str]) -> str | list[str]:
+    if len(values) == 1:
+        return values[0]
+    return values
+
+
+def _get_single_request_value(
+    request_data: Mapping[str, object],
+    command_key: str,
+    *keys: str,
+) -> str:
+    values = _coerce_request_sequence(request_data, *keys)
+    if len(values) != 1:
+        raise ValueError(f"{command_key} 只支持单个标的")
+    return values[0]
+
+
+def _adapt_akshare_search_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 搜索请求翻译为 akshare 搜索所需参数。"""
+
+    return {
+        "market": _get_request_value(request_data, "market", "market_type"),
+        "query": str(_get_request_value(request_data, "keyword", "query")).strip(),
+        "result_count": int(_get_request_value(request_data, "result_count", "count", default=5)),
+    }
+
+
+def _adapt_akshare_stock_history_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 历史行情请求翻译为 akshare `stock_zh_a_hist` 参数。"""
+
+    market = _extract_market_value(_get_request_value(request_data, "market", "market_type"))
+    if market not in (None, "", "A_stock"):
+        raise ValueError("Akshare stock.price.history 当前仅支持 A_stock 市场")
+
+    adjust_map = {0: "", 1: "qfq", 2: "hfq"}
+    period_map = {101: "daily", 102: "weekly", 103: "monthly"}
+    symbol = _get_single_request_value(
+        request_data,
+        "stock.price.history",
+        "symbol",
+        "symbols",
+        "stock_codes",
+    )
+    return {
+        "symbol": symbol,
+        "period": period_map[int(_get_request_value(request_data, "timeframe", "klt", "period", default=101))],
+        "start_date": str(_get_request_value(request_data, "start_date", "beg", default="19000101")),
+        "end_date": str(_get_request_value(request_data, "end_date", "end", default="20500101")),
+        "adjust": adjust_map[int(_get_request_value(request_data, "adjustment", "fqt", "adjust", default=1))],
+    }
+
+
+def _adapt_akshare_stock_profile_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 资料请求翻译为 akshare `stock_individual_info_em` 参数。"""
+
+    market = _extract_market_value(_get_request_value(request_data, "market", "market_type"))
+    if market not in (None, "", "A_stock"):
+        raise ValueError("Akshare stock.profile 当前仅支持 A_stock 市场")
+
+    return {
+        "symbol": _get_single_request_value(
+            request_data,
+            "stock.profile",
+            "symbol",
+            "symbols",
+            "stock_codes",
+        ),
+    }
+
+
+def _adapt_akshare_stock_live_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 实时行情请求翻译为 akshare 市场过滤。"""
+
+    market = _extract_market_value(_get_request_value(request_data, "market", "market_type", "fs"))
+    if market in (None, ""):
+        market = "A_stock"
+    if market != "A_stock":
+        raise ValueError("Akshare stock.price.live 当前仅支持 A_stock 市场")
+    return {"market": market}
+
+
+def _adapt_akshare_fund_nav_history_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 基金净值历史请求翻译为 akshare `fund_open_fund_info_em` 参数。"""
+
+    return {
+        "symbol": _get_single_request_value(
+            request_data,
+            "fund.nav.history",
+            "symbol",
+            "fund_code",
+        ),
+        "indicator": "单位净值走势",
+    }
 
 
 class AkshareSearchHandler(CapabilityHandler):
@@ -131,9 +371,10 @@ class AkshareSearchHandler(CapabilityHandler):
 
     def execute(self, request_data: dict[str, object]):
         akshare = _load_akshare_module()
-        market = _get_request_value(request_data, "market_type", "market")
-        query = str(_get_request_value(request_data, "keyword", "query")).strip()
-        result_count = int(_get_request_value(request_data, "count", "result_count", default=5))
+        adapted_request = _adapt_akshare_search_request(request_data)
+        market = adapted_request["market"]
+        query = str(adapted_request["query"])
+        result_count = int(adapted_request["result_count"])
 
         loaders = self._build_catalog_loaders(akshare, market)
         rows: list[dict[str, object]] = []
@@ -207,10 +448,10 @@ class AkshareSearchHandler(CapabilityHandler):
             for _, row in frame.iterrows():
                 item = {
                     "code": str(row.get("基金代码", "")).strip(),
-                    "name": str(row.get("基金简称", "")).strip(),
-                    "pinyin": str(row.get("拼音缩写", "")).strip() or None,
+                    "name": str(row.get("基金代码", "")).strip(),
+                    "pinyin": str(row.get("基金代码", "")).strip() or None,
                     "quote_id": str(row.get("基金代码", "")).strip(),
-                    "classify": str(row.get("基金类型", "")).strip() or classify,
+                    "classify": str(row.get("基金代码", "")).strip() or classify,
                 }
                 self._append_if_valid(rows, item)
             return rows
@@ -248,26 +489,11 @@ class AkshareStockPriceHistoryHandler(CapabilityHandler):
 
     def execute(self, request_data: dict[str, object]):
         akshare = _load_akshare_module()
-        market = _get_request_value(request_data, "market_type", "market")
-        if market not in (None, "", "A_stock"):
-            raise ValueError("Akshare stock.price.history 当前仅支持 A_stock 市场")
-
-        symbols = _coerce_symbol_list(_get_request_value(request_data, "stock_codes", "symbol", default=[]))
-        if len(symbols) != 1:
-            raise ValueError("Akshare stock.price.history 当前仅支持单标的请求")
-
-        adjust_map = {0: "", 1: "qfq", 2: "hfq"}
-        period_map = {101: "daily", 102: "weekly", 103: "monthly"}
-        frame = akshare.stock_zh_a_hist(
-            symbol=symbols[0],
-            period=period_map[int(_get_request_value(request_data, "klt", "period", default=101))],
-            start_date=str(_get_request_value(request_data, "beg", "start_date", default="19000101")),
-            end_date=str(_get_request_value(request_data, "end", "end_date", default="20500101")),
-            adjust=adjust_map[int(_get_request_value(request_data, "fqt", "adjust", default=1))],
-        )
+        adapted_request = _adapt_akshare_stock_history_request(request_data)
+        frame = akshare.stock_zh_a_hist(**adapted_request)
         rows = _standardize_history_frame(
             frame,
-            symbol=symbols[0],
+            symbol=str(adapted_request["symbol"]),
             provider_name=BackendName.AKSHARE.value,
         )
         return build_standard_result(
@@ -282,17 +508,10 @@ class AkshareStockProfileHandler(CapabilityHandler):
     capability_name = "stock.profile"
 
     def execute(self, request_data: dict[str, object]):
-        market = _get_request_value(request_data, "market_type", "market")
-        if market not in (None, "", "A_stock"):
-            raise ValueError("Akshare stock.profile 当前仅支持 A_stock 市场")
-
-        symbols = _coerce_symbol_list(_get_request_value(request_data, "stock_codes", "symbol", default=[]))
-        if len(symbols) != 1:
-            raise ValueError("Akshare stock.profile 当前仅支持单标的请求")
-
+        adapted_request = _adapt_akshare_stock_profile_request(request_data)
         akshare = _load_akshare_module()
-        result = akshare.stock_individual_info_em(symbol=symbols[0])
-        data = _standardize_profile_payload(result, request_data, code_key="stock_codes")
+        result = akshare.stock_individual_info_em(**adapted_request)
+        data = _standardize_profile_payload(result, request_data, code_key="symbol")
         return build_standard_result(
             PROFILE_INFO_CONTRACT,
             data,
@@ -305,16 +524,13 @@ class AkshareStockPriceLiveHandler(CapabilityHandler):
     capability_name = "stock.price.live"
 
     def execute(self, request_data: dict[str, object]):
-        market = _extract_market_value(_get_request_value(request_data, "fs", "market"))
-        if market not in (None, "", "A_stock"):
-            raise ValueError("Akshare stock.price.live 当前仅支持 A_stock 市场")
-
+        adapted_request = _adapt_akshare_stock_live_request(request_data)
         akshare = _load_akshare_module()
         result = akshare.stock_zh_a_spot_em()
         frame = _coerce_history_frame(result)
         rows = _standardize_realtime_quotes_frame(
             frame,
-            market_name="A_stock",
+            market_name=str(adapted_request["market"]),
             provider_name=BackendName.AKSHARE.value,
         )
         return build_standard_result(
@@ -330,14 +546,12 @@ class AkshareFundNavHistoryHandler(CapabilityHandler):
 
     def execute(self, request_data: dict[str, object]):
         akshare = _load_akshare_module()
-        result = akshare.fund_open_fund_info_em(
-            symbol=str(_get_request_value(request_data, "fund_code", "symbol")),
-            indicator="单位净值走势",
-        )
+        adapted_request = _adapt_akshare_fund_nav_history_request(request_data)
+        result = akshare.fund_open_fund_info_em(**adapted_request)
         frame = _coerce_history_frame(result)
         rows = _standardize_fund_nav_history_frame(
             frame,
-            symbol=str(_get_request_value(request_data, "fund_code", "symbol")),
+            symbol=str(adapted_request["symbol"]),
         )
         return build_standard_result(
             FUND_NAV_HISTORY_CONTRACT,
@@ -371,17 +585,18 @@ class AkshareIndustryBoardsHandler(CapabilityHandler):
 
 
 class YfinanceSearchHandler(CapabilityHandler):
-    """`yfinance` 的共享搜索能力实现。"""
+    """`yfinance` 的基金资料能力实现。"""
 
     capability_name = "instrument.search"
 
     def execute(self, request_data: dict[str, object]):
-        query = str(_get_request_value(request_data, "keyword", "query", default="")).strip()
+        adapted_request = _adapt_yfinance_search_request(request_data)
+        query = str(adapted_request["query"])
         if not query:
             raise ValueError("yfinance instrument.search 需要非空关键字")
 
-        count = int(_get_request_value(request_data, "count", "result_count", default=5))
-        market = _get_request_value(request_data, "market_type", "market")
+        count = int(adapted_request["count"])
+        market = adapted_request["market"]
         quotes = _run_yfinance_search(query=query, count=count)
 
         rows: list[dict[str, object]] = []
@@ -403,21 +618,18 @@ class YfinanceSearchHandler(CapabilityHandler):
 
 
 class YfinanceHistoryHandler(CapabilityHandler):
-    """`yfinance` 的历史行情能力实现。"""
+    """`yfinance` 的基金资料能力实现。"""
 
     def __init__(self, capability_name: str) -> None:
         self.capability_name = capability_name
 
     def execute(self, request_data: dict[str, object]):
-        symbols = _resolve_yfinance_history_symbols(self.capability_name, request_data)
-        if len(symbols) != 1:
-            raise ValueError(f"yfinance {self.capability_name} 当前仅支持单标的请求")
-
-        symbol = symbols[0]
+        adapted_request = _adapt_yfinance_history_request(self.capability_name, request_data)
+        symbol = str(adapted_request["symbol"])
         ticker = _build_yfinance_ticker(symbol)
         frame = _run_yfinance_history(
             ticker,
-            _build_yfinance_history_kwargs(request_data),
+            adapted_request["history_kwargs"],
         )
         rows = _standardize_yfinance_history_frame(frame, symbol=symbol)
         return build_standard_result(
@@ -429,23 +641,17 @@ class YfinanceHistoryHandler(CapabilityHandler):
 
 
 class YfinanceFundNavHistoryHandler(CapabilityHandler):
-    """`yfinance` 的基金净值历史能力实现。"""
+    """`yfinance` 的最新价与快照能力实现。"""
 
     capability_name = "fund.nav.history"
 
     def execute(self, request_data: dict[str, object]):
-        symbol = _normalize_yfinance_symbol(
-            str(_get_request_value(request_data, "fund_code", "symbol")),
-        )
+        adapted_request = _adapt_yfinance_fund_nav_history_request(request_data)
+        symbol = str(adapted_request["symbol"])
         ticker = _build_yfinance_ticker(symbol)
         frame = _run_yfinance_history(
             ticker,
-            {
-                "period": "max",
-                "interval": "1d",
-                "auto_adjust": False,
-                "back_adjust": False,
-            },
+            adapted_request["history_kwargs"],
         )
         rows = _standardize_yfinance_fund_nav_history_frame(frame, symbol=symbol)
         return build_standard_result(
@@ -457,16 +663,16 @@ class YfinanceFundNavHistoryHandler(CapabilityHandler):
 
 
 class YfinanceRealtimeHandler(CapabilityHandler):
-    """`yfinance` 的最新价与快照能力实现。"""
+    """`yfinance` 的基金净值历史能力实现。"""
 
     def __init__(self, capability_name: str) -> None:
         self.capability_name = capability_name
 
     def execute(self, request_data: dict[str, object]):
-        symbols = _resolve_yfinance_realtime_symbols(self.capability_name, request_data)
+        adapted_request = _adapt_yfinance_realtime_request(self.capability_name, request_data)
         rows = [
             _build_yfinance_realtime_row(self.capability_name, symbol)
-            for symbol in symbols
+            for symbol in adapted_request["symbols"]
         ]
         return build_standard_result(
             REALTIME_QUOTES_CONTRACT,
@@ -483,7 +689,8 @@ class YfinanceProfileHandler(CapabilityHandler):
         self.capability_name = capability_name
 
     def execute(self, request_data: dict[str, object]):
-        symbol = _resolve_yfinance_profile_symbol(self.capability_name, request_data)
+        adapted_request = _adapt_yfinance_profile_request(self.capability_name, request_data)
+        symbol = str(adapted_request["symbol"])
         ticker = _build_yfinance_ticker(symbol)
         quote_info = _extract_yfinance_quote_info(ticker)
         metadata = _extract_yfinance_history_metadata(ticker)
@@ -524,11 +731,8 @@ class YfinanceFundProfileHandler(CapabilityHandler):
     capability_name = "fund.profile"
 
     def execute(self, request_data: dict[str, object]):
-        values = _coerce_symbol_list(_get_request_value(request_data, "fund_codes", "symbol", default=[]))
-        if len(values) != 1:
-            raise ValueError("yfinance fund.profile 当前仅支持单标的请求")
-
-        symbol = _normalize_yfinance_symbol(values[0])
+        adapted_request = _adapt_yfinance_fund_profile_request(request_data)
+        symbol = str(adapted_request["symbol"])
         ticker = _build_yfinance_ticker(symbol)
         quote_info = _extract_yfinance_quote_info(ticker)
         metadata = _extract_yfinance_history_metadata(ticker)
@@ -607,7 +811,7 @@ def _standardize_efinance_result(
     if command_key in PRICE_HISTORY_COMMAND_KEYS:
         return _build_history_standard_result(command_key, request_data, result)
     if command_key == "fund.nav.history":
-        symbol = str(_get_request_value(request_data, "fund_code", "symbol"))
+        symbol = str(_get_request_value(request_data, "symbol", "fund_code"))
         return _build_fund_nav_history_standard_result(result, symbol)
     if command_key == "fund.nav.history-batch":
         return _build_fund_nav_history_batch_result(result)
@@ -655,7 +859,6 @@ def _standardize_efinance_result(
         metadata={"backend": BackendName.EFINANCE.value},
     )
 
-
 def _build_search_standard_result(result: object):
     rows: list[dict[str, object]] = []
     if result is None:
@@ -674,13 +877,13 @@ def _build_history_standard_result(
     request_data: dict[str, object],
     result: object,
 ):
-    symbol_key = {
-        "stock.price.history": "stock_codes",
-        "bond.price.history": "bond_codes",
-        "futures.price.history": "quote_ids",
-        "quote.price.history": "codes",
+    key_options = {
+        "stock.price.history": ("symbols", "stock_codes", "symbol"),
+        "bond.price.history": ("bond_codes",),
+        "futures.price.history": ("quote_ids",),
+        "quote.price.history": ("symbols", "codes", "symbol"),
     }[command_key]
-    symbols = _coerce_symbol_list(request_data.get(symbol_key))
+    symbols = _coerce_symbol_list(_get_request_value(request_data, *key_options, default=[]))
     frames = _coerce_frame_mapping(result)
     if isinstance(frames, pd.DataFrame):
         symbol = symbols[0] if symbols else ""
@@ -709,7 +912,6 @@ def _build_history_standard_result(
         raw_payload=result,
         metadata={"backend": BackendName.EFINANCE.value},
     )
-
 
 def _build_fund_nav_history_standard_result(result: object, symbol: str):
     frame = _coerce_history_frame(result)
@@ -764,11 +966,11 @@ def _build_realtime_standard_result(
 
 def _extract_market_name(command_key: str, request_data: dict[str, object]) -> str:
     if command_key == "market.price.live":
-        value = request_data.get("fs")
+        value = _get_request_value(request_data, "market", "fs")
     elif command_key in {"stock.price.live", "stock.price.latest", "stock.price.snapshot"}:
-        value = request_data.get("fs")
+        value = _get_request_value(request_data, "market", "fs", "market_type")
     else:
-        value = request_data.get("market_type")
+        value = _get_request_value(request_data, "market", "market_type")
     extracted = _extract_market_value(value)
     if extracted not in (None, ""):
         return str(extracted)
@@ -784,7 +986,6 @@ def _extract_market_name(command_key: str, request_data: dict[str, object]) -> s
     }
     return default_market_map.get(command_key, "A_stock")
 
-
 def _extract_market_value(value: object) -> object | None:
     if value in (None, "", (), []):
         return None
@@ -799,8 +1000,27 @@ def _standardize_profile_payload(
     *,
     code_key: str | None = None,
 ) -> object:
-    code_key = code_key or _profile_code_key_from_request(request_data)
-    codes = _coerce_symbol_list(request_data.get(code_key)) if code_key else []
+    key_candidates: list[str] = []
+    if code_key:
+        key_candidates.append(code_key)
+    key_candidates.extend(
+        [
+            "symbol",
+            "symbols",
+            "stock_codes",
+            "fund_codes",
+            "bond_codes",
+            "quote_id",
+            "quote_ids",
+            "quote_id_list",
+        ]
+    )
+
+    ordered_keys: list[str] = []
+    for key in key_candidates:
+        if key not in ordered_keys:
+            ordered_keys.append(key)
+    codes = _coerce_symbol_list(_get_request_value(request_data, *ordered_keys, default=[]))
 
     if isinstance(result, pd.Series):
         normalized = _normalize_profile_mapping(result.to_dict(), codes[0] if codes else None)
@@ -825,7 +1045,6 @@ def _standardize_profile_payload(
 
     raise StandardizationError(f"Unsupported profile payload type: {type(result).__name__}")
 
-
 def _normalize_profile_mapping(row: dict[str, object], fallback_code: str | None) -> dict[str, object]:
     normalized = normalize_contract_mapping(row, PROFILE_INFO_CONTRACT)
     if "code" not in normalized and fallback_code:
@@ -839,11 +1058,19 @@ def _normalize_profile_mapping(row: dict[str, object], fallback_code: str | None
 
 
 def _profile_code_key_from_request(request_data: Mapping[str, object]) -> str | None:
-    for key in ("stock_codes", "fund_codes", "bond_codes", "quote_id", "quote_id_list"):
+    for key in (
+        "symbol",
+        "symbols",
+        "stock_codes",
+        "fund_codes",
+        "bond_codes",
+        "quote_id",
+        "quote_ids",
+        "quote_id_list",
+    ):
         if key in request_data:
             return key
     return None
-
 
 def _get_request_value(request_data: Mapping[str, object], *keys: str, default: object = None) -> object:
     for key in keys:
@@ -1009,6 +1236,79 @@ def _yfinance_search_row_matches_market(
     return True
 
 
+def _adapt_yfinance_search_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 资料请求翻译为 yfinance 请求参数。"""
+
+    return {
+        "query": str(_get_request_value(request_data, "keyword", "query", default="")).strip(),
+        "count": int(_get_request_value(request_data, "result_count", "count", default=5)),
+        "market": _get_request_value(request_data, "market", "market_type"),
+    }
+
+
+def _adapt_yfinance_history_request(
+    command_key: str,
+    request_data: Mapping[str, object],
+) -> dict[str, object]:
+    """把 shared 历史行情请求翻译为 yfinance `Ticker.history` 参数。"""
+
+    symbols = _resolve_yfinance_history_symbols(command_key, request_data)
+    if len(symbols) != 1:
+        raise ValueError(f"yfinance {command_key} 只支持单个标的")
+    return {
+        "symbol": symbols[0],
+        "history_kwargs": _build_yfinance_history_kwargs(request_data),
+    }
+
+
+def _adapt_yfinance_fund_nav_history_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 基金净值历史请求翻译为 yfinance `Ticker.history` 参数。"""
+
+    symbol = _normalize_yfinance_symbol(
+        _get_single_request_value(request_data, "fund.nav.history", "symbol", "fund_code"),
+    )
+    return {
+        "symbol": symbol,
+        "history_kwargs": {
+            "period": "max",
+            "interval": "1d",
+            "auto_adjust": False,
+            "back_adjust": False,
+        },
+    }
+
+
+def _adapt_yfinance_realtime_request(
+    command_key: str,
+    request_data: Mapping[str, object],
+) -> dict[str, object]:
+    """把 shared 最新价或快照请求翻译为 yfinance 请求参数。"""
+
+    return {
+        "symbols": _resolve_yfinance_realtime_symbols(command_key, request_data),
+    }
+
+
+def _adapt_yfinance_profile_request(
+    command_key: str,
+    request_data: Mapping[str, object],
+) -> dict[str, object]:
+    """把 shared 资料请求翻译为 yfinance 请求参数。"""
+
+    return {
+        "symbol": _resolve_yfinance_profile_symbol(command_key, request_data),
+    }
+
+
+def _adapt_yfinance_fund_profile_request(request_data: Mapping[str, object]) -> dict[str, object]:
+    """把 shared 基金资料请求翻译为 yfinance 请求参数。"""
+
+    values = _coerce_symbol_list(_get_request_value(request_data, "symbols", "fund_codes", "symbol", default=[]))
+    if len(values) != 1:
+        raise ValueError("yfinance fund.profile 只支持单个标的")
+    return {"symbol": _normalize_yfinance_symbol(values[0])}
+
+
 def _build_yfinance_history_kwargs(request_data: Mapping[str, object]) -> dict[str, object]:
     interval = {
         1: "1m",
@@ -1019,11 +1319,15 @@ def _build_yfinance_history_kwargs(request_data: Mapping[str, object]) -> dict[s
         101: "1d",
         102: "1wk",
         103: "1mo",
-    }.get(int(_get_request_value(request_data, "klt", "period", default=101)), "1d")
-    auto_adjust = int(_get_request_value(request_data, "fqt", "adjust", default=1)) == 1
+    }.get(int(_get_request_value(request_data, "timeframe", "klt", "period", default=101)), "1d")
+    auto_adjust = int(_get_request_value(request_data, "adjustment", "fqt", "adjust", default=1)) == 1
     return {
-        "start": _normalize_yfinance_date(_get_request_value(request_data, "beg", "start_date", default="19000101")),
-        "end": _normalize_yfinance_date(_get_request_value(request_data, "end", "end_date", default="20500101")),
+        "start": _normalize_yfinance_date(
+            _get_request_value(request_data, "start_date", "beg", default="19000101"),
+        ),
+        "end": _normalize_yfinance_date(
+            _get_request_value(request_data, "end_date", "end", default="20500101"),
+        ),
         "interval": interval,
         "auto_adjust": auto_adjust,
         "back_adjust": False,
@@ -1053,13 +1357,12 @@ def _resolve_yfinance_history_symbols(
     request_data: Mapping[str, object],
 ) -> list[str]:
     key_map = {
-        "stock.price.history": ("stock_codes", "symbol"),
-        "quote.price.history": ("codes", "symbol"),
+        "stock.price.history": ("symbols", "stock_codes", "symbol"),
+        "quote.price.history": ("symbols", "codes", "symbol"),
     }
     keys = key_map[command_key]
     values = _coerce_symbol_list(_get_request_value(request_data, *keys, default=[]))
     return [_normalize_yfinance_symbol(value) for value in values]
-
 
 def _standardize_yfinance_history_frame(
     frame: pd.DataFrame,
@@ -1127,15 +1430,14 @@ def _resolve_yfinance_realtime_symbols(
     request_data: Mapping[str, object],
 ) -> list[str]:
     key_map = {
-        "quote.price.latest": ("quote_id_list", "symbol"),
-        "stock.price.latest": ("stock_codes", "symbol"),
-        "stock.price.snapshot": ("stock_code", "symbol"),
+        "quote.price.latest": ("quote_ids", "quote_id_list", "symbol"),
+        "stock.price.latest": ("symbols", "stock_codes", "symbol"),
+        "stock.price.snapshot": ("symbol", "stock_code", "stock_codes"),
     }
     values = _coerce_symbol_list(_get_request_value(request_data, *key_map[command_key], default=[]))
     if command_key in {"stock.price.latest", "stock.price.snapshot"} and len(values) != 1:
-        raise ValueError(f"yfinance {command_key} 当前仅支持单标的请求")
+        raise ValueError(f"yfinance {command_key} 只支持单个标的")
     return [_normalize_yfinance_symbol(value) for value in values]
-
 
 def _extract_yfinance_fast_info(ticker) -> dict[str, object]:
     fast_info = ticker.fast_info
@@ -1170,14 +1472,13 @@ def _resolve_yfinance_profile_symbol(
     request_data: Mapping[str, object],
 ) -> str:
     key_map = {
-        "stock.profile": ("stock_codes", "symbol"),
-        "quote.profile": ("quote_id", "symbol"),
+        "stock.profile": ("symbol", "symbols", "stock_codes"),
+        "quote.profile": ("quote_id", "quote_ids", "symbol"),
     }
     values = _coerce_symbol_list(_get_request_value(request_data, *key_map[command_key], default=[]))
     if len(values) != 1:
-        raise ValueError(f"yfinance {command_key} 当前仅支持单标的请求")
+        raise ValueError(f"yfinance {command_key} 只支持单个标的")
     return _normalize_yfinance_symbol(values[0])
-
 
 def _resolve_yfinance_profile_market(
     symbol: str,

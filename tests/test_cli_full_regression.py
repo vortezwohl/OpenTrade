@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import unittest
 from unittest.mock import patch
@@ -76,7 +76,7 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured[0]["command_key"], "instrument.search")
         self.assertEqual(captured[0]["kwargs"]["keyword"], "AAPL")
         self.assertEqual(captured[0]["backend"], "auto")
-        self.assertEqual(captured[0]["candidate_chain"], ("akshare", "yfinance", "efinance"))
+        self.assertEqual(captured[0]["candidate_chain"], ())
 
     def test_representative_commands_route_through_executor(self) -> None:
         captured: list[dict[str, object]] = []
@@ -90,7 +90,7 @@ class CliFullRegressionTest(unittest.TestCase):
             (["quote", "price", "latest", "--quote-ids", "1.000001"], "quote.price.latest", "auto"),
             (["quote", "price", "latest", "--quote-ids", "AAPL", "--backend", "yfinance"], "quote.price.latest", "yfinance"),
             (["quote", "news", "--quote-id", "AAPL", "--result-count", "3"], "yfinance.quote.news", "yfinance"),
-            (["market", "price", "live", "--market", "m:105+t:3"], "market.price.live", "efinance"),
+            (["market", "price", "live", "--market", "A_stock"], "market.price.live", "efinance"),
             (["resolve", "quote-id", "--symbol", "000001"], "resolve.quote-id", "efinance"),
             (["search", "local", "--query", "AAPL"], "search.local", "efinance"),
         ]
@@ -236,7 +236,7 @@ class CliFullRegressionTest(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
         self.assertEqual(captured[0]["backend"], "auto")
-        self.assertEqual(captured[0]["candidate_chain"], ("akshare", "yfinance", "efinance"))
+        self.assertEqual(captured[0]["candidate_chain"], ())
         self.assertEqual(captured[0]["watch_enabled"], True)
 
     def test_cli_reports_auto_failover_aggregation(self) -> None:

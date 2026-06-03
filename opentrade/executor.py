@@ -1,8 +1,8 @@
-"""命令执行与循环刷新管线。
+"""统一命令执行器。
 
-该模块只服务于 shared / provider-extension 命令路径。
-一次 CLI 调用会稳定串成：请求校验、backend 路由、handler 调用、结果物化、
-增强、observation、渲染与输出。`watch` 只是对同一执行骨架做重复调度。
+这里串起 shared / provider-extension 命令的公共执行链，
+负责 CLI 请求标准化、backend 调用、结果物化与渲染输出，
+并保证 observation、raw 与 `watch` 走同一套执行语义。
 """
 
 from __future__ import annotations
@@ -15,23 +15,26 @@ from typing import Any
 import click
 import pandas as pd
 
-from opentrade.facade import CommandFacade
+from opentrade.backends.auto_planner import plan_auto_backend_candidates
 from opentrade.enrichment import enrich_market_data
+from opentrade.facade import CommandFacade
 from opentrade.models import InvocationRequest, InvocationResult
 from opentrade.observation import build_observation_output
-from opentrade.request_schema import validate_request_data
 from opentrade.rendering import render_value
+from opentrade.request_schema import validate_request_data
 
 
 class CommandExecutor:
-    """执行命令请求的统一入口。"""
+    """统一执行单次命令调用。"""
 
     def invoke(self, request: InvocationRequest) -> InvocationResult:
-        """执行一次命令请求。"""
+        """执行并返回结构化结果。"""
         if request.command_definition is None or request.backend_selection is None:
             raise click.ClickException("Legacy function-driven commands are no longer supported.")
         if request.backend_selection.is_auto:
             request.backend_selection.final_backend = None
+            request.backend_selection.attempted_candidates.clear()
+            request.backend_selection.fallback_used = False
         value = self._execute_shared_command(request)
         if request.output.view_mode != "raw":
             value = enrich_market_data(request, value)
@@ -39,7 +42,7 @@ class CommandExecutor:
         return InvocationResult(value=value)
 
     def run(self, request: InvocationRequest) -> None:
-        """根据刷新配置执行一次或多次调用。"""
+        """执行请求并直接输出到终端或文件。"""
         if request.watch.enabled:
             self._run_watch(request)
             return
@@ -47,7 +50,7 @@ class CommandExecutor:
         self._emit(request, result)
 
     def _run_watch(self, request: InvocationRequest) -> None:
-        """循环刷新执行。"""
+        """以 watch 模式重复执行请求。"""
         if not request.spec.allow_watch:
             raise click.ClickException(
                 f"{request.spec.module_name}.{request.spec.function_name} does not support watch mode."
@@ -58,6 +61,8 @@ class CommandExecutor:
             iteration += 1
             if request.backend_selection is not None and request.backend_selection.is_auto:
                 request.backend_selection.final_backend = None
+                request.backend_selection.attempted_candidates.clear()
+                request.backend_selection.fallback_used = False
             result = self.invoke(request)
             if request.watch.clear_screen:
                 click.clear()
@@ -73,7 +78,7 @@ class CommandExecutor:
             time.sleep(request.watch.interval)
 
     def _emit(self, request: InvocationRequest, result: InvocationResult) -> None:
-        """输出结果到控制台或文件。"""
+        """输出最终渲染结果。"""
         text = self._render(request, result)
         if request.output.output_path:
             output_path = Path(request.output.output_path)
@@ -83,12 +88,12 @@ class CommandExecutor:
 
     @staticmethod
     def _render(request: InvocationRequest, result: InvocationResult) -> str:
-        """渲染结果文本。"""
+        """渲染执行结果。"""
         return render_value(result.value, request.output)
 
     @staticmethod
     def _sanitize_console_text(text: str) -> str:
-        """按当前终端编码做安全替换，避免 Windows GBK 控制台崩溃。"""
+        """在控制台输出前降级不兼容字符，避免 Windows GBK 终端报错。"""
 
         encoding = sys.stdout.encoding or "utf-8"
         try:
@@ -101,7 +106,7 @@ class CommandExecutor:
             )
 
     def _execute_shared_command(self, request: InvocationRequest) -> Any:
-        """执行基于共享命令目录的新调用路径。"""
+        """执行 shared 命令并返回标准结果。"""
 
         assert request.command_definition is not None
         assert request.backend_selection is not None
@@ -110,6 +115,15 @@ class CommandExecutor:
             request.command_definition.request_schema,
             request.kwargs,
         )
+        if request.backend_selection.is_auto:
+            request.backend_selection.candidate_chain = plan_auto_backend_candidates(
+                request.command_definition,
+                request_data,
+            )
+            if not request.backend_selection.candidate_chain:
+                raise click.ClickException(
+                    f"命令 '{' '.join(request.command_definition.cli_path)}' 没有可用的 auto backend 候选"
+                )
         facade = CommandFacade()
         standard_result = facade.invoke(
             request.command_definition,
@@ -123,13 +137,7 @@ class CommandExecutor:
         return self._materialize_standard_result(request, standard_result)
 
     def _materialize_standard_result(self, request: InvocationRequest, standard_result: Any) -> Any:
-        """把标准结果封装转换为现有渲染链可消费的对象。
-
-        设计约束：
-        - `observation` 仍然只消费标准化后的主体数据；
-        - `raw` 视图需要保留契约名、原始 payload 和 provider 扩展字段；
-        - 表格/JSON/CSV/TSV 渲染仍然复用现有渲染层，不为共享命令单独开旁路。
-        """
+        """把标准结果物化成 rendering 可消费的结构。"""
 
         data = getattr(standard_result, "data", standard_result)
         materialized = data
@@ -156,15 +164,31 @@ class CommandExecutor:
                     if backend_selection is not None
                     else None
                 ),
+                "planned_candidates": (
+                    [item.value for item in backend_selection.candidate_chain]
+                    if backend_selection is not None
+                    else []
+                ),
+                "attempted_candidates": (
+                    [item.value for item in backend_selection.attempted_candidates]
+                    if backend_selection is not None
+                    else []
+                ),
                 "final_backend": (
                     backend_selection.final_backend.value
                     if backend_selection is not None and backend_selection.final_backend is not None
                     else None
                 ),
-                "candidate_chain": (
-                    [item.value for item in backend_selection.candidate_chain]
+                "fallback_used": (
+                    backend_selection.fallback_used
                     if backend_selection is not None
-                    else []
+                    else False
+                ),
+                "limit_strategy": request.command_definition.limit_strategy,
+                "limit_value": request.output.limit,
+                "execution_limit_applied": bool(
+                    request.output.limit is not None
+                    and request.command_definition.limit_strategy != "display-only"
                 ),
             }
             return {
@@ -184,17 +208,13 @@ class CommandExecutor:
         request: InvocationRequest,
         rows: list[dict[str, Any]],
     ) -> pd.DataFrame:
-        """把共享契约记录转换为标准字段 DataFrame。
-
-        这里不再把共享结果重新回投成旧的 provider 原始列名，后续增强与 observation
-        应直接消费标准契约字段，兼容下沉到标准化与补充接口层处理。
-        """
+        """把标准行记录转换成 DataFrame。"""
 
         _ = request
         return pd.DataFrame(rows)
 
     def _is_standard_row_mapping(self, value: dict[str, Any]) -> bool:
-        """判断标准结果是否是 `source -> rows` 的批量记录映射。"""
+        """判断字典是否是 `source -> rows` 形式的标准结果。"""
 
         if not value:
             return True
@@ -238,5 +258,6 @@ def split_runtime_options(raw_kwargs: dict[str, Any]) -> tuple[dict[str, Any], d
 
 
 def default_watch_count(enabled: bool, count: int | None) -> int | None:
-    """计算 watch 的刷新次数配置。"""
+    """返回 watch 模式的默认执行次数。"""
+    _ = enabled
     return count

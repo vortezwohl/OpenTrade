@@ -42,17 +42,20 @@ class CommandKind(str, Enum):
 
 @dataclass(slots=True)
 class RequestField:
-    """描述共享命令请求 schema 中的单个字段。
+    """描述请求 schema 中的单个字段。
 
     Args:
-        name: 请求对象中的内部字段名。
-        cli_name: 对外暴露的 CLI 选项名，不含前缀 `--`。
-        annotation: 字段的目标类型或联合类型。
+        name: 内部稳定字段名。
+        cli_name: 对外暴露的 CLI 选项名，不包含 `--`。
+        annotation: 字段期望的 Python 类型。
         required: 是否必填。
         default: 默认值。
-        help_text: 字段帮助说明。
-        choices: 若字段取值受限，则列出允许值。
-        multiple: 是否支持多值输入。
+        help_text: CLI 帮助文案。
+        choices: 可选枚举值集合。
+        multiple: 是否允许多值输入。
+        semantic_type: 字段的共享语义类型，用于标准化和校验。
+        legacy_names: 向后兼容的历史字段名。
+        cli_aliases: 额外暴露的 CLI 别名，不包含 `--`。
     """
 
     name: str
@@ -63,6 +66,9 @@ class RequestField:
     help_text: str = ""
     choices: tuple[str, ...] = field(default_factory=tuple)
     multiple: bool = False
+    semantic_type: str | None = None
+    legacy_names: tuple[str, ...] = field(default_factory=tuple)
+    cli_aliases: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(slots=True)
@@ -112,6 +118,7 @@ class CommandDefinition:
     allow_watch: bool = True
     has_side_effect: bool = False
     provider_name: BackendName | None = None
+    limit_strategy: str = "display-only"
 
     @property
     def command_name(self) -> str:
@@ -169,7 +176,9 @@ class BackendSelection:
     resolved: BackendName
     source: str = "explicit"
     candidate_chain: tuple[BackendName, ...] = field(default_factory=tuple)
+    attempted_candidates: list[BackendName] = field(default_factory=list)
     final_backend: BackendName | None = None
+    fallback_used: bool = False
 
     @property
     def is_auto(self) -> bool:

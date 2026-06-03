@@ -1,8 +1,6 @@
-"""request_schema 与 backend resolver 的独立单元测试。
+"""request_schema 与 backend resolver 的回归测试。
 
-验证 uild_click_options_for_schema 对各类 RequestField 的正确 Click 参数映射，
-以及 
-esolve_backend_selection 在各种输入下的后端选择逻辑。
+这些用例验证 schema 到 Click 选项、normalized shared request 与 backend 解析行为。
 """
 
 from __future__ import annotations
@@ -11,19 +9,20 @@ import unittest
 
 import click
 
+from opentrade.backends.auto_planner import plan_auto_backend_candidates
 from opentrade.backends.resolver import resolve_backend_selection
-from opentrade.command_catalog import get_shared_command_definition
-from opentrade.models import BackendName, CommandDefinition, CommandKind, RequestField, RequestSchema
-from opentrade.request_schema import build_click_option, build_click_options_for_schema
+from opentrade.command_catalog import REFERENCE_CATALOG_PATH, get_shared_command_definition
+from opentrade.models import BackendName, CommandDefinition, CommandKind, RequestSchema
+from opentrade.request_schema import (
+    build_click_option,
+    build_click_options_for_schema,
+    validate_request_data,
+)
 from tests.cli_regression_support import make_request_field, make_request_schema, print_observation
 
 
 class SchemaAndResolverTest(unittest.TestCase):
-    """覆盖 schema→Click 映射与后端选择逻辑。"""
-
-    # ------------------------------------------------------------------
-    # build_click_option / build_click_options_for_schema
-    # ------------------------------------------------------------------
+    """覆盖 schema、Click 与路由解析的关键行为。"""
 
     def test_required_string_field_maps_to_required_option(self) -> None:
         field = make_request_field(
@@ -31,10 +30,10 @@ class SchemaAndResolverTest(unittest.TestCase):
             cli_name="query",
             annotation=str,
             required=True,
-            help_text="搜索关键字。",
+            help_text="搜索关键词",
         )
         option = build_click_option(field)
-        print_observation("必填 str Option", {"name": option.name, "required": option.required})
+        print_observation("required str option", {"name": option.name, "required": option.required})
 
         self.assertTrue(option.required)
         self.assertEqual(option.name, "keyword")
@@ -49,14 +48,14 @@ class SchemaAndResolverTest(unittest.TestCase):
             default=5,
         )
         option = build_click_option(field)
-        print_observation("可选 int Option", {"default": option.default, "required": option.required})
+        print_observation("optional int option", {"default": option.default, "required": option.required})
 
         self.assertFalse(option.required)
         self.assertEqual(option.default, 5)
 
     def test_bool_field_produces_flag(self) -> None:
         field = make_request_field(
-            name="use_local",
+            name="use_local_cache",
             cli_name="use-local-cache",
             annotation=bool,
             default=True,
@@ -65,8 +64,7 @@ class SchemaAndResolverTest(unittest.TestCase):
         print_observation("bool flag Option", {"is_flag": option.is_flag, "default": option.default})
 
         self.assertTrue(option.is_flag)
-        self.assertTrue(option.is_flag)
-        self.assertIn('--no-use-local-cache', option.secondary_opts)
+        self.assertIn("--no-use-local-cache", option.secondary_opts)
 
     def test_choice_field_produces_click_choice(self) -> None:
         field = make_request_field(
@@ -94,6 +92,12 @@ class SchemaAndResolverTest(unittest.TestCase):
 
         self.assertTrue(option.multiple)
 
+    def test_click_aliases_are_exposed_for_compatible_fields(self) -> None:
+        definition = get_shared_command_definition("stock.profile")
+        option = next(item for item in build_click_options_for_schema(definition.request_schema) if item.name == "symbol")
+        self.assertIn("--symbol", option.opts)
+        self.assertIn("--symbols", option.opts)
+
     def test_build_click_options_for_schema_returns_correct_count(self) -> None:
         schema = make_request_schema(
             fields=(
@@ -104,9 +108,54 @@ class SchemaAndResolverTest(unittest.TestCase):
         options = build_click_options_for_schema(schema)
         self.assertEqual(len(options), 2)
 
-    # ------------------------------------------------------------------
-    # resolve_backend_selection
-    # ------------------------------------------------------------------
+    def test_validate_request_data_normalizes_legacy_history_fields(self) -> None:
+        definition = get_shared_command_definition("stock.price.history")
+        normalized = validate_request_data(
+            definition.request_schema,
+            {
+                "stock_codes": ["000001"],
+                "beg": "2025-05-01",
+                "end": "20250530",
+                "klt": 101,
+                "fqt": 1,
+                "market_type": "A_stock",
+                "suppress_error": False,
+                "use_id_cache": True,
+            },
+        )
+        print_observation("normalized history request", normalized)
+        self.assertEqual(normalized["symbols"], ["000001"])
+        self.assertEqual(normalized["start_date"], "20250501")
+        self.assertEqual(normalized["end_date"], "20250530")
+        self.assertEqual(normalized["market"], "A_stock")
+        self.assertEqual(normalized["timeframe"], 101)
+        self.assertEqual(normalized["adjustment"], 1)
+
+    def test_market_validation_uses_semantic_type_not_field_name(self) -> None:
+        definition = get_shared_command_definition("stock.price.history")
+        with self.assertRaises(click.ClickException) as ctx:
+            validate_request_data(
+                definition.request_schema,
+                {
+                    "symbols": ["000001"],
+                    "market": "bad-market",
+                },
+            )
+        self.assertIn("Unknown market enum", str(ctx.exception))
+
+    def test_compact_date_input_is_preserved(self) -> None:
+        definition = get_shared_command_definition("stock.price.history")
+        normalized = validate_request_data(
+            definition.request_schema,
+            {"symbols": ["000001"], "start_date": "20250331", "end_date": "20250530"},
+        )
+        self.assertEqual(normalized["start_date"], "20250331")
+        self.assertEqual(normalized["end_date"], "20250530")
+
+    def test_command_catalog_uses_repo_owned_metadata(self) -> None:
+        self.assertIn("opentrade", str(REFERENCE_CATALOG_PATH))
+        self.assertNotIn(".skill", str(REFERENCE_CATALOG_PATH))
+        self.assertTrue(REFERENCE_CATALOG_PATH.exists())
 
     def test_explicit_efinance_resolves_correctly(self) -> None:
         definition = get_shared_command_definition("stock.price.live")
@@ -119,36 +168,61 @@ class SchemaAndResolverTest(unittest.TestCase):
         self.assertEqual(selection.resolved, BackendName.EFINANCE)
         self.assertEqual(selection.source, "explicit")
 
-    def test_auto_mode_produces_candidate_chain(self) -> None:
+    def test_auto_mode_only_marks_auto_before_request_planning(self) -> None:
         definition = get_shared_command_definition("stock.price.history")
         selection = resolve_backend_selection(definition, None)
-        print_observation("auto 模式", {
+        print_observation("auto 默认", {
             "resolved": selection.resolved.value,
             "candidate_chain": tuple(item.value for item in selection.candidate_chain),
             "source": selection.source,
         })
 
         self.assertEqual(selection.resolved, BackendName.AUTO)
-        self.assertGreater(len(selection.candidate_chain), 0)
+        self.assertEqual(selection.candidate_chain, ())
         self.assertEqual(selection.source, "default")
 
+    def test_request_aware_auto_planning_prefers_us_requests_for_yfinance(self) -> None:
+        definition = get_shared_command_definition("stock.price.history")
+        chain = plan_auto_backend_candidates(
+            definition,
+            {
+                "symbols": ["AAPL"],
+                "start_date": "20250501",
+                "end_date": "20250530",
+                "market": "US_stock",
+            },
+        )
+        self.assertEqual(chain[0], BackendName.YFINANCE)
+
+    def test_request_aware_auto_planning_prefers_a_share_requests_for_efinance(self) -> None:
+        definition = get_shared_command_definition("stock.price.history")
+        chain = plan_auto_backend_candidates(
+            definition,
+            {
+                "symbols": ["000001"],
+                "start_date": "20250501",
+                "end_date": "20250530",
+                "market": "A_stock",
+            },
+        )
+        self.assertEqual(chain[0], BackendName.EFINANCE)
+
     def test_unsupported_backend_raises_click_exception(self) -> None:
-        definition = get_shared_command_definition("stock.price.live")  # only efinance + akshare
+        definition = get_shared_command_definition("stock.price.live")
         with self.assertRaises(click.ClickException) as ctx:
             resolve_backend_selection(definition, "yfinance")
 
         message = str(ctx.exception)
-        print_observation("不支持后端异常消息", message)
+        print_observation("不支持的 backend", message)
         self.assertIn("yfinance", message)
 
     def test_provider_extension_uses_provider_default(self) -> None:
-        """provider-extension 命令在不传 backend 时应使用 provider_name 作为默认。"""
         definition = CommandDefinition(
             command_key="test.ext",
             cli_path=("test", "ext"),
             capability="test.ext",
             request_schema=RequestSchema(schema_name="test", fields=()),
-            help_text="测试扩展命令。",
+            help_text="扩展命令",
             kind=CommandKind.PROVIDER_EXTENSION,
             supported_backends=(BackendName.EFINANCE,),
             allow_watch=False,
@@ -156,7 +230,7 @@ class SchemaAndResolverTest(unittest.TestCase):
             provider_name=BackendName.EFINANCE,
         )
         selection = resolve_backend_selection(definition, None)
-        print_observation("provider-extension 默认后端", {
+        print_observation("provider-extension 默认", {
             "resolved": selection.resolved.value,
             "source": selection.source,
         })
@@ -167,5 +241,3 @@ class SchemaAndResolverTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-

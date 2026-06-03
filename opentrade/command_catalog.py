@@ -1,10 +1,10 @@
-"""后端无关共享命令目录。
+"""共享命令目录与运行时命令元数据。
 
-该模块把仓库内维护的命令参考矩阵固化为运行时 command catalog。当前原则：
+这个模块负责读取仓库内维护的 command catalog，并把它们构造成统一的运行时定义。
 
-1. `shared` 只保留真正支持多 backend 的命令；
-2. 仅支持单一 backend 的命令必须下沉到对应 provider 的 extension 命令集合；
-3. 命令定义由显式元数据驱动，而不是由上游函数名动态反射。
+1. `shared` 命令使用统一 schema 和 backend 支持矩阵；
+2. 单后端命令继续作为 provider 的 extension 能力暴露；
+3. shared 层只保留 provider-neutral 字段，provider 原生参数留在适配层。
 """
 
 from __future__ import annotations
@@ -24,11 +24,7 @@ from opentrade.models import (
 
 
 REFERENCE_CATALOG_PATH = (
-    Path(__file__).resolve().parent.parent
-    / ".skill"
-    / "opentrade"
-    / "references"
-    / "command-catalog.json"
+    Path(__file__).resolve().parent / "metadata" / "command-catalog.json"
 )
 
 _REFERENCE_CATALOG = json.loads(REFERENCE_CATALOG_PATH.read_text(encoding="utf-8"))
@@ -36,11 +32,11 @@ _REFERENCE_CATALOG = json.loads(REFERENCE_CATALOG_PATH.read_text(encoding="utf-8
 MARKET_CHOICES: tuple[str, ...] = tuple(_REFERENCE_CATALOG["market_enums"])
 
 GROUP_HELP_TEXT: dict[str, str] = {
-    name: str(payload.get("role", "")).strip() or f"{name} 命令分组。"
+    name: str(payload.get("role", "")).strip() or f"{name} 命令组"
     for name, payload in _REFERENCE_CATALOG["top_level_commands"].items()
     if name not in {"search", "watch"}
 }
-GROUP_HELP_TEXT["watch"] = "为任意子命令开启循环刷新。"
+GROUP_HELP_TEXT["watch"] = "循环刷新执行支持 watch 的命令"
 
 SPECIAL_ROOT_GROUPS = {"instrument", "search", "watch"}
 
@@ -50,6 +46,417 @@ JSON_ANNOTATION_TO_TYPE: dict[str, Any] = {
     "FloatParamType": float,
     "BoolParamType": bool,
     "Choice": str,
+}
+
+SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
+    "instrument.search": {
+        "cli_path": ("instrument", "search"),
+        "help_text": "按关键词搜索可交易标的",
+        "supported_backends": (
+            BackendName.EFINANCE,
+            BackendName.AKSHARE,
+            BackendName.YFINANCE,
+        ),
+        "limit_strategy": "adapter-lightweight",
+        "fields": (
+            RequestField(
+                name="keyword",
+                cli_name="query",
+                annotation=str,
+                required=True,
+                help_text="搜索关键词",
+                semantic_type="keyword",
+                legacy_names=("query",),
+            ),
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str | None,
+                default=None,
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type",),
+            ),
+            RequestField(
+                name="result_count",
+                cli_name="result-count",
+                annotation=int,
+                default=5,
+                help_text="返回结果数量",
+                semantic_type="result-count",
+                legacy_names=("count",),
+            ),
+            RequestField(
+                name="use_local_cache",
+                cli_name="use-local-cache",
+                annotation=bool,
+                default=True,
+                help_text="是否优先使用本地缓存",
+                semantic_type="cache-toggle",
+                legacy_names=("use_local",),
+            ),
+        ),
+    },
+    "stock.price.history": {
+        "cli_path": ("stock", "price", "history"),
+        "help_text": "查询股票历史 K 线行情",
+        "supported_backends": (
+            BackendName.EFINANCE,
+            BackendName.AKSHARE,
+            BackendName.YFINANCE,
+        ),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbols",
+                cli_name="symbols",
+                annotation=str,
+                required=True,
+                multiple=True,
+                default=(),
+                help_text="股票代码，支持多个",
+                semantic_type="symbols",
+                legacy_names=("stock_codes",),
+            ),
+            RequestField(
+                name="start_date",
+                cli_name="start-date",
+                annotation=str,
+                default="19000101",
+                help_text="开始日期，格式 YYYYMMDD",
+                semantic_type="start-date",
+                legacy_names=("beg",),
+            ),
+            RequestField(
+                name="end_date",
+                cli_name="end-date",
+                annotation=str,
+                default="20500101",
+                help_text="结束日期，格式 YYYYMMDD",
+                semantic_type="end-date",
+                legacy_names=("end",),
+            ),
+            RequestField(
+                name="timeframe",
+                cli_name="timeframe",
+                annotation=int,
+                default=101,
+                help_text="K 线周期",
+                semantic_type="timeframe",
+                legacy_names=("klt", "period"),
+            ),
+            RequestField(
+                name="adjustment",
+                cli_name="adjustment",
+                annotation=int,
+                default=1,
+                help_text="复权类型",
+                semantic_type="adjustment",
+                legacy_names=("fqt", "adjust"),
+            ),
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str | None,
+                default=None,
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type",),
+            ),
+            RequestField(
+                name="ignore_errors",
+                cli_name="ignore-errors",
+                annotation=bool,
+                default=False,
+                help_text="是否忽略单个标的错误",
+                semantic_type="ignore-errors",
+                legacy_names=("suppress_error",),
+            ),
+            RequestField(
+                name="use_id_cache",
+                cli_name="use-id-cache",
+                annotation=bool,
+                default=True,
+                help_text="是否使用 quote_id 缓存",
+                semantic_type="cache-toggle",
+            ),
+        ),
+    },
+    "stock.price.latest": {
+        "cli_path": ("stock", "price", "latest"),
+        "help_text": "查询股票最新行情",
+        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbols",
+                cli_name="symbols",
+                annotation=str,
+                required=True,
+                multiple=True,
+                default=(),
+                help_text="股票代码，支持多个",
+                semantic_type="symbols",
+                legacy_names=("stock_codes",),
+            ),
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str | None,
+                default=None,
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type",),
+            ),
+        ),
+    },
+    "stock.price.live": {
+        "cli_path": ("stock", "price", "live"),
+        "help_text": "查询市场实时行情列表",
+        "supported_backends": (BackendName.EFINANCE, BackendName.AKSHARE),
+        "limit_strategy": "adapter-lightweight",
+        "fields": (
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str,
+                required=False,
+                default="A_stock",
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type", "fs"),
+            ),
+        ),
+    },
+    "stock.price.snapshot": {
+        "cli_path": ("stock", "price", "snapshot"),
+        "help_text": "查询单只股票快照",
+        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbol",
+                cli_name="symbol",
+                annotation=str,
+                required=True,
+                help_text="股票代码",
+                semantic_type="symbol",
+                legacy_names=("stock_code",),
+            ),
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str | None,
+                default=None,
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type",),
+            ),
+        ),
+    },
+    "stock.profile": {
+        "cli_path": ("stock", "profile"),
+        "help_text": "查询单只股票资料",
+        "supported_backends": (
+            BackendName.EFINANCE,
+            BackendName.AKSHARE,
+            BackendName.YFINANCE,
+        ),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbol",
+                cli_name="symbol",
+                annotation=str,
+                required=True,
+                help_text="股票代码",
+                semantic_type="symbol",
+                legacy_names=("stock_code",),
+                cli_aliases=("symbols",),
+            ),
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str | None,
+                default=None,
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type",),
+            ),
+        ),
+    },
+    "fund.nav.history": {
+        "cli_path": ("fund", "nav", "history"),
+        "help_text": "查询基金历史净值",
+        "supported_backends": (
+            BackendName.EFINANCE,
+            BackendName.AKSHARE,
+            BackendName.YFINANCE,
+        ),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbol",
+                cli_name="symbol",
+                annotation=str,
+                required=True,
+                help_text="基金代码或 Yahoo ticker",
+                semantic_type="symbol",
+                legacy_names=("fund_code",),
+            ),
+            RequestField(
+                name="max_pages",
+                cli_name="max-pages",
+                annotation=int,
+                default=40000,
+                help_text="efinance 最大翻页数",
+                semantic_type="page-limit",
+                legacy_names=("pz",),
+            ),
+        ),
+    },
+    "fund.profile": {
+        "cli_path": ("fund", "profile"),
+        "help_text": "查询基金资料",
+        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbols",
+                cli_name="symbols",
+                annotation=str,
+                required=True,
+                multiple=True,
+                default=(),
+                help_text="基金代码，支持多个",
+                semantic_type="symbols",
+                legacy_names=("fund_codes",),
+            ),
+        ),
+    },
+    "quote.price.history": {
+        "cli_path": ("quote", "price", "history"),
+        "help_text": "查询通用行情历史价格",
+        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="symbols",
+                cli_name="symbols",
+                annotation=str,
+                required=True,
+                multiple=True,
+                default=(),
+                help_text="通用 symbol / quote 标识，支持多个",
+                semantic_type="symbols",
+                legacy_names=("codes",),
+            ),
+            RequestField(
+                name="start_date",
+                cli_name="start-date",
+                annotation=str,
+                default="19000101",
+                help_text="开始日期，格式 YYYYMMDD",
+                semantic_type="start-date",
+                legacy_names=("beg",),
+            ),
+            RequestField(
+                name="end_date",
+                cli_name="end-date",
+                annotation=str,
+                default="20500101",
+                help_text="结束日期，格式 YYYYMMDD",
+                semantic_type="end-date",
+                legacy_names=("end",),
+            ),
+            RequestField(
+                name="timeframe",
+                cli_name="timeframe",
+                annotation=int,
+                default=101,
+                help_text="K 线周期",
+                semantic_type="timeframe",
+                legacy_names=("klt", "period"),
+            ),
+            RequestField(
+                name="adjustment",
+                cli_name="adjustment",
+                annotation=int,
+                default=1,
+                help_text="复权类型",
+                semantic_type="adjustment",
+                legacy_names=("fqt", "adjust"),
+            ),
+            RequestField(
+                name="market",
+                cli_name="market",
+                annotation=str | None,
+                default=None,
+                choices=MARKET_CHOICES,
+                help_text="市场枚举",
+                semantic_type="market",
+                legacy_names=("market_type",),
+            ),
+            RequestField(
+                name="ignore_errors",
+                cli_name="ignore-errors",
+                annotation=bool,
+                default=False,
+                help_text="是否忽略单个标的错误",
+                semantic_type="ignore-errors",
+                legacy_names=("suppress_error",),
+            ),
+            RequestField(
+                name="use_id_cache",
+                cli_name="use-id-cache",
+                annotation=bool,
+                default=True,
+                help_text="是否使用 quote_id 缓存",
+                semantic_type="cache-toggle",
+            ),
+        ),
+    },
+    "quote.price.latest": {
+        "cli_path": ("quote", "price", "latest"),
+        "help_text": "查询通用行情最新价格",
+        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="quote_ids",
+                cli_name="quote-ids",
+                annotation=str,
+                required=True,
+                multiple=True,
+                default=(),
+                help_text="通用 quote_id 或 Yahoo ticker，支持多个",
+                semantic_type="quote-ids",
+                legacy_names=("quote_id_list",),
+            ),
+        ),
+    },
+    "quote.profile": {
+        "cli_path": ("quote", "profile"),
+        "help_text": "查询通用行情资料",
+        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "limit_strategy": "display-only",
+        "fields": (
+            RequestField(
+                name="quote_id",
+                cli_name="quote-id",
+                annotation=str,
+                required=True,
+                help_text="单个 quote_id 或 Yahoo ticker",
+                semantic_type="quote-id",
+            ),
+        ),
+    },
 }
 
 
@@ -79,17 +486,11 @@ def _supported_backends_for_command(command_path: str) -> tuple[BackendName, ...
         )
     if command_path == "stock price live":
         return (BackendName.EFINANCE, BackendName.AKSHARE)
-    if command_path == "search":
-        return (
-            BackendName.EFINANCE,
-            BackendName.AKSHARE,
-            BackendName.YFINANCE,
-        )
     return (BackendName.EFINANCE,)
 
 
 def is_multi_backend_support(backends: tuple[BackendName, ...]) -> bool:
-    """判断一条命令是否具备真正的多 backend 支持。"""
+    """判断当前命令是否属于多 backend shared 能力。"""
 
     return len(backends) >= 2
 
@@ -121,6 +522,7 @@ def _build_request_field(parameter: dict[str, Any]) -> RequestField:
     legal_values = parameter.get("legal_values")
     choices = tuple(legal_values) if isinstance(legal_values, list) else ()
     if str(parameter.get("name")) == "fs":
+        # `market price live` 的 provider-extension 参数仍使用原生 `fs`，这里不要把它当成 shared market 枚举。
         choices = ()
     default = parameter.get("default")
     if isinstance(default, bool):
@@ -140,6 +542,7 @@ def _build_request_field(parameter: dict[str, Any]) -> RequestField:
         help_text=str(parameter.get("description", "")).strip(),
         choices=choices,
         multiple=bool(parameter.get("multiple", False)),
+        semantic_type=str(parameter.get("semantic_type") or "").strip() or None,
     )
 
 
@@ -185,64 +588,28 @@ def _build_command_from_reference(entry: dict[str, Any]) -> CommandDefinition:
     )
 
 
-DEFAULT_SEARCH_COMMAND = CommandDefinition(
-    command_key="instrument.search",
-    cli_path=("instrument", "search"),
-    capability="instrument.search",
-    request_schema=RequestSchema(
-        schema_name="instrument-search-request",
-        fields=(
-            RequestField(
-                name="keyword",
-                cli_name="query",
-                annotation=str,
-                required=True,
-                help_text="搜索关键字。",
-            ),
-            RequestField(
-                name="market_type",
-                cli_name="market",
-                annotation=str | None,
-                default=None,
-                choices=MARKET_CHOICES,
-                help_text="市场枚举名。",
-            ),
-            RequestField(
-                name="count",
-                cli_name="result-count",
-                annotation=int,
-                default=5,
-                help_text="返回候选数量。",
-            ),
-            RequestField(
-                name="use_local",
-                cli_name="use-local-cache",
-                annotation=bool,
-                default=True,
-                help_text="是否允许使用本地缓存。",
-            ),
+def _build_shared_command(command_key: str, payload: dict[str, Any]) -> CommandDefinition:
+    return CommandDefinition(
+        command_key=command_key,
+        cli_path=tuple(payload["cli_path"]),
+        capability=command_key,
+        request_schema=RequestSchema(
+            schema_name=f"{command_key.replace('.', '-')}-request",
+            fields=tuple(payload["fields"]),
         ),
-    ),
-    help_text="根据关键字搜索证券候选项。",
-    kind=CommandKind.SHARED,
-    supported_backends=(
-        BackendName.EFINANCE,
-        BackendName.AKSHARE,
-        BackendName.YFINANCE,
-    ),
-    allow_watch=True,
-    has_side_effect=False,
-)
+        help_text=str(payload["help_text"]),
+        kind=CommandKind.SHARED,
+        supported_backends=tuple(payload["supported_backends"]),
+        allow_watch=bool(payload.get("allow_watch", True)),
+        has_side_effect=bool(payload.get("has_side_effect", False)),
+        provider_name=None,
+        limit_strategy=str(payload.get("limit_strategy", "display-only")),
+    )
 
 
-SHARED_COMMANDS: tuple[CommandDefinition, ...] = (
-    DEFAULT_SEARCH_COMMAND,
-    *tuple(
-        _build_command_from_reference(entry)
-        for entry in _REFERENCE_CATALOG["commands"]
-        if entry["command_path"] != "watch"
-        and is_multi_backend_support(_supported_backends_for_command(str(entry["command_path"])))
-    ),
+SHARED_COMMANDS: tuple[CommandDefinition, ...] = tuple(
+    _build_shared_command(command_key, payload)
+    for command_key, payload in SHARED_COMMAND_CONFIGS.items()
 )
 
 SINGLE_BACKEND_COMMANDS: tuple[CommandDefinition, ...] = tuple(
@@ -253,7 +620,10 @@ SINGLE_BACKEND_COMMANDS: tuple[CommandDefinition, ...] = tuple(
 )
 
 COMMAND_BINDINGS: dict[str, dict[str, str | None]] = {
-    DEFAULT_SEARCH_COMMAND.command_key: {"module": "utils", "function": "search_quote"},
+    command.command_key: {"module": "utils", "function": "search_quote"}
+    if command.command_key == "instrument.search"
+    else {"module": None, "function": None}
+    for command in SHARED_COMMANDS
 }
 for entry in _REFERENCE_CATALOG["commands"]:
     command_path = str(entry["command_path"])
@@ -285,7 +655,7 @@ SINGLE_BACKEND_CAPABILITIES: dict[str, CapabilityDescriptor] = {
 
 
 def list_shared_root_groups() -> list[str]:
-    """返回当前共享命令树的根分组。"""
+    """返回所有共享命令的根分组。"""
 
     roots = sorted(
         {
@@ -298,7 +668,7 @@ def list_shared_root_groups() -> list[str]:
 
 
 def build_shared_command_definitions_for_group(group_name: str) -> list[CommandDefinition]:
-    """按根分组返回共享命令定义。"""
+    """返回指定分组下的共享命令定义。"""
 
     return sorted(
         [command for command in SHARED_COMMANDS if command.root_group == group_name],
@@ -307,16 +677,16 @@ def build_shared_command_definitions_for_group(group_name: str) -> list[CommandD
 
 
 def get_shared_command_definition(command_key: str) -> CommandDefinition:
-    """按稳定命令键返回共享命令定义。"""
+    """按 command_key 获取共享命令定义。"""
 
     for command in SHARED_COMMANDS:
         if command.command_key == command_key:
             return command
-    raise KeyError(f"未知共享命令: {command_key}")
+    raise KeyError(f"未知命令: {command_key}")
 
 
 def get_command_definition(command_key: str) -> CommandDefinition:
-    """按稳定命令键返回任意命令定义。"""
+    """按 command_key 获取任意命令定义。"""
 
     for command in SHARED_COMMANDS:
         if command.command_key == command_key:
@@ -324,13 +694,13 @@ def get_command_definition(command_key: str) -> CommandDefinition:
     for command in SINGLE_BACKEND_COMMANDS:
         if command.command_key == command_key:
             return command
-    raise KeyError(f"未知命令定义: {command_key}")
+    raise KeyError(f"未知命令: {command_key}")
 
 
 def get_single_backend_command_definitions(
     provider_name: BackendName | None = None,
 ) -> tuple[CommandDefinition, ...]:
-    """返回单 backend 命令定义，可按 provider 过滤。"""
+    """按 provider 过滤单后端命令定义。"""
 
     if provider_name is None:
         return SINGLE_BACKEND_COMMANDS
@@ -342,7 +712,7 @@ def get_single_backend_command_definitions(
 
 
 def get_capability_descriptor(capability_name: str) -> CapabilityDescriptor:
-    """返回 capability 描述。"""
+    """按 capability 获取能力描述。"""
 
     try:
         return SHARED_CAPABILITIES[capability_name]
@@ -355,9 +725,9 @@ def get_capability_descriptor(capability_name: str) -> CapabilityDescriptor:
 
 
 def get_command_binding(command_key: str) -> dict[str, str | None]:
-    """返回命令键绑定的上游来源信息。"""
+    """按 command_key 获取函数绑定。"""
 
     try:
         return COMMAND_BINDINGS[command_key]
     except KeyError as exc:
-        raise KeyError(f"未知命令绑定: {command_key}") from exc
+        raise KeyError(f"未知命令: {command_key}") from exc

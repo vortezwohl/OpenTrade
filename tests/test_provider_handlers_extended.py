@@ -48,7 +48,8 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             mock_akshare.stock_zh_a_spot_em.return_value = mock_frame
             mock_load.return_value = mock_akshare
 
-            result = handler.execute({"fs": "A_stock"})
+            result = handler.execute({"market": "A_stock"})
+            mock_akshare.stock_zh_a_spot_em.assert_called_once_with()
 
         print_observation("AkshareStockPriceLive 结果", {
             "contract_name": result.contract_name,
@@ -80,7 +81,11 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             mock_akshare.fund_open_fund_info_em.return_value = mock_frame
             mock_load.return_value = mock_akshare
 
-            result = handler.execute({"fund_code": "161725"})
+            result = handler.execute({"symbol": "161725"})
+            mock_akshare.fund_open_fund_info_em.assert_called_once_with(
+                symbol="161725",
+                indicator="\u5355\u4f4d\u51c0\u503c\u8d70\u52bf",
+            )
 
         print_observation("AkshareFundNavHistory 结果", {
             "contract_name": result.contract_name,
@@ -112,7 +117,8 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             mock_akshare.stock_individual_info_em.return_value = mock_result
             mock_load.return_value = mock_akshare
 
-            result = handler.execute({"stock_codes": ["000001"]})
+            result = handler.execute({"symbol": "000001", "market": "A_stock"})
+            mock_akshare.stock_individual_info_em.assert_called_once_with(symbol="000001")
 
         print_observation("AkshareStockProfile 结果", {
             "contract_name": result.contract_name,
@@ -139,13 +145,20 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
             mock_load.return_value = mock_akshare
 
             result = handler.execute({
-                "stock_codes": ["000001"],
-                "market_type": "A_stock",
-                "beg": "20250101",
-                "end": "20250131",
-                "klt": 101,
-                "fqt": 1,
+                "symbols": ["000001"],
+                "market": "A_stock",
+                "start_date": "20250101",
+                "end_date": "20250131",
+                "timeframe": 101,
+                "adjustment": 1,
             })
+            mock_akshare.stock_zh_a_hist.assert_called_once_with(
+                symbol="000001",
+                period="daily",
+                start_date="20250101",
+                end_date="20250131",
+                adjust="qfq",
+            )
 
         print_observation("AkshareStockPriceHistory 结果", {
             "contract_name": result.contract_name,
@@ -167,7 +180,9 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
              patch("opentrade.backends.providers._build_yfinance_realtime_row") as mock_row:
             mock_row.return_value = {"symbol": "AAPL", "name": "Apple Inc.", "close": 195.5}
 
-            result = handler.execute({"stock_codes": ["AAPL"]})
+            result = handler.execute({"symbols": ["AAPL"]})
+            mock_ticker.assert_not_called()
+            mock_row.assert_called_once_with("stock.price.latest", "AAPL")
 
         print_observation("YfinanceRealtime 结果", {
             "contract_name": result.contract_name,

@@ -1,10 +1,10 @@
-"""共享命令请求 schema 的构建、校验与 Click 参数映射。
+"""把请求 schema 转成 Click 选项并做标准化。
 
-该模块是多后端重构的第一层骨架。它解决两个核心问题：
+主要职责：
 
-1. 共享命令的参数不再从第三方函数签名反射得到，而是由显式 schema 驱动；
-2. schema 既要能校验请求，也要能稳定生成 Click 参数，避免命令面继续被上游
-   provider 的函数签名牵着走。
+1. 根据 schema 构造 Click 选项；
+2. 把 CLI 原始参数归一化成 shared 命令使用的 provider-neutral request；
+3. 在进入 backend 适配前完成字段标准化和基础语义校验。
 """
 
 from __future__ import annotations
@@ -15,11 +15,12 @@ from typing import Any
 
 import click
 
+from opentrade.command_catalog import MARKET_CHOICES
 from opentrade.models import RequestField, RequestSchema
 
 
 def build_click_options_for_schema(schema: RequestSchema) -> list[click.Option]:
-    """把请求 schema 转换为 Click 选项列表。"""
+    """根据 schema 构造 Click 选项列表。"""
 
     options: list[click.Option] = []
     for field in schema.fields:
@@ -28,13 +29,18 @@ def build_click_options_for_schema(schema: RequestSchema) -> list[click.Option]:
 
 
 def build_click_option(field: RequestField) -> click.Option:
-    """根据字段定义构造单个 Click 选项。"""
+    """为单个字段构造 Click 选项。"""
 
-    option_name = f"--{field.cli_name}"
+    primary_option_name = f"--{field.cli_name}"
+    option_declarations = [primary_option_name]
+    option_declarations.extend(f"--{alias}" for alias in field.cli_aliases)
     expected_type = unwrap_annotation(field.annotation)
     if expected_type is bool:
         return click.Option(
-            [f"{option_name}/--no-{field.cli_name}", field.name],
+            [
+                f"{primary_option_name}/--no-{field.cli_name}",
+                field.name,
+            ],
             default=bool(field.default),
             show_default=True,
             help=field.help_text,
@@ -61,27 +67,29 @@ def build_click_option(field: RequestField) -> click.Option:
         if field.default is None:
             kwargs["default"] = ()
 
-    return click.Option([option_name, field.name], **kwargs)
+    return click.Option([*option_declarations, field.name], **kwargs)
 
 
 def validate_request_data(schema: RequestSchema, raw_data: dict[str, Any]) -> dict[str, Any]:
-    """按 schema 校验并归一化请求数据。"""
+    """按 schema 校验并标准化请求数据。"""
 
     field_map = schema.field_map()
     normalized: dict[str, Any] = {}
+    consumed_keys: set[str] = set()
     for field in schema.fields:
-        if field.name not in raw_data or raw_data[field.name] is None:
+        value, provided = _extract_raw_field_value(field, raw_data)
+        consumed_keys.update(_known_field_names(field))
+        if not provided or value is None:
             if field.required and field.default is None:
                 raise click.ClickException(f"Missing required option '--{field.cli_name}'.")
             if field.default is not None or field.name in raw_data:
-                normalized[field.name] = field.default
+                normalized[field.name] = _normalize_schema_field(field, field.default)
             continue
-        normalized[field.name] = coerce_schema_value(field, raw_data[field.name])
-        if field.name == "market":
-            _validate_market_name(normalized[field.name])
+        normalized[field.name] = _normalize_schema_field(field, coerce_schema_value(field, value))
+        _validate_semantic_field(field, normalized[field.name])
 
     if not schema.allow_extra:
-        unknown = sorted(set(raw_data) - set(field_map))
+        unknown = sorted(set(raw_data) - consumed_keys)
         if unknown:
             raise click.ClickException(f"Unknown request fields: {', '.join(unknown)}")
     else:
@@ -93,17 +101,23 @@ def validate_request_data(schema: RequestSchema, raw_data: dict[str, Any]) -> di
 
 
 def coerce_schema_value(field: RequestField, value: Any) -> Any:
-    """把 Click 原始值转换为 schema 定义的目标值。"""
+    """? Click ?????? schema ?????"""
 
     expected_type = unwrap_annotation(field.annotation)
     if field.multiple:
         sequence = value if isinstance(value, (list, tuple)) else (value,)
         return [coerce_scalar(expected_type, item) for item in sequence]
+    if isinstance(value, (list, tuple)):
+        if len(value) != 1:
+            raise click.ClickException(
+                f"Option '--{field.cli_name}' only accepts a single value.",
+            )
+        value = value[0]
     return coerce_scalar(expected_type, value)
 
 
 def unwrap_annotation(annotation: Any) -> Any:
-    """解包联合类型，返回主类型。"""
+    """拆出可用于 Click 的基础类型。"""
 
     origin = typing.get_origin(annotation)
     if origin is typing.Union:
@@ -127,11 +141,11 @@ def coerce_scalar(expected_type: Any, value: Any) -> Any:
         return int(value)
     if expected_type is float:
         return float(value)
-    return value
+    return str(value).strip() if isinstance(value, str) else value
 
 
 def normalize_bool(value: Any) -> bool:
-    """把宽松布尔值转换为稳定布尔类型。"""
+    """把常见布尔文本解析为布尔值。"""
 
     if isinstance(value, bool):
         return value
@@ -143,17 +157,82 @@ def normalize_bool(value: Any) -> bool:
     raise click.ClickException(f"Unable to parse boolean value: {value}")
 
 
+def _extract_raw_field_value(field: RequestField, raw_data: dict[str, Any]) -> tuple[Any, bool]:
+    for key in _known_field_names(field):
+        if key in raw_data:
+            return raw_data[key], True
+    return None, False
+
+
+def _known_field_names(field: RequestField) -> tuple[str, ...]:
+    return (field.name, *field.legacy_names)
+
+
+def _normalize_schema_field(field: RequestField, value: Any) -> Any:
+    if value is None:
+        return None
+    semantic_type = field.semantic_type or field.name
+    if semantic_type in {"symbol", "quote-id", "keyword"}:
+        return str(value).strip()
+    if semantic_type in {"symbols", "quote-ids"}:
+        values = value if isinstance(value, list) else [value]
+        return [str(item).strip() for item in values if str(item).strip()]
+    if semantic_type in {"start-date", "end-date"}:
+        return _normalize_compact_date(value)
+    if semantic_type == "market":
+        return _normalize_market_name(value)
+    return value
+
+
+def _validate_semantic_field(field: RequestField, value: Any) -> None:
+    semantic_type = field.semantic_type or field.name
+    if semantic_type == "market":
+        _validate_market_name(value)
+    if field.name == "symbol" and value in (None, ""):
+        raise click.ClickException(f"Missing required option '--{field.cli_name}'.")
+
+
+def _normalize_compact_date(value: Any) -> str:
+    text = str(value).strip()
+    if len(text) == 8 and text.isdigit():
+        return text
+    compact = text.replace("-", "")
+    if len(compact) == 8 and compact.isdigit():
+        return compact
+    raise click.ClickException(f"Unsupported date format: {value}")
+
+
+def _normalize_market_name(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    text = str(value).strip()
+    if text in MARKET_CHOICES:
+        return text
+    lowered = text.lower()
+    alias_map = {
+        "a_stock": "A_stock",
+        "ashare": "A_stock",
+        "a-share": "A_stock",
+        "us_stock": "US_stock",
+        "us": "US_stock",
+        "hongkong": "Hongkong",
+        "hk": "Hongkong",
+    }
+    return alias_map.get(lowered, text)
+
+
 def _validate_market_name(value: Any) -> None:
-    """对首批共享搜索命令的 market 参数做可读校验。"""
+    """校验 shared market 枚举是否合法。"""
 
     if value in (None, ""):
         return
-    allowed = {
-        "A_stock",
-        "A_stock_index",
-        "B_stock",
-        "Hongkong",
-        "US_stock",
-    }
-    if str(value) not in allowed:
-        raise click.ClickException(f"Unknown market enum: {value}")
+    if isinstance(value, (list, tuple)):
+        values = value
+    else:
+        values = (value,)
+    allowed = set(MARKET_CHOICES)
+    invalid = [str(item) for item in values if str(item) not in allowed]
+    if invalid:
+        raise click.ClickException(
+            "Unknown market enum: " + ", ".join(invalid)
+        )

@@ -1,0 +1,1742 @@
+{
+  "top_level_commands": {
+    "stock": {
+      "special": false,
+      "role": "股票相关查询。"
+    },
+    "fund": {
+      "special": false,
+      "role": "基金相关查询。"
+    },
+    "bond": {
+      "special": false,
+      "role": "债券相关查询。"
+    },
+    "futures": {
+      "special": false,
+      "role": "期货相关查询。"
+    },
+    "quote": {
+      "special": false,
+      "role": "已知 quote_id 时的跨资产统一行情入口。"
+    },
+    "market": {
+      "special": false,
+      "role": "市场级扫描与市场配置查询。"
+    },
+    "resolve": {
+      "special": false,
+      "role": "把 symbol 或关键字解析为 quote_id。"
+    },
+    "search": {
+      "special": true,
+      "role": "按关键字搜索候选标的。",
+      "real_output_shape": "默认也会走 observation 渲染；JSON 模式通常输出候选项 observation payload。",
+      "watch_supported": true
+    },
+    "watch": {
+      "special": true,
+      "role": "把支持的子命令包装成循环刷新任务。",
+      "real_output_shape": "本身不查询业务数据，只负责把刷新参数转发给后续完整子命令。",
+      "watch_supported": false,
+      "options": [
+        {
+          "name": "interval",
+          "cli_name": "interval",
+          "required": false,
+          "default": 2,
+          "multiple": false,
+          "annotation": "FloatParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "interval 参数。"
+        },
+        {
+          "name": "count",
+          "cli_name": "count",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "count 参数。"
+        },
+        {
+          "name": "clear_screen",
+          "cli_name": "clear",
+          "required": false,
+          "default": true,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "clear 参数。"
+        }
+      ]
+    }
+  },
+  "runtime_options": {
+    "format_name": {
+      "cli_option": "--format",
+      "real_default": "table",
+      "skill_recommendation": "json",
+      "legal_values": [
+        "table",
+        "json",
+        "csv",
+        "tsv"
+      ],
+      "description": "输出格式。"
+    },
+    "indicator_level": {
+      "cli_option": "--indicator-level",
+      "real_default": "advanced",
+      "skill_recommendation": "full",
+      "legal_values": [
+        "basic",
+        "advanced",
+        "full",
+        "1",
+        "2",
+        "3"
+      ],
+      "description": "技术指标增强等级。"
+    },
+    "view_mode": {
+      "cli_option": "--view",
+      "real_default": "observation",
+      "skill_recommendation": "observation",
+      "legal_values": [
+        "raw",
+        "observation"
+      ],
+      "description": "输出视图模式。"
+    },
+    "trace_window": {
+      "cli_option": "--trace-window",
+      "real_default": 32,
+      "skill_recommendation": 128,
+      "legal_values": "正整数",
+      "description": "observation 中 trace bar 的数量。"
+    },
+    "full": {
+      "cli_option": "--full",
+      "real_default": false,
+      "legal_values": [
+        true,
+        false
+      ],
+      "description": "输出更完整的结果内容。"
+    },
+    "transpose": {
+      "cli_option": "--transpose",
+      "real_default": false,
+      "legal_values": [
+        true,
+        false
+      ],
+      "description": "转置表格输出。"
+    },
+    "no_index": {
+      "cli_option": "--no-index",
+      "real_default": false,
+      "legal_values": [
+        true,
+        false
+      ],
+      "description": "隐藏表格索引。"
+    },
+    "limit": {
+      "cli_option": "--limit",
+      "real_default": null,
+      "legal_values": "非负整数或省略",
+      "description": "仅保留前 N 行。"
+    },
+    "output_path": {
+      "cli_option": "--output",
+      "real_default": null,
+      "legal_values": "可写文件路径",
+      "description": "把结果写入文件。"
+    },
+    "encoding": {
+      "cli_option": "--encoding",
+      "real_default": "utf-8",
+      "legal_values": "任意 Python 可识别编码名",
+      "description": "文件输出编码。"
+    },
+    "watch": {
+      "cli_option": "--watch",
+      "real_default": false,
+      "legal_values": [
+        true,
+        false
+      ],
+      "description": "开启循环刷新。"
+    },
+    "interval": {
+      "cli_option": "--interval",
+      "real_default": 2,
+      "legal_values": "正浮点数",
+      "description": "刷新间隔秒数。"
+    },
+    "count": {
+      "cli_option": "--count",
+      "real_default": null,
+      "legal_values": "正整数或省略",
+      "description": "刷新次数。"
+    },
+    "clear_screen": {
+      "cli_option": "--clear/--no-clear",
+      "real_default": true,
+      "legal_values": [
+        true,
+        false
+      ],
+      "description": "刷新前是否清屏。"
+    }
+  },
+  "truths": {
+    "json_output_is_value_serialization": true,
+    "json_output_wrapper_object_exists": false,
+    "real_cli_default_format": "table",
+    "real_cli_default_indicator_level": "advanced",
+    "real_cli_default_view_mode": "observation",
+    "real_cli_default_trace_window": 32,
+    "skill_recommended_format": "json",
+    "skill_recommended_indicator_level": "full",
+    "skill_recommended_trace_window": 128
+  },
+  "json_serialization_rules": {
+    "DataFrame": "records 数组",
+    "Series": "object",
+    "dict": "递归 object",
+    "list_tuple_set": "array",
+    "dataclass": "asdict 序列化",
+    "namedtuple": "_asdict 序列化",
+    "None": "null",
+    "fallback": "default=str"
+  },
+  "market_enums": [
+    "A_stock",
+    "A_stock_index",
+    "B_stock",
+    "STAR_market",
+    "CSI_free_float",
+    "NEEQ",
+    "BK",
+    "Hongkong",
+    "US_stock",
+    "London_stock",
+    "London_stock_IOB",
+    "universal_index",
+    "SIX_Swiss"
+  ],
+  "commands": [
+    {
+      "command_path": "search local",
+      "module": "utils",
+      "function": "search_quote_locally",
+      "help_text": "仅使用本地缓存搜索证券候选项。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "keyword",
+          "cli_name": "query",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "搜索关键字。"
+        },
+        {
+          "name": "market_type",
+          "cli_name": "market",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "Choice",
+          "legal_values": [
+            "A_stock",
+            "A_stock_index",
+            "B_stock",
+            "STAR_market",
+            "CSI_free_float",
+            "NEEQ",
+            "BK",
+            "Hongkong",
+            "US_stock",
+            "London_stock",
+            "London_stock_IOB",
+            "universal_index",
+            "SIX_Swiss"
+          ],
+          "description": "市场枚举或市场过滤表达式。"
+        }
+      ]
+    },
+    {
+      "command_path": "watch",
+      "module": null,
+      "function": null,
+      "help_text": "顶层刷新包装器。",
+      "watch_supported": false,
+      "has_side_effect": false,
+      "kind": "special_wrapper",
+      "parameters": [
+        {
+          "name": "interval",
+          "cli_name": "interval",
+          "required": false,
+          "default": 2,
+          "multiple": false,
+          "annotation": "FloatParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "interval 参数。"
+        },
+        {
+          "name": "count",
+          "cli_name": "count",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "count 参数。"
+        },
+        {
+          "name": "clear_screen",
+          "cli_name": "clear",
+          "required": false,
+          "default": true,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "clear 参数。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock constituents",
+      "module": "stock",
+      "function": "get_members",
+      "help_text": "获取指数成分股信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "index_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock flow history",
+      "module": "stock",
+      "function": "get_history_bill",
+      "help_text": "获取单只股票历史资金流。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock flow today",
+      "module": "stock",
+      "function": "get_today_bill",
+      "help_text": "获取股票最新交易日日内资金流。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock holders latest-count",
+      "module": "stock",
+      "function": "get_latest_holder_number",
+      "help_text": "获取最新公开股东户数变化。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "date",
+          "cli_name": "date",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个日期参数。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock holders top10",
+      "module": "stock",
+      "function": "get_top10_stock_holder_info",
+      "help_text": "获取指定股票前十大股东信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "top",
+          "cli_name": "top",
+          "required": false,
+          "default": 4,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "返回前 N 项。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock ipo latest",
+      "module": "stock",
+      "function": "get_latest_ipo_info",
+      "help_text": "获取企业 IPO 审核状态。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": []
+    },
+    {
+      "command_path": "stock leaderboard daily",
+      "module": "stock",
+      "function": "get_daily_billboard",
+      "help_text": "获取指定日期区间的龙虎榜详情。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "start_date",
+          "cli_name": "start-date",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "开始日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "end_date",
+          "cli_name": "end-date",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "结束日期，通常使用 YYYYMMDD。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock performance quarterly",
+      "module": "stock",
+      "function": "get_all_company_performance",
+      "help_text": "获取市场股票季度表现情况。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "date",
+          "cli_name": "date",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个日期参数。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock price history",
+      "module": "stock",
+      "function": "get_quote_history",
+      "help_text": "获取股票历史 K 线行情。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        },
+        {
+          "name": "beg",
+          "cli_name": "start-date",
+          "required": false,
+          "default": "19000101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "开始日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "end",
+          "cli_name": "end-date",
+          "required": false,
+          "default": "20500101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "结束日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "klt",
+          "cli_name": "timeframe",
+          "required": false,
+          "default": 101,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "K 线周期。"
+        },
+        {
+          "name": "fqt",
+          "cli_name": "adjustment",
+          "required": false,
+          "default": 1,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "复权模式。"
+        },
+        {
+          "name": "market_type",
+          "cli_name": "market",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "Choice",
+          "legal_values": [
+            "A_stock",
+            "A_stock_index",
+            "B_stock",
+            "STAR_market",
+            "CSI_free_float",
+            "NEEQ",
+            "BK",
+            "Hongkong",
+            "US_stock",
+            "London_stock",
+            "London_stock_IOB",
+            "universal_index",
+            "SIX_Swiss"
+          ],
+          "description": "市场枚举或市场过滤表达式。"
+        },
+        {
+          "name": "suppress_error",
+          "cli_name": "ignore-errors",
+          "required": false,
+          "default": false,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否忽略部分解析错误。"
+        },
+        {
+          "name": "use_id_cache",
+          "cli_name": "use-id-cache",
+          "required": false,
+          "default": true,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否启用 quote_id 缓存。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock price latest",
+      "module": "stock",
+      "function": "get_latest_quote",
+      "help_text": "获取股票最新价格与涨跌情况。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock price live",
+      "module": "stock",
+      "function": "get_realtime_quotes",
+      "help_text": "获取股票市场实时行情列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fs",
+          "cli_name": "market",
+          "required": false,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": [
+            "A_stock",
+            "A_stock_index",
+            "B_stock",
+            "STAR_market",
+            "CSI_free_float",
+            "NEEQ",
+            "BK",
+            "Hongkong",
+            "US_stock",
+            "London_stock",
+            "London_stock_IOB",
+            "universal_index",
+            "SIX_Swiss"
+          ],
+          "description": "市场枚举或市场过滤表达式。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock price snapshot",
+      "module": "stock",
+      "function": "get_quote_snapshot",
+      "help_text": "获取股票当前行情快照。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock profile",
+      "module": "stock",
+      "function": "get_base_info",
+      "help_text": "获取单只或多只股票基础资料。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock report-dates",
+      "module": "stock",
+      "function": "get_all_report_dates",
+      "help_text": "获取全部股票报告期信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": []
+    },
+    {
+      "command_path": "stock sector",
+      "module": "stock",
+      "function": "get_belong_board",
+      "help_text": "获取股票所属板块。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "stock trades",
+      "module": "stock",
+      "function": "get_deal_detail",
+      "help_text": "获取股票成交明细。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "max_count",
+          "cli_name": "max-records",
+          "required": false,
+          "default": 1000000,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "成交或明细返回上限。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund allocation industry",
+      "module": "fund",
+      "function": "get_industry_distribution",
+      "help_text": "获取基金行业分布信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "dates",
+          "cli_name": "dates",
+          "required": false,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个日期参数，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund allocation position",
+      "module": "fund",
+      "function": "get_invest_position",
+      "help_text": "获取基金持仓占比数据。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "dates",
+          "cli_name": "dates",
+          "required": false,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个日期参数，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund allocation types",
+      "module": "fund",
+      "function": "get_types_percentage",
+      "help_text": "获取基金不同类型占比信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "dates",
+          "cli_name": "dates",
+          "required": false,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个日期参数，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund catalog",
+      "module": "fund",
+      "function": "get_fund_codes",
+      "help_text": "获取全部公募基金名录。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "ft",
+          "cli_name": "fund-type",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "基金类型。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund disclosure dates",
+      "module": "fund",
+      "function": "get_public_dates",
+      "help_text": "获取基金历史披露日期列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund estimate live",
+      "module": "fund",
+      "function": "get_realtime_increase_rate",
+      "help_text": "获取基金实时估算涨跌幅。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund managers",
+      "module": "fund",
+      "function": "get_fund_manager",
+      "help_text": "获取基金管理人信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "ft",
+          "cli_name": "fund-type",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "基金类型。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund nav history",
+      "module": "fund",
+      "function": "get_quote_history",
+      "help_text": "获取基金历史净值信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "pz",
+          "cli_name": "max-pages",
+          "required": false,
+          "default": 40000,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "分页抓取上限。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund nav history-batch",
+      "module": "fund",
+      "function": "get_quote_history_multi",
+      "help_text": "批量获取基金历史净值信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        },
+        {
+          "name": "pz",
+          "cli_name": "max-pages",
+          "required": false,
+          "default": 40000,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "分页抓取上限。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund performance period",
+      "module": "fund",
+      "function": "get_period_change",
+      "help_text": "获取基金阶段涨跌幅。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund profile",
+      "module": "fund",
+      "function": "get_base_info",
+      "help_text": "获取单只或多只基金基础资料。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "fund reports download",
+      "module": "fund",
+      "function": "get_pdf_reports",
+      "help_text": "下载基金报告到指定目录。",
+      "watch_supported": false,
+      "has_side_effect": true,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fund_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "max_count",
+          "cli_name": "max-files",
+          "required": false,
+          "default": 12,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "最多下载的文件数。"
+        },
+        {
+          "name": "save_dir",
+          "cli_name": "output-dir",
+          "required": false,
+          "default": "pdf",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "输出目录。"
+        }
+      ]
+    },
+    {
+      "command_path": "bond catalog",
+      "module": "bond",
+      "function": "get_all_base_info",
+      "help_text": "获取全部债券基本信息列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": []
+    },
+    {
+      "command_path": "bond flow history",
+      "module": "bond",
+      "function": "get_history_bill",
+      "help_text": "获取单只债券历史资金流。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "bond_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "bond flow today",
+      "module": "bond",
+      "function": "get_today_bill",
+      "help_text": "获取债券最新交易日日内资金流。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "bond_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "bond price history",
+      "module": "bond",
+      "function": "get_quote_history",
+      "help_text": "获取债券历史 K 线行情。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "bond_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        },
+        {
+          "name": "beg",
+          "cli_name": "start-date",
+          "required": false,
+          "default": "19000101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "开始日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "end",
+          "cli_name": "end-date",
+          "required": false,
+          "default": "20500101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "结束日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "klt",
+          "cli_name": "timeframe",
+          "required": false,
+          "default": 101,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "K 线周期。"
+        },
+        {
+          "name": "fqt",
+          "cli_name": "adjustment",
+          "required": false,
+          "default": 1,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "复权模式。"
+        }
+      ]
+    },
+    {
+      "command_path": "bond price live",
+      "module": "bond",
+      "function": "get_realtime_quotes",
+      "help_text": "获取债券市场实时行情列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": []
+    },
+    {
+      "command_path": "bond profile",
+      "module": "bond",
+      "function": "get_base_info",
+      "help_text": "获取单只或多只债券基础资料。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "bond_codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "bond trades",
+      "module": "bond",
+      "function": "get_deal_detail",
+      "help_text": "获取债券成交明细。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "bond_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "max_count",
+          "cli_name": "max-records",
+          "required": false,
+          "default": 1000000,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "成交或明细返回上限。"
+        }
+      ]
+    },
+    {
+      "command_path": "futures catalog",
+      "module": "futures",
+      "function": "get_futures_base_info",
+      "help_text": "获取全部期货基础信息列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": []
+    },
+    {
+      "command_path": "futures price history",
+      "module": "futures",
+      "function": "get_quote_history",
+      "help_text": "获取期货历史行情信息。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "quote_ids",
+          "cli_name": "quote-ids",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个 quote_id，可重复传入。"
+        },
+        {
+          "name": "beg",
+          "cli_name": "start-date",
+          "required": false,
+          "default": "19000101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "开始日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "end",
+          "cli_name": "end-date",
+          "required": false,
+          "default": "20500101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "结束日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "klt",
+          "cli_name": "timeframe",
+          "required": false,
+          "default": 101,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "K 线周期。"
+        },
+        {
+          "name": "fqt",
+          "cli_name": "adjustment",
+          "required": false,
+          "default": 1,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "复权模式。"
+        }
+      ]
+    },
+    {
+      "command_path": "futures price live",
+      "module": "futures",
+      "function": "get_realtime_quotes",
+      "help_text": "获取期货实时行情列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": []
+    },
+    {
+      "command_path": "futures trades",
+      "module": "futures",
+      "function": "get_deal_detail",
+      "help_text": "获取期货成交明细。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "quote_id",
+          "cli_name": "quote-id",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个 quote_id。"
+        },
+        {
+          "name": "max_count",
+          "cli_name": "max-records",
+          "required": false,
+          "default": 1000000,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "成交或明细返回上限。"
+        }
+      ]
+    },
+    {
+      "command_path": "quote flow history",
+      "module": "common",
+      "function": "get_history_bill",
+      "help_text": "基于通用行情标识获取历史资金流。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "quote flow today",
+      "module": "common",
+      "function": "get_today_bill",
+      "help_text": "基于通用行情标识获取日内资金流。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        }
+      ]
+    },
+    {
+      "command_path": "quote price history",
+      "module": "common",
+      "function": "get_quote_history",
+      "help_text": "基于通用行情标识获取历史行情。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "codes",
+          "cli_name": "symbols",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个标的代码，可重复传入。"
+        },
+        {
+          "name": "beg",
+          "cli_name": "start-date",
+          "required": false,
+          "default": "19000101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "开始日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "end",
+          "cli_name": "end-date",
+          "required": false,
+          "default": "20500101",
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "结束日期，通常使用 YYYYMMDD。"
+        },
+        {
+          "name": "klt",
+          "cli_name": "timeframe",
+          "required": false,
+          "default": 101,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "K 线周期。"
+        },
+        {
+          "name": "fqt",
+          "cli_name": "adjustment",
+          "required": false,
+          "default": 1,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "复权模式。"
+        },
+        {
+          "name": "market_type",
+          "cli_name": "market",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "Choice",
+          "legal_values": [
+            "A_stock",
+            "A_stock_index",
+            "B_stock",
+            "STAR_market",
+            "CSI_free_float",
+            "NEEQ",
+            "BK",
+            "Hongkong",
+            "US_stock",
+            "London_stock",
+            "London_stock_IOB",
+            "universal_index",
+            "SIX_Swiss"
+          ],
+          "description": "市场枚举或市场过滤表达式。"
+        },
+        {
+          "name": "suppress_error",
+          "cli_name": "ignore-errors",
+          "required": false,
+          "default": false,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否忽略部分解析错误。"
+        },
+        {
+          "name": "use_id_cache",
+          "cli_name": "use-id-cache",
+          "required": false,
+          "default": true,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否启用 quote_id 缓存。"
+        }
+      ]
+    },
+    {
+      "command_path": "quote price latest",
+      "module": "common",
+      "function": "get_latest_quote",
+      "help_text": "基于通用行情标识获取最新行情。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "quote_id_list",
+          "cli_name": "quote-ids",
+          "required": true,
+          "default": [],
+          "multiple": true,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "多个 quote_id，可重复传入。"
+        }
+      ]
+    },
+    {
+      "command_path": "quote profile",
+      "module": "common",
+      "function": "get_base_info",
+      "help_text": "基于通用行情标识获取基础资料。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "quote_id",
+          "cli_name": "quote-id",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个 quote_id。"
+        }
+      ]
+    },
+    {
+      "command_path": "quote trades",
+      "module": "common",
+      "function": "get_deal_detail",
+      "help_text": "基于通用行情标识获取成交明细。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "quote_id",
+          "cli_name": "quote-id",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个 quote_id。"
+        },
+        {
+          "name": "max_count",
+          "cli_name": "max-records",
+          "required": false,
+          "default": 1000000,
+          "multiple": false,
+          "annotation": "IntParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "成交或明细返回上限。"
+        }
+      ]
+    },
+    {
+      "command_path": "market add",
+      "module": "utils",
+      "function": "add_market",
+      "help_text": "向本地市场分类映射中追加市场定义。",
+      "watch_supported": false,
+      "has_side_effect": true,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "category",
+          "cli_name": "market-category",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "市场分类名称。"
+        },
+        {
+          "name": "market_number",
+          "cli_name": "market-id",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "市场编号。"
+        },
+        {
+          "name": "market_name",
+          "cli_name": "market-name",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "市场显示名称。"
+        },
+        {
+          "name": "drop_duplicate",
+          "cli_name": "deduplicate",
+          "required": false,
+          "default": true,
+          "multiple": false,
+          "annotation": "BoolParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否去重。"
+        }
+      ]
+    },
+    {
+      "command_path": "market price live",
+      "module": "common",
+      "function": "get_realtime_quotes_by_fs",
+      "help_text": "按市场过滤条件获取实时行情列表。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "fs",
+          "cli_name": "market",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": [
+            "A_stock",
+            "A_stock_index",
+            "B_stock",
+            "STAR_market",
+            "CSI_free_float",
+            "NEEQ",
+            "BK",
+            "Hongkong",
+            "US_stock",
+            "London_stock",
+            "London_stock_IOB",
+            "universal_index",
+            "SIX_Swiss"
+          ],
+          "description": "市场枚举或市场过滤表达式。"
+        }
+      ]
+    },
+    {
+      "command_path": "resolve quote-id",
+      "module": "utils",
+      "function": "get_quote_id",
+      "help_text": "把证券代码或关键字解析为东方财富 quote_id。",
+      "watch_supported": true,
+      "has_side_effect": false,
+      "kind": "generated",
+      "parameters": [
+        {
+          "name": "stock_code",
+          "cli_name": "symbol",
+          "required": true,
+          "default": null,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "单个标的代码或名称。"
+        },
+        {
+          "name": "market_type",
+          "cli_name": "market",
+          "required": false,
+          "default": null,
+          "multiple": false,
+          "annotation": "Choice",
+          "legal_values": [
+            "A_stock",
+            "A_stock_index",
+            "B_stock",
+            "STAR_market",
+            "CSI_free_float",
+            "NEEQ",
+            "BK",
+            "Hongkong",
+            "US_stock",
+            "London_stock",
+            "London_stock_IOB",
+            "universal_index",
+            "SIX_Swiss"
+          ],
+          "description": "市场枚举或市场过滤表达式。"
+        },
+        {
+          "name": "use_local",
+          "cli_name": "use-local-cache",
+          "required": false,
+          "default": true,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否允许使用本地缓存。"
+        },
+        {
+          "name": "suppress_error",
+          "cli_name": "ignore-errors",
+          "required": false,
+          "default": false,
+          "multiple": false,
+          "annotation": "StringParamType",
+          "legal_values": "开放值；由上游 efinance 或兼容层解释",
+          "description": "是否忽略部分解析错误。"
+        }
+      ]
+    }
+  ]
+}

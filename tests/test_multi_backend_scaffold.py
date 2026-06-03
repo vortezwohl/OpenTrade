@@ -110,10 +110,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         selection = resolve_backend_selection(definition, None)
         self.assertEqual(selection.resolved, BackendName.AUTO)
         self.assertEqual(selection.source, "default")
-        self.assertEqual(
-            selection.candidate_chain,
-            (BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
-        )
+        self.assertEqual(selection.candidate_chain, ())
         self.assertIsNone(selection.final_backend)
 
     def test_resolve_backend_selection_auto_adapts_provider_extension(self) -> None:
@@ -208,12 +205,13 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         quote = type("Quote", (), {"_asdict": lambda self: {"code": "AAPL", "name": "苹果", "quote_id": "AAPL", "classify": "US_stock"}})()
         definition = get_shared_command_definition("instrument.search")
         facade = CommandFacade()
-        with patch("efinance.utils.search_quote", return_value=[quote]):
+        with patch("efinance.utils.search_quote", return_value=[quote]) as mock_search:
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"keyword": "AAPL", "market_type": None, "count": 5, "use_local": True},
+                {"keyword": "AAPL", "market": None, "result_count": 5, "use_local_cache": True},
             )
+        mock_search.assert_called_once_with(keyword="AAPL", market_type=None, count=5, use_local=True)
         self.assertEqual(result.contract_name, "search-results")
         self.assertEqual(result.data[0]["code"], "AAPL")
 
@@ -233,21 +231,31 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_shared_command_definition("stock.price.history")
         facade = CommandFacade()
-        with patch("efinance.stock.get_quote_history", return_value=frame):
+        with patch("efinance.stock.get_quote_history", return_value=frame) as mock_history:
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
                 {
-                    "stock_codes": ["000001"],
-                    "beg": "19000101",
-                    "end": "20500101",
-                    "klt": 101,
-                    "fqt": 1,
-                    "market_type": None,
-                    "suppress_error": False,
+                    "symbols": ["000001"],
+                    "start_date": "19000101",
+                    "end_date": "20500101",
+                    "timeframe": 101,
+                    "adjustment": 1,
+                    "market": None,
+                    "ignore_errors": False,
                     "use_id_cache": True,
                 },
             )
+        mock_history.assert_called_once_with(
+            stock_codes="000001",
+            beg="19000101",
+            end="20500101",
+            klt=101,
+            fqt=1,
+            market_type=None,
+            suppress_error=False,
+            use_id_cache=True,
+        )
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(result.data[0]["symbol"], "000001")
 
@@ -255,12 +263,13 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         profile = pd.Series({"code": "000001", "name": "平安银行", "industry": "银行"})
         definition = get_shared_command_definition("stock.profile")
         facade = CommandFacade()
-        with patch("efinance.stock.get_base_info", return_value=profile):
+        with patch("efinance.stock.get_base_info", return_value=profile) as mock_profile:
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"stock_codes": ["000001"]},
+                {"symbol": "000001"},
             )
+        mock_profile.assert_called_once_with(stock_codes="000001")
         self.assertEqual(result.contract_name, "profile-info")
         self.assertEqual(result.data["code"], "000001")
 
@@ -278,12 +287,13 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_shared_command_definition("fund.nav.history")
         facade = CommandFacade()
-        with patch("efinance.fund.get_quote_history", return_value=frame):
+        with patch("efinance.fund.get_quote_history", return_value=frame) as mock_history:
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"fund_code": "161725", "pz": 40000},
+                {"symbol": "161725", "max_pages": 40000},
             )
+        mock_history.assert_called_once_with(fund_code="161725", pz=40000)
         self.assertEqual(result.contract_name, "fund-nav-history")
         self.assertEqual(result.data[0]["symbol"], "161725")
 
@@ -377,12 +387,13 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_command_definition("quote.price.latest")
         facade = CommandFacade()
-        with patch("efinance.common.get_latest_quote", return_value=frame):
+        with patch("efinance.common.get_latest_quote", return_value=frame) as mock_quote:
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"quote_id_list": ["1.000001"]},
+                {"quote_ids": ["1.000001"]},
             )
+        mock_quote.assert_called_once_with(quote_id_list="1.000001")
         self.assertEqual(result.contract_name, "realtime-quotes")
         self.assertEqual(result.data[0]["market"], "quote")
 
@@ -404,12 +415,14 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_shared_command_definition("stock.price.live")
         facade = CommandFacade()
-        with patch("efinance.stock.get_realtime_quotes", return_value=frame):
+        with patch("efinance.stock.get_realtime_quotes", return_value=frame) as mock_live:
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"fs": ()},
+                {"market": "A_stock"},
             )
+        mock_live.assert_called_once()
+        self.assertIn("fs", mock_live.call_args.kwargs)
         self.assertEqual(result.contract_name, "realtime-quotes")
         self.assertEqual(result.data[0]["symbol"], "000001")
 
@@ -441,8 +454,17 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                {"keyword": "AAPL", "market_type": None, "count": 5, "use_local": True},
+                {"keyword": "AAPL", "market": None, "result_count": 5, "use_local_cache": True},
             )
+        mock_search.assert_called_once_with(
+            "AAPL",
+            max_results=5,
+            news_count=0,
+            lists_count=0,
+            include_research=False,
+            include_nav_links=False,
+            raise_errors=True,
+        )
         self.assertEqual(result.contract_name, "search-results")
         self.assertEqual(result.data[0]["code"], "AAPL")
 
@@ -467,16 +489,24 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 definition,
                 BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
                 {
-                    "stock_codes": ["AAPL"],
-                    "beg": "19000101",
-                    "end": "20500101",
-                    "klt": 101,
-                    "fqt": 1,
-                    "market_type": "US_stock",
-                    "suppress_error": False,
+                    "symbols": ["AAPL"],
+                    "start_date": "19000101",
+                    "end_date": "20500101",
+                    "timeframe": 101,
+                    "adjustment": 1,
+                    "market": "US_stock",
+                    "ignore_errors": False,
                     "use_id_cache": True,
                 },
             )
+        mock_ticker.assert_called_once_with("AAPL")
+        mock_ticker.return_value.history.assert_called_once_with(
+            start="1900-01-01",
+            end="2050-01-01",
+            interval="1d",
+            auto_adjust=True,
+            back_adjust=False,
+        )
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(result.data[0]["symbol"], "AAPL")
 
@@ -505,8 +535,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                {"quote_id_list": ["AAPL"]},
+                {"quote_ids": ["AAPL"]},
             )
+        mock_ticker.assert_called_once_with("AAPL")
         self.assertEqual(result.contract_name, "realtime-quotes")
         self.assertEqual(result.data[0]["symbol"], "AAPL")
 
@@ -531,16 +562,24 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 definition,
                 BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
                 {
-                    "codes": ["AAPL"],
-                    "beg": "19000101",
-                    "end": "20500101",
-                    "klt": 101,
-                    "fqt": 1,
-                    "market_type": "US_stock",
-                    "suppress_error": False,
+                    "symbols": ["AAPL"],
+                    "start_date": "19000101",
+                    "end_date": "20500101",
+                    "timeframe": 101,
+                    "adjustment": 1,
+                    "market": "US_stock",
+                    "ignore_errors": False,
                     "use_id_cache": True,
                 },
             )
+        mock_ticker.assert_called_once_with("AAPL")
+        mock_ticker.return_value.history.assert_called_once_with(
+            start="1900-01-01",
+            end="2050-01-01",
+            interval="1d",
+            auto_adjust=True,
+            back_adjust=False,
+        )
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(result.data[0]["symbol"], "AAPL")
 
@@ -562,10 +601,24 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                {"stock_codes": ["AAPL"]},
+                {"symbol": "AAPL"},
             )
+        mock_ticker.assert_called_once_with("AAPL")
         self.assertEqual(result.contract_name, "profile-info")
         self.assertEqual(result.data["code"], "AAPL")
+
+    def test_stock_profile_rejects_multi_symbol_request(self) -> None:
+        definition = get_shared_command_definition("stock.profile")
+        facade = CommandFacade()
+        with patch("efinance.stock.get_base_info") as mock_profile:
+            with self.assertRaisesRegex(ValueError, r"stock\.profile"):
+                facade.invoke(
+                    definition,
+                    BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                    {"symbols": ["000001", "000002"]},
+                )
+        mock_profile.assert_not_called()
+
 
     def test_yfinance_fund_profile_handler_preserves_provider_fields(self) -> None:
         definition = get_command_definition("fund.profile")
@@ -592,8 +645,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             result = facade.invoke(
                 definition,
                 BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                {"fund_codes": ["VTI"]},
+                {"symbols": ["VTI"]},
             )
+        mock_ticker.assert_called_once_with("VTI")
         self.assertEqual(result.contract_name, "profile-info")
         self.assertEqual(result.data["code"], "VTI")
         self.assertIn("funds_data", result.provider_fields)
@@ -629,7 +683,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 facade.invoke(
                     definition,
                     BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                    {"keyword": "AAPL", "market_type": None, "count": 5, "use_local": True},
+                    {"keyword": "AAPL", "market": None, "result_count": 5, "use_local_cache": True},
                 )
 
     def test_yfinance_rate_limit_error_is_exposed_readably(self) -> None:
@@ -645,7 +699,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                         facade.invoke(
                             definition,
                             BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                            {"stock_codes": ["AAPL"]},
+                            {"symbol": "AAPL"},
                         )
 
 
