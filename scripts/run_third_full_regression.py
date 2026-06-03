@@ -30,6 +30,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from opentrade.backends.factory import list_provider_extension_commands
 from opentrade.command_catalog import SHARED_COMMANDS
 from opentrade.commands import create_root_command, create_search_command
+from scripts.regression_reporting import (
+    classify_regression_failure,
+    detect_auto_fallback,
+    extract_backend_meta_from_stdout,
+)
 
 TZ = ZoneInfo("Asia/Shanghai")
 VENV_PYTHON = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
@@ -256,9 +261,9 @@ def build_cases() -> list[dict[str, Any]]:
         make_case("fund estimate live", "efinance", ["fund", "estimate", "live", "--symbols", "161725", "--backend", "efinance"], "基金估值样本。"),
         make_case("fund performance period", "efinance", ["fund", "performance", "period", "--symbol", "161725", "--backend", "efinance"], "基金阶段业绩样本。"),
         make_case("fund disclosure dates", "efinance", ["fund", "disclosure", "dates", "--symbol", "161725", "--backend", "efinance"], "基金披露日期样本。"),
-        make_case("fund allocation industry", "efinance", ["fund", "allocation", "industry", "--symbol", "161725", "--dates", "2024-12-31", "--backend", "efinance"], "基金行业配置样本。"),
-        make_case("fund allocation position", "efinance", ["fund", "allocation", "position", "--symbol", "161725", "--dates", "2024-12-31", "--backend", "efinance"], "基金持仓配置样本。"),
-        make_case("fund allocation types", "efinance", ["fund", "allocation", "types", "--symbol", "161725", "--dates", "2024-12-31", "--backend", "efinance"], "基金资产类型配置样本。"),
+        make_case("fund allocation industry", "efinance", ["fund", "allocation", "industry", "--symbol", "161725", "--dates", "20241231", "--backend", "efinance"], "基金行业配置样本。"),
+        make_case("fund allocation position", "efinance", ["fund", "allocation", "position", "--symbol", "161725", "--dates", "20241231", "--backend", "efinance"], "基金持仓配置样本。"),
+        make_case("fund allocation types", "efinance", ["fund", "allocation", "types", "--symbol", "161725", "--dates", "20241231", "--backend", "efinance"], "基金资产类型配置样本。"),
         make_case("fund reports download", "efinance", ["fund", "reports", "download", "--symbol", "161725", "--max-files", "1", "--output-dir", fund_dir, "--backend", "efinance"], "基金报告下载样本。", artifacts=[fund_dir]),
         make_case("bond catalog", "efinance", ["bond", "catalog", "--backend", "efinance", "--limit", "5"], "债券目录样本。"),
         make_case("bond flow history", "efinance", ["bond", "flow", "history", "--symbol", "113527", "--backend", "efinance"], "债券资金流历史样本。"),
@@ -364,41 +369,40 @@ def validate_cases(cases: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def parse_backend_meta(stdout: str) -> dict[str, Any]:
-    """尽量从 raw/json 输出解析 backend 元数据。"""
+    """? stdout ????????? limit ???"""
 
-    text = stdout.strip()
-    if not text:
-        return {}
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        return {}
-    if isinstance(payload, dict) and isinstance(payload.get("metadata"), dict):
-        return payload["metadata"]
-    return {}
+    return extract_backend_meta_from_stdout(stdout)
 
 
-def infer_failure(stdout: str, stderr: str) -> str | None:
-    """从 stdout/stderr 推测最可能的失败类型。"""
+def infer_failure(
+    case: dict[str, Any],
+    stdout: str,
+    stderr: str,
+    returncode: int | None,
+    status: str,
+    meta: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+) -> tuple[str | None, str | None]:
+    """????????????????????"""
 
-    text = "\n".join(part for part in [stderr.strip(), stdout.strip()] if part)
-    if not text:
-        return None
-    found = ERROR_RE.findall(text)
-    if found:
-        return found[-1]
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return lines[-1][:160] if lines else None
+    return classify_regression_failure(
+        command_path=case["path"],
+        requested_backend=case["backend"],
+        stdout=stdout,
+        stderr=stderr,
+        returncode=returncode,
+        status=status,
+        backend_meta=meta,
+        artifact_reports=artifacts,
+    )
 
 
 def detect_fallback(case: dict[str, Any], meta: dict[str, Any]) -> bool:
-    """判断 auto 是否真正使用了首候选之外的 backend。"""
+    """?? auto ????????????? backend?"""
 
-    if case["backend"] != "auto":
-        return False
-    chain = meta.get("candidate_chain") or []
-    final_backend = meta.get("final_backend")
-    return bool(chain) and final_backend is not None and len(chain) > 1 and final_backend != chain[0]
+    return detect_auto_fallback(case["backend"], meta)
+
+
 
 
 def collect_artifacts(paths: list[str]) -> list[dict[str, Any]]:
@@ -461,6 +465,8 @@ def run_case(case: dict[str, Any]) -> dict[str, Any]:
         status = "TIMEOUT"
     duration = round(time.perf_counter() - begin, 3)
     meta = parse_backend_meta(stdout)
+    artifacts = collect_artifacts(case["artifacts"])
+    failure_class, failure_reason = infer_failure(case, stdout, stderr, returncode, status, meta, artifacts)
     return {
         "id": case["id"],
         "path": case["path"],
@@ -475,12 +481,13 @@ def run_case(case: dict[str, Any]) -> dict[str, Any]:
         "timeout_seconds": case["timeout"],
         "returncode": returncode,
         "status": status,
-        "failure_class": None if status == "PASS" else infer_failure(stdout, stderr),
+        "failure_class": failure_class,
+        "failure_reason": failure_reason,
         "stdout": stdout,
         "stderr": stderr,
         "backend_meta": meta,
         "auto_fallback_used": detect_fallback(case, meta),
-        "artifact_reports": collect_artifacts(case["artifacts"]),
+        "artifact_reports": artifacts,
     }
 
 def summarize(results: list[dict[str, Any]], matrix: dict[str, Any]) -> dict[str, Any]:
@@ -492,11 +499,14 @@ def summarize(results: list[dict[str, Any]], matrix: dict[str, Any]) -> dict[str
     category_stats: dict[str, Counter[str]] = defaultdict(Counter)
     backend_stats: dict[str, Counter[str]] = defaultdict(Counter)
     auto_final: Counter[str] = Counter()
+    failure_class_counter: Counter[str] = Counter()
     fallback_count = 0
     auto_failed = 0
     for item in results:
         category_stats[item["category"]][item["status"]] += 1
         backend_stats[item["requested_backend"] or "default"][item["status"]] += 1
+        if item.get("failure_class"):
+            failure_class_counter[str(item["failure_class"])] += 1
         if item["requested_backend"] == "auto":
             auto_final[str(item["backend_meta"].get("final_backend") or "<none>")] += 1
             if item["auto_fallback_used"]:
@@ -527,6 +537,7 @@ def summarize(results: list[dict[str, Any]], matrix: dict[str, Any]) -> dict[str
         "median_duration_seconds": round(statistics.median(durations), 3) if durations else 0.0,
         "category_stats": fold(category_stats),
         "backend_stats": fold(backend_stats),
+        "failure_class_counter": dict(failure_class_counter),
         "auto_stats": {
             "total": sum(1 for item in results if item["requested_backend"] == "auto"),
             "fallback_used": fallback_count,
@@ -554,6 +565,18 @@ def render_html(payload: dict[str, Any]) -> str:
     case_blocks = []
     for index, item in enumerate(results, start=1):
         style = {"PASS": "ok", "FAIL": "danger", "TIMEOUT": "warn"}.get(item["status"], "warn")
+        evidence = {
+            "requested_backend": item.get("requested_backend"),
+            "resolved_backend": item["backend_meta"].get("resolved_backend"),
+            "planned_candidates": item["backend_meta"].get("planned_candidates") or [],
+            "attempted_candidates": item["backend_meta"].get("attempted_candidates") or [],
+            "final_backend": item["backend_meta"].get("final_backend"),
+            "fallback_used": item["backend_meta"].get("fallback_used", item.get("auto_fallback_used", False)),
+            "limit_strategy": item["backend_meta"].get("limit_strategy"),
+            "limit_effect": item["backend_meta"].get("limit_effect"),
+            "display_limit_applied": item["backend_meta"].get("display_limit_applied"),
+            "execution_limit_applied": item["backend_meta"].get("execution_limit_applied"),
+        }
         case_blocks.append(
             f"""
 <section class="test-case" id="case-{index}">

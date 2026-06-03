@@ -1,4 +1,4 @@
-﻿"""增量全量真实回归执行器。
+"""增量全量真实回归执行器。
 
 该脚本使用项目虚拟环境调用真实 CLI 与真实第三方 API，覆盖当前仓库声明的
 全部叶子命令、共享命令的全部支持 backend，以及代表性运行时模式与命令专属参数。
@@ -34,6 +34,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from opentrade.backends.factory import list_provider_extension_commands
 from opentrade.command_catalog import SHARED_COMMANDS, get_shared_command_definition
 from opentrade.commands import create_root_command, create_search_command
+from scripts.regression_reporting import (
+    classify_regression_failure,
+    detect_auto_fallback,
+    extract_backend_meta_from_payload,
+)
 from tests.cli_regression_support import (
     RUNTIME_EXECUTION_OPTION_NAMES,
     RUNTIME_OUTPUT_OPTION_NAMES,
@@ -128,6 +133,7 @@ class CaseResult:
     returncode: int | None
     status: str
     failure_class: str | None
+    failure_reason: str | None
     stdout: str
     stderr: str
     backend_meta: dict[str, Any]
@@ -387,41 +393,37 @@ def try_parse_json(stdout: str) -> Any | None:
         return None
 
 def extract_backend_meta(parsed: Any) -> dict[str, Any]:
-    if not isinstance(parsed, dict):
-        return {}
-    for key in ("metadata", "meta"):
-        value = parsed.get(key)
-        if not isinstance(value, dict):
-            continue
-        if {"requested_backend", "resolved_backend", "final_backend", "candidate_chain"} & set(value):
-            return {
-                "requested_backend": value.get("requested_backend"),
-                "resolved_backend": value.get("resolved_backend"),
-                "final_backend": value.get("final_backend"),
-                "candidate_chain": value.get("candidate_chain") or [],
-            }
-    return {}
+    """? raw/json ??????????? limit ???"""
+
+    return extract_backend_meta_from_payload(parsed)
 
 
-def classify_failure(stdout: str, stderr: str, returncode: int | None, status: str) -> str | None:
-    if status == "pass":
-        return None
-    if status == "timeout":
-        return "timeout"
-    combined = f"{stdout}\n{stderr}".lower()
-    if "proxyerror" in combined or "proxy" in combined:
-        return "proxy-error"
-    if "429" in combined or "rate limit" in combined or "too many requests" in combined or "yfratelimiterror" in combined:
-        return "rate-limit"
-    if any(marker in combined for marker in ("connecttimeout", "readtimeout", "connectionerror", "sslerror", "maxretryerror", "bad gateway", "gateway timeout", "502", "503", "504")):
-        return "network-upstream"
-    if returncode == 2 or "missing option" in combined or "no such option" in combined or "invalid value for" in combined:
-        return "cli-argument-error"
-    if "traceback (most recent call last)" in combined or "exception" in combined:
-        return "stderr-exception"
-    if status == "degraded":
-        return "stderr-warning"
-    return "process-failed"
+
+
+def classify_failure(
+    command_path: str,
+    requested_backend: str | None,
+    stdout: str,
+    stderr: str,
+    returncode: int | None,
+    status: str,
+    backend_meta: dict[str, Any],
+    artifact_reports: list[dict[str, Any]],
+) -> tuple[str | None, str | None]:
+    """??????????????"""
+
+    return classify_regression_failure(
+        command_path=command_path,
+        requested_backend=requested_backend,
+        stdout=stdout,
+        stderr=stderr,
+        returncode=returncode,
+        status=status,
+        backend_meta=backend_meta,
+        artifact_reports=artifact_reports,
+    )
+
+
 
 
 def build_artifact_reports(paths: list[str]) -> list[dict[str, Any]]:
@@ -476,8 +478,7 @@ def run_case(case: CaseSpec) -> CaseResult:
     if status != "timeout":
         parsed = try_parse_json(stdout)
         backend_meta = extract_backend_meta(parsed)
-        if case.requested_backend == "auto" and backend_meta.get("candidate_chain") and backend_meta.get("final_backend") and backend_meta["final_backend"] != backend_meta["candidate_chain"][0]:
-            auto_fallback_used = True
+        auto_fallback_used = detect_auto_fallback(case.requested_backend, backend_meta)
         missing_artifact = any(not item["exists"] for item in artifact_reports)
         expects_json = "--format" in case.args_text and "json" in case.args_text
         if returncode != 0:
@@ -487,7 +488,16 @@ def run_case(case: CaseSpec) -> CaseResult:
         else:
             status = "pass"
 
-    failure_class = classify_failure(stdout, stderr, returncode, status)
+    failure_class, failure_reason = classify_failure(
+        case.command_path,
+        case.requested_backend,
+        stdout,
+        stderr,
+        returncode,
+        status,
+        backend_meta,
+        artifact_reports,
+    )
     return CaseResult(
         case_id=case.case_id,
         title=case.title,
@@ -504,6 +514,7 @@ def run_case(case: CaseSpec) -> CaseResult:
         returncode=returncode,
         status=status,
         failure_class=failure_class,
+        failure_reason=failure_reason,
         stdout=stdout,
         stderr=stderr,
         backend_meta=backend_meta,
@@ -528,7 +539,7 @@ def serialize_result(result: CaseResult) -> dict[str, Any]:
 def build_summary(results: list[dict[str, Any]], total_cases: int) -> dict[str, Any]:
     counter = Counter(item["status"] for item in results)
     backend_counter = Counter()
-    failure_counter = Counter()
+    failure_class_counter = Counter()
     category_counter: dict[str, Counter[str]] = defaultdict(Counter)
     runtime_tag_counter = Counter()
     auto_total = auto_success = auto_fallback_used = auto_fallback_success = 0
@@ -537,7 +548,7 @@ def build_summary(results: list[dict[str, Any]], total_cases: int) -> dict[str, 
         total_duration += float(item["duration_seconds"])
         backend_counter[item.get("requested_backend") or "none"] += 1
         if item.get("failure_class"):
-            failure_counter[str(item["failure_class"])] += 1
+            failure_class_counter[str(item["failure_class"])] += 1
         category_counter[item["category"]][item["status"]] += 1
         for tag in item.get("mode_tags", []):
             runtime_tag_counter[tag] += 1
@@ -566,7 +577,8 @@ def build_summary(results: list[dict[str, Any]], total_cases: int) -> dict[str, 
         "effective_success_rate": round(effective_success_rate, 1),
         "completed_duration_seconds": round(total_duration, 3),
         "backend_counter": dict(backend_counter),
-        "failure_counter": dict(failure_counter),
+        "failure_class_counter": dict(failure_class_counter),
+        "failure_counter": dict(failure_class_counter),
         "runtime_tag_counter": dict(runtime_tag_counter),
         "category_counter": {key: dict(value) for key, value in sorted(category_counter.items())},
         "auto_stats": {
@@ -664,6 +676,18 @@ def render_case_card(index: int, result: dict[str, Any]) -> str:
     backend_text = result.get("requested_backend") or "none"
     if backend_meta.get("final_backend"):
         backend_text = f"{backend_text} -> {backend_meta['final_backend']}"
+    evidence = {
+        "requested_backend": result.get("requested_backend"),
+        "resolved_backend": backend_meta.get("resolved_backend"),
+        "planned_candidates": backend_meta.get("planned_candidates") or [],
+        "attempted_candidates": backend_meta.get("attempted_candidates") or [],
+        "final_backend": backend_meta.get("final_backend"),
+        "fallback_used": backend_meta.get("fallback_used", result.get("auto_fallback_used", False)),
+        "limit_strategy": backend_meta.get("limit_strategy"),
+        "limit_effect": backend_meta.get("limit_effect"),
+        "display_limit_applied": backend_meta.get("display_limit_applied"),
+        "execution_limit_applied": backend_meta.get("execution_limit_applied"),
+    }
     auto_note = ""
     if result.get("auto_fallback_used"):
         auto_note = "<div class='test-note'>检测到 auto 真实 fallback。</div>"
