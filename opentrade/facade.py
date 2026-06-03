@@ -9,7 +9,13 @@ from __future__ import annotations
 import click
 
 from opentrade.backends.factory import get_backend_provider
-from opentrade.models import BackendName, BackendSelection, CommandDefinition, StandardResult
+from opentrade.models import (
+    BackendName,
+    BackendSelection,
+    CommandDefinition,
+    EXECUTION_LIMIT_REQUEST_KEY,
+    StandardResult,
+)
 
 
 class AutoBackendExecutionError(RuntimeError):
@@ -41,15 +47,21 @@ class CommandFacade:
         definition: CommandDefinition,
         backend: BackendSelection,
         request_data: dict[str, object],
+        *,
+        execution_limit: int | None = None,
     ) -> StandardResult:
         """执行一次 capability 调用。"""
+
+        provider_request = dict(request_data)
+        if execution_limit is not None:
+            provider_request[EXECUTION_LIMIT_REQUEST_KEY] = execution_limit
 
         backend.final_backend = None if backend.is_auto else backend.resolved
         backend.attempted_candidates.clear()
         backend.fallback_used = False
         if backend.is_auto:
-            return self._invoke_auto(definition, backend, request_data)
-        return self._invoke_single_backend(definition, backend, request_data)
+            return self._invoke_auto(definition, backend, provider_request)
+        return self._invoke_single_backend(definition, backend, provider_request)
 
     def _invoke_single_backend(
         self,

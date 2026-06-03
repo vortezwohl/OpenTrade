@@ -375,6 +375,27 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "profile-info")
         self.assertEqual(result.data["code"], "1.000001")
 
+    def test_limit_strategy_metadata_matches_execution_design(self) -> None:
+        self.assertEqual(get_shared_command_definition("instrument.search").limit_strategy, "adapter-lightweight")
+        self.assertEqual(get_shared_command_definition("stock.price.live").limit_strategy, "display-only")
+        self.assertEqual(get_command_definition("quote.price.latest").limit_strategy, "provider-request")
+        self.assertEqual(get_command_definition("market.price.live").limit_strategy, "provider-request")
+
+    def test_quote_latest_execution_limit_is_forwarded_to_provider(self) -> None:
+        definition = get_command_definition("quote.price.latest")
+        facade = CommandFacade()
+        with patch("efinance.common.get_latest_quote", return_value=pd.DataFrame([{"代码": "1.000001", "名称": "平安银行", "最新价": 10.5}])) as mock_quote:
+            result = facade.invoke(
+                definition,
+                BackendSelection(requested=BackendName.EFINANCE, resolved=BackendName.EFINANCE, source="explicit"),
+                {"quote_ids": ["1.000001", "0.399001", "105.AAPL"]},
+                execution_limit=2,
+            )
+
+        mock_quote.assert_called_once_with(quote_id_list=["1.000001", "0.399001"])
+        self.assertTrue(result.metadata["execution_limit_applied"])
+        self.assertEqual(result.metadata["execution_limit_mode"], "provider-request")
+
     def test_efinance_quote_latest_handler_uses_quote_market_default(self) -> None:
         frame = pd.DataFrame(
             [

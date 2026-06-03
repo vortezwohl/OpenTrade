@@ -40,6 +40,22 @@ class CommandKind(str, Enum):
     PROVIDER_EXTENSION = "provider-extension"
 
 
+class LimitStrategy(str, Enum):
+    """定义 `--limit` 在执行链中的语义策略。
+
+    DISPLAY_ONLY 表示仅在展示层裁剪结果；
+    PROVIDER_REQUEST 表示 adapter 会把 limit 前移到 provider 请求；
+    ADAPTER_LIGHTWEIGHT 表示 adapter 会走更轻量的抓取路径。
+    """
+
+    DISPLAY_ONLY = "display-only"
+    PROVIDER_REQUEST = "provider-request"
+    ADAPTER_LIGHTWEIGHT = "adapter-lightweight"
+
+
+EXECUTION_LIMIT_REQUEST_KEY = "__runtime_limit__"
+
+
 @dataclass(slots=True)
 class RequestField:
     """描述请求 schema 中的单个字段。
@@ -118,7 +134,7 @@ class CommandDefinition:
     allow_watch: bool = True
     has_side_effect: bool = False
     provider_name: BackendName | None = None
-    limit_strategy: str = "display-only"
+    limit_strategy: str = LimitStrategy.DISPLAY_ONLY.value
 
     @property
     def command_name(self) -> str:

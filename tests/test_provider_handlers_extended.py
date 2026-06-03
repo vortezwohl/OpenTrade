@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 
 from opentrade.backends.providers import (
+    _build_limited_efinance_live_frame,
     AkshareFundNavHistoryHandler,
     AkshareSearchHandler,
     AkshareStockPriceHistoryHandler,
@@ -24,6 +25,7 @@ from opentrade.backends.providers import (
     YfinanceRealtimeHandler,
 )
 from opentrade.command_catalog import get_command_binding, get_command_definition
+from opentrade.models import EXECUTION_LIMIT_REQUEST_KEY
 from tests.cli_regression_support import print_observation
 
 
@@ -336,6 +338,66 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "search-results")
         self.assertEqual(result.data[0]["code"], "AAPL")
         self.assertIn("catalog unavailable", result.raw_payload["errors"][0])
+
+    def test_efinance_market_live_handler_applies_execution_limit(self) -> None:
+        handler = EfinanceGenericHandler("market.price.live")
+        limited_frame = pd.DataFrame(
+            [
+                {
+                    "代码": "000001",
+                    "名称": "平安银行",
+                    "最新价": 10.5,
+                    "涨跌幅": 1.2,
+                    "行情ID": "0.000001",
+                    "市场类型": "深A",
+                }
+            ]
+        )
+
+        with patch("opentrade.backends.providers._build_limited_efinance_live_frame", return_value=limited_frame) as mock_limit:
+            result = handler.execute({"market": "A_stock", EXECUTION_LIMIT_REQUEST_KEY: 1})
+
+        mock_limit.assert_called_once_with("沪深A股", 1)
+        self.assertEqual(result.contract_name, "realtime-quotes")
+        self.assertTrue(result.metadata["execution_limit_applied"])
+        self.assertEqual(result.metadata["execution_limit_mode"], "provider-request")
+
+    def test_limited_efinance_live_frame_derives_execution_columns(self) -> None:
+        payload = {
+            "data": {
+                "diff": [
+                    {"f12": "000001", "f14": "平安银行", "f3": 1.2, "f2": 10.5, "f13": 0, "f124": 1717400000, "f297": 20250603},
+                    {"f12": "600519", "f14": "贵州茅台", "f3": 0.8, "f2": 1600.0, "f13": 1, "f124": 1717400100, "f297": 20250603},
+                ]
+            }
+        }
+        response = MagicMock()
+        response.json.return_value = payload
+
+        with patch("importlib.import_module") as mock_import:
+            config_module = MagicMock()
+            config_module.EASTMONEY_QUOTE_FIELDS = {
+                "f12": "代码",
+                "f14": "名称",
+                "f3": "涨跌幅",
+                "f2": "最新价",
+                "f13": "市场编号",
+                "f124": "更新时间戳",
+                "f297": "最新交易日",
+            }
+            config_module.EASTMONEY_REQUEST_HEADERS = {}
+            config_module.MARKET_NUMBER_DICT = {"0": "深A", "1": "沪A"}
+            getter_module = MagicMock()
+            getter_module.session.get.return_value = response
+            mock_import.side_effect = lambda name: config_module if name == "efinance.common.config" else getter_module
+
+            frame = _build_limited_efinance_live_frame("沪深A股", 1)
+
+        self.assertEqual(len(frame), 1)
+        self.assertIn("行情ID", frame.columns)
+        self.assertIn("市场类型", frame.columns)
+        self.assertIn("更新时间", frame.columns)
+        self.assertEqual(frame.iloc[0]["代码"], "000001")
 
 
 if __name__ == "__main__":

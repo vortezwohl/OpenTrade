@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping, Sequence
+from math import ceil
 
 import efinance
 import pandas as pd
@@ -38,6 +39,7 @@ from opentrade.models import (
     BackendName,
     CommandDefinition,
     CommandKind,
+    EXECUTION_LIMIT_REQUEST_KEY,
     RequestField,
     RequestSchema,
 )
@@ -116,6 +118,20 @@ class EfinanceGenericHandler(CapabilityHandler):
         if module_name is None or function_name is None:
             raise RuntimeError(f"命令 {self.capability_name} 缺少上游绑定")
 
+        execution_limit = _extract_execution_limit(request_data)
+        if (
+            execution_limit is not None
+            and self.capability_name in {"market.price.live", "bond.price.live", "futures.price.live"}
+        ):
+            if self.capability_name == "market.price.live":
+                fs = _resolve_efinance_market_fs(_get_request_value(request_data, "market", "fs"))
+            elif self.capability_name == "bond.price.live":
+                fs = _resolve_efinance_market_fs("bond")
+            else:
+                fs = _resolve_efinance_market_fs("futures")
+            result = _build_limited_efinance_live_frame(fs, execution_limit)
+            return _standardize_efinance_result(self.capability_name, request_data, result)
+
         callback = getattr(getattr(efinance, module_name), function_name)
         adapted_request = (
             _adapt_efinance_shared_request(self.capability_name, request_data)
@@ -143,6 +159,8 @@ def _adapt_efinance_shared_request(
     request_data: Mapping[str, object],
 ) -> dict[str, object]:
     """把 shared normalized request 翻译为 efinance 上游 kwargs。"""
+
+    execution_limit = _extract_execution_limit(request_data)
 
     if command_key == "stock.price.history":
         return _adapt_efinance_history_request(request_data, code_field_name="stock_codes")
@@ -197,15 +215,16 @@ def _adapt_efinance_shared_request(
     if command_key == "quote.price.history":
         return _adapt_efinance_history_request(request_data, code_field_name="codes")
     if command_key == "quote.price.latest":
+        quote_ids = _coerce_request_sequence(
+            request_data,
+            "quote_ids",
+            "quote_id_list",
+            "quote_id",
+        )
+        if execution_limit is not None:
+            quote_ids = quote_ids[:execution_limit]
         return {
-            "quote_id_list": _single_or_multi(
-                _coerce_request_sequence(
-                    request_data,
-                    "quote_ids",
-                    "quote_id_list",
-                    "quote_id",
-                ),
-            ),
+            "quote_id_list": _single_or_multi(quote_ids),
         }
     if command_key == "quote.profile":
         return {
@@ -218,6 +237,104 @@ def _adapt_efinance_shared_request(
             ),
         }
     return dict(request_data)
+
+
+def _extract_execution_limit(request_data: Mapping[str, object]) -> int | None:
+    """从 provider 请求中提取执行层 limit。"""
+
+    value = request_data.get(EXECUTION_LIMIT_REQUEST_KEY)
+    if value in (None, ""):
+        return None
+    limit = int(value)
+    if limit <= 0:
+        return None
+    return limit
+
+
+def _resolve_efinance_market_fs(market_name: object) -> str:
+    """把 shared market 解析为可直接请求的 efinance `fs` 表达式。"""
+
+    market = _extract_market_value(market_name)
+    if market in (None, ""):
+        raise ValueError("market.price.live 需要明确的 market 参数")
+    mapping = {
+        "A_stock": "沪深A股",
+        "US_stock": "美股",
+        "Hongkong": "港股",
+        "bond": "可转债",
+        "futures": "期货",
+    }
+    if isinstance(market, str) and market.startswith(("m:", "b:")):
+        return market
+    resolved = mapping.get(str(market))
+    if resolved is None:
+        raise ValueError(f"market.price.live 不支持 shared market: {market}")
+    return resolved
+
+
+def _build_limited_efinance_live_frame(fs: str, limit: int) -> pd.DataFrame:
+    """按 limit 只抓取东财实时列表的必要页数。"""
+
+    config_module = importlib.import_module("efinance.common.config")
+    getter_module = importlib.import_module("efinance.common.getter")
+    columns = dict(config_module.EASTMONEY_QUOTE_FIELDS)
+    fields = ",".join(columns.keys())
+    page_size = min(max(limit, 1), 200)
+    page_count = max(1, ceil(limit / page_size))
+    frames: list[pd.DataFrame] = []
+
+    for page_number in range(1, page_count + 1):
+        params = (
+            ("pn", page_number),
+            ("pz", page_size),
+            ("po", "1"),
+            ("np", "1"),
+            ("fltt", "2"),
+            ("invt", "2"),
+            ("fid", "f3"),
+            ("fs", fs),
+            ("fields", fields),
+        )
+        response = getter_module.session.get(
+            "http://push2.eastmoney.com/api/qt/clist/get",
+            headers=config_module.EASTMONEY_REQUEST_HEADERS,
+            params=params,
+        ).json()
+        diff = ((response.get("data") or {}).get("diff") or [])
+        if not diff:
+            continue
+        page_frame = pd.DataFrame(diff)
+        available_columns = [item for item in columns.keys() if item in page_frame.columns]
+        frames.append(page_frame[available_columns])
+
+    if not frames:
+        return pd.DataFrame(columns=list(columns.values()) + ["行情ID", "市场类型", "更新时间"])
+
+    frame = pd.concat(frames, axis=0, ignore_index=True)
+    available_columns = [item for item in columns.keys() if item in frame.columns]
+    frame = frame[available_columns].rename(columns=columns)
+    ordered_columns = [item for item in columns.values() if item in frame.columns]
+    frame = frame[ordered_columns]
+    if "涨跌幅" in frame.columns:
+        frame = frame.sort_values(by="涨跌幅", ascending=False, ignore_index=True)
+    if "市场编号" in frame.columns and "代码" in frame.columns:
+        frame["行情ID"] = frame["市场编号"].astype(str) + "." + frame["代码"].astype(str)
+        frame["市场类型"] = frame["市场编号"].astype(str).apply(
+            lambda item: config_module.MARKET_NUMBER_DICT.get(item),
+        )
+        frame = frame.drop(columns=["市场编号"], errors="ignore")
+    if "更新时间戳" in frame.columns:
+        frame["更新时间"] = frame["更新时间戳"].apply(
+            lambda item: str(pd.Timestamp.fromtimestamp(item)),
+        )
+        frame = frame.drop(columns=["更新时间戳"], errors="ignore")
+    if "最新交易日" in frame.columns:
+        frame["最新交易日"] = pd.to_datetime(
+            frame["最新交易日"],
+            format="%Y%m%d",
+            errors="coerce",
+        ).astype(str)
+    return frame.head(limit)
 
 
 def _adapt_efinance_history_request(
@@ -247,6 +364,8 @@ def _adapt_efinance_history_request(
 
 
 def _resolve_efinance_live_fs(market_name: object) -> str | None:
+    """把 stock shared market 翻译为 efinance 支持的实时列表过滤。"""
+
     market = _extract_market_value(market_name)
     if market in (None, ""):
         return None
@@ -956,11 +1075,22 @@ def _build_realtime_standard_result(
         market_name=market_name,
         provider_name=BackendName.EFINANCE.value,
     )
+    metadata = {"backend": BackendName.EFINANCE.value, "market": market_name}
+    requested_limit = _extract_execution_limit(request_data)
+    if requested_limit is not None and command_key in {
+        "market.price.live",
+        "bond.price.live",
+        "futures.price.live",
+        "quote.price.latest",
+    }:
+        metadata["execution_limit_requested"] = requested_limit
+        metadata["execution_limit_applied"] = True
+        metadata["execution_limit_mode"] = "provider-request"
     return build_standard_result(
         REALTIME_QUOTES_CONTRACT,
         rows,
         raw_payload=result,
-        metadata={"backend": BackendName.EFINANCE.value, "market": market_name},
+        metadata=metadata,
     )
 
 
@@ -1285,7 +1415,11 @@ def _adapt_yfinance_realtime_request(
     """把 shared 最新价或快照请求翻译为 yfinance 请求参数。"""
 
     return {
-        "symbols": _resolve_yfinance_realtime_symbols(command_key, request_data),
+        "symbols": _resolve_yfinance_realtime_symbols(
+            command_key,
+            request_data,
+            execution_limit=_extract_execution_limit(request_data),
+        ),
     }
 
 
@@ -1428,6 +1562,7 @@ def _standardize_yfinance_fund_nav_history_frame(
 def _resolve_yfinance_realtime_symbols(
     command_key: str,
     request_data: Mapping[str, object],
+    execution_limit: int | None = None,
 ) -> list[str]:
     key_map = {
         "quote.price.latest": ("quote_ids", "quote_id_list", "symbol"),
@@ -1437,6 +1572,8 @@ def _resolve_yfinance_realtime_symbols(
     values = _coerce_symbol_list(_get_request_value(request_data, *key_map[command_key], default=[]))
     if command_key in {"stock.price.latest", "stock.price.snapshot"} and len(values) != 1:
         raise ValueError(f"yfinance {command_key} 只支持单个标的")
+    if execution_limit is not None:
+        values = values[:execution_limit]
     return [_normalize_yfinance_symbol(value) for value in values]
 
 def _extract_yfinance_fast_info(ticker) -> dict[str, object]:

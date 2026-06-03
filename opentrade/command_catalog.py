@@ -18,6 +18,7 @@ from opentrade.models import (
     CapabilityDescriptor,
     CommandDefinition,
     CommandKind,
+    LimitStrategy,
     RequestField,
     RequestSchema,
 )
@@ -40,6 +41,12 @@ GROUP_HELP_TEXT["watch"] = "循环刷新执行支持 watch 的命令"
 
 SPECIAL_ROOT_GROUPS = {"instrument", "search", "watch"}
 
+SINGLE_BACKEND_LIMIT_STRATEGIES: dict[str, str] = {
+    "market price live": LimitStrategy.PROVIDER_REQUEST.value,
+    "bond price live": LimitStrategy.PROVIDER_REQUEST.value,
+    "futures price live": LimitStrategy.PROVIDER_REQUEST.value,
+}
+
 JSON_ANNOTATION_TO_TYPE: dict[str, Any] = {
     "StringParamType": str,
     "IntParamType": int,
@@ -57,7 +64,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": "adapter-lightweight",
+        "limit_strategy": LimitStrategy.ADAPTER_LIGHTWEIGHT.value,
         "fields": (
             RequestField(
                 name="keyword",
@@ -106,7 +113,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -188,7 +195,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("stock", "price", "latest"),
         "help_text": "查询股票最新行情",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -217,7 +224,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("stock", "price", "live"),
         "help_text": "查询市场实时行情列表",
         "supported_backends": (BackendName.EFINANCE, BackendName.AKSHARE),
-        "limit_strategy": "adapter-lightweight",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="market",
@@ -236,7 +243,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("stock", "price", "snapshot"),
         "help_text": "查询单只股票快照",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -267,7 +274,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -299,7 +306,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -325,7 +332,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("fund", "profile"),
         "help_text": "查询基金资料",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -344,7 +351,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("quote", "price", "history"),
         "help_text": "查询通用行情历史价格",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -426,7 +433,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("quote", "price", "latest"),
         "help_text": "查询通用行情最新价格",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.PROVIDER_REQUEST.value,
         "fields": (
             RequestField(
                 name="quote_ids",
@@ -445,7 +452,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "cli_path": ("quote", "profile"),
         "help_text": "查询通用行情资料",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": "display-only",
+        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="quote_id",
@@ -458,6 +465,15 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         ),
     },
 }
+
+
+def _limit_strategy_for_command_path(command_path: str) -> str:
+    """返回单后端命令声明的 `--limit` 策略。"""
+
+    return SINGLE_BACKEND_LIMIT_STRATEGIES.get(
+        command_path,
+        LimitStrategy.DISPLAY_ONLY.value,
+    )
 
 
 def _supported_backends_for_command(command_path: str) -> tuple[BackendName, ...]:
@@ -585,6 +601,7 @@ def _build_command_from_reference(entry: dict[str, Any]) -> CommandDefinition:
             if is_multi_backend_support(supported_backends)
             else supported_backends[0]
         ),
+        limit_strategy=_limit_strategy_for_command_path(command_path),
     )
 
 
@@ -603,7 +620,7 @@ def _build_shared_command(command_key: str, payload: dict[str, Any]) -> CommandD
         allow_watch=bool(payload.get("allow_watch", True)),
         has_side_effect=bool(payload.get("has_side_effect", False)),
         provider_name=None,
-        limit_strategy=str(payload.get("limit_strategy", "display-only")),
+        limit_strategy=str(payload.get("limit_strategy", LimitStrategy.DISPLAY_ONLY.value)),
     )
 
 

@@ -14,6 +14,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from opentrade.models import StandardResult
+
 from opentrade.command_catalog import get_shared_command_definition
 from opentrade.executor import CommandExecutor
 from opentrade.models import (
@@ -36,19 +38,24 @@ class _FakeStdout(io.StringIO):
 class ExecutorRegressionTest(unittest.TestCase):
     """验证 executor 的 raw 视图与编码兜底修复。"""
 
-    def _build_request(self, view_mode: str = "observation") -> InvocationRequest:
-        definition = get_shared_command_definition("stock.price.history")
+    def _build_request(
+        self,
+        view_mode: str = "observation",
+        command_key: str = "stock.price.history",
+        limit: int | None = None,
+    ) -> InvocationRequest:
+        definition = get_shared_command_definition(command_key)
         return InvocationRequest(
             spec=CommandSpec(
                 module_name="shared",
-                function_name="stock.price.history",
+                function_name=command_key,
                 callback=lambda **_: None,
                 help_text="test",
-                cli_path=("stock", "price", "history"),
+                cli_path=definition.cli_path,
                 allow_watch=True,
             ),
             kwargs={"stock_codes": ["000001"]},
-            output=OutputOptions(format_name="json", view_mode=view_mode),
+            output=OutputOptions(format_name="json", view_mode=view_mode, limit=limit),
             watch=WatchOptions(enabled=False),
             command_definition=definition,
             backend_selection=BackendSelection(
@@ -122,6 +129,44 @@ class ExecutorRegressionTest(unittest.TestCase):
                     executor._emit(request, result)
 
             self.assertEqual(output_path.read_text(encoding="utf-8"), "bad:\ufffd")
+
+    def test_raw_metadata_distinguishes_display_only_limit(self) -> None:
+        executor = CommandExecutor()
+        request = self._build_request(view_mode="raw", command_key="stock.price.live", limit=3)
+        standard_result = StandardResult(
+            contract_name="realtime-quotes",
+            data=[{"symbol": "000001", "close": 10.5}],
+            metadata={"backend": "efinance"},
+        )
+
+        payload = executor._materialize_standard_result(request, standard_result)
+        metadata = payload["metadata"]
+
+        self.assertEqual(metadata["limit_strategy"], "display-only")
+        self.assertEqual(metadata["limit_effect"], "display-only")
+        self.assertTrue(metadata["display_limit_applied"])
+        self.assertFalse(metadata["execution_limit_applied"])
+
+    def test_raw_metadata_distinguishes_execution_aware_limit(self) -> None:
+        executor = CommandExecutor()
+        request = self._build_request(view_mode="raw", command_key="quote.price.latest", limit=2)
+        standard_result = StandardResult(
+            contract_name="realtime-quotes",
+            data=[{"symbol": "AAPL", "close": 210.5}],
+            metadata={
+                "backend": "yfinance",
+                "execution_limit_applied": True,
+                "execution_limit_mode": "provider-request",
+            },
+        )
+
+        payload = executor._materialize_standard_result(request, standard_result)
+        metadata = payload["metadata"]
+
+        self.assertEqual(metadata["limit_strategy"], "provider-request")
+        self.assertEqual(metadata["limit_effect"], "execution-aware")
+        self.assertTrue(metadata["display_limit_applied"])
+        self.assertTrue(metadata["execution_limit_applied"])
 
 
 if __name__ == "__main__":

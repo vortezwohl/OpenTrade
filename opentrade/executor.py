@@ -18,7 +18,7 @@ import pandas as pd
 from opentrade.backends.auto_planner import plan_auto_backend_candidates
 from opentrade.enrichment import enrich_market_data
 from opentrade.facade import CommandFacade
-from opentrade.models import InvocationRequest, InvocationResult
+from opentrade.models import InvocationRequest, InvocationResult, LimitStrategy
 from opentrade.observation import build_observation_output
 from opentrade.rendering import render_value
 from opentrade.request_schema import validate_request_data
@@ -129,12 +129,44 @@ class CommandExecutor:
             request.command_definition,
             request.backend_selection,
             request_data,
+            execution_limit=request.output.limit,
         )
         request.kwargs = {
             **request.kwargs,
             **request_data,
         }
         return self._materialize_standard_result(request, standard_result)
+
+    @staticmethod
+    def _build_limit_metadata(request: InvocationRequest, standard_result: Any) -> dict[str, Any]:
+        """根据 provider 元数据判定 `--limit` 的真实执行语义。"""
+
+        limit_value = request.output.limit
+        strategy = request.command_definition.limit_strategy
+        effect = "none"
+        execution_limit_applied = False
+        display_limit_applied = False
+
+        if limit_value is not None:
+            provider_metadata = getattr(standard_result, "metadata", {}) or {}
+            execution_limit_applied = bool(provider_metadata.get("execution_limit_applied", False))
+            display_limit_applied = True
+            if execution_limit_applied:
+                effect = "execution-aware"
+            else:
+                strategy_enum = LimitStrategy(strategy)
+                if strategy_enum == LimitStrategy.DISPLAY_ONLY:
+                    effect = "display-only"
+                else:
+                    effect = "declared-but-not-applied"
+
+        return {
+            "limit_strategy": strategy,
+            "limit_value": limit_value,
+            "limit_effect": effect,
+            "display_limit_applied": display_limit_applied,
+            "execution_limit_applied": execution_limit_applied,
+        }
 
     def _materialize_standard_result(self, request: InvocationRequest, standard_result: Any) -> Any:
         """把标准结果物化成 rendering 可消费的结构。"""
@@ -184,12 +216,7 @@ class CommandExecutor:
                     if backend_selection is not None
                     else False
                 ),
-                "limit_strategy": request.command_definition.limit_strategy,
-                "limit_value": request.output.limit,
-                "execution_limit_applied": bool(
-                    request.output.limit is not None
-                    and request.command_definition.limit_strategy != "display-only"
-                ),
+                **self._build_limit_metadata(request, standard_result),
             }
             return {
                 "contract_name": getattr(standard_result, "contract_name", None),

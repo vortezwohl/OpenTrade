@@ -22,10 +22,10 @@
 
 ## 4. Execution-Aware Limiting
 
-- [ ] 4.1 为 shared 命令定义 `--limit` 策略元数据，区分显示裁剪、可前移执行减载、adapter 轻量抓取三类行为
-- [ ] 4.2 调整 `opentrade/rendering.py` 与执行链元数据输出，使 display-only limit 与 execution-aware limit 在 raw / regression 输出中可区分
-- [ ] 4.3 优先为重路径命令簇建立最小可行的执行减载策略，至少覆盖 `market price live` 及一类 quote/futures 重路径命令
-- [ ] 4.4 补充 `tests/test_rendering_and_metrics_regression.py` 与相关命令测试，验证 `--limit` 的显示层与执行层语义不会再被混淆
+- [x] 4.1 为 shared 命令定义 `--limit` 策略元数据，区分显示裁剪、可前移执行减载、adapter 轻量抓取三类行为
+- [x] 4.2 调整 `opentrade/rendering.py` 与执行链元数据输出，使 display-only limit 与 execution-aware limit 在 raw / regression 输出中可区分
+- [x] 4.3 优先为重路径命令簇建立最小可行的执行减载策略，至少覆盖 `market price live` 及一类 quote/futures 重路径命令
+- [x] 4.4 补充 `tests/test_rendering_and_metrics_regression.py` 与相关命令测试，验证 `--limit` 的显示层与执行层语义不会再被混淆
 
 ## 5. Regression Classification And Test Realignment
 
