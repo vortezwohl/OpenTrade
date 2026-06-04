@@ -13,7 +13,9 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from opentrade.backends.base import ProviderExecutionError, ProviderResponseError
 from opentrade.backends.providers import (
+    _adapt_efinance_request,
     _build_limited_efinance_live_frame,
     AkshareFundNavHistoryHandler,
     AkshareSearchHandler,
@@ -195,6 +197,48 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         self.assertGreater(len(result.data), 0)
         self.assertIn("symbol", result.data[0])
 
+    def test_yfinance_realtime_handler_wraps_upstream_error_as_provider_execution_failure(self) -> None:
+        handler = YfinanceRealtimeHandler("stock.price.latest")
+
+        with patch(
+            "opentrade.backends.providers._resolve_yfinance_realtime_symbols",
+            return_value=["AAPL"],
+        ), patch(
+            "opentrade.backends.providers._build_yfinance_realtime_row",
+            side_effect=RuntimeError("Too Many Requests"),
+        ):
+            with self.assertRaises(ProviderExecutionError) as ctx:
+                handler.execute({"symbols": ["AAPL"]})
+
+        self.assertIn("provider-execution-failure", str(ctx.exception))
+
+    def test_efinance_fund_profile_guardrail_surfaces_provider_execution_failure(self) -> None:
+        """?? efinance backend ??????????????? provider failure?"""
+        handler = EfinanceGenericHandler("fund.profile")
+
+        with patch(
+            "efinance.fund.get_base_info",
+            side_effect=ValueError("Invalid value '-1.13' for dtype 'str'."),
+        ):
+            with self.assertRaises(ProviderExecutionError) as ctx:
+                handler.execute({"symbols": ["161725"]})
+
+        message = str(ctx.exception)
+        self.assertIn("fund.profile", message)
+        self.assertIn("provider-execution-failure", message)
+
+    def test_efinance_bond_flow_today_guardrail_surfaces_provider_response_failure(self) -> None:
+        """?? efinance backend ????????????? provider response failure?"""
+        handler = EfinanceGenericHandler("bond.flow.today")
+
+        with patch("efinance.bond.get_today_bill", return_value=False):
+            with self.assertRaises(ProviderResponseError) as ctx:
+                handler.execute({"symbol": "113519"})
+
+        message = str(ctx.exception)
+        self.assertIn("bond.flow.today", message)
+        self.assertIn("provider-response-failure", message)
+
     # ------------------------------------------------------------------
     # EfinanceGenericHandler
     # ------------------------------------------------------------------
@@ -338,6 +382,38 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "search-results")
         self.assertEqual(result.data[0]["code"], "AAPL")
         self.assertIn("catalog unavailable", result.raw_payload["errors"][0])
+
+    def test_adapt_efinance_request_normalizes_extension_dates(self) -> None:
+        holders_request = _adapt_efinance_request(
+            "stock.holders.latest-count",
+            {"date": "20250331"},
+        )
+        leaderboard_request = _adapt_efinance_request(
+            "stock.leaderboard.daily",
+            {"start_date": "20250530", "end_date": "20250530"},
+        )
+        performance_request = _adapt_efinance_request(
+            "stock.performance.quarterly",
+            {"date": "20250331"},
+        )
+
+        self.assertEqual(holders_request["date"], "2025-03-31")
+        self.assertEqual(leaderboard_request["start_date"], "2025-05-30")
+        self.assertEqual(leaderboard_request["end_date"], "2025-05-30")
+        self.assertEqual(performance_request["date"], "2025-03-31")
+
+    def test_adapt_efinance_request_sanitizes_runtime_limit_for_extension_commands(self) -> None:
+        samples = {
+            "stock.holders.latest-count": {"date": "20250331", EXECUTION_LIMIT_REQUEST_KEY: 5},
+            "stock.ipo.latest": {EXECUTION_LIMIT_REQUEST_KEY: 5},
+            "stock.report-dates": {EXECUTION_LIMIT_REQUEST_KEY: 5},
+            "fund.catalog": {EXECUTION_LIMIT_REQUEST_KEY: 5},
+            "bond.catalog": {EXECUTION_LIMIT_REQUEST_KEY: 5},
+            "futures.catalog": {EXECUTION_LIMIT_REQUEST_KEY: 5},
+        }
+        for command_key, request_data in samples.items():
+            adapted = _adapt_efinance_request(command_key, request_data)
+            self.assertNotIn(EXECUTION_LIMIT_REQUEST_KEY, adapted)
 
     def test_efinance_market_live_handler_applies_execution_limit(self) -> None:
         handler = EfinanceGenericHandler("market.price.live")

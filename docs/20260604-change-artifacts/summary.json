@@ -1,0 +1,47 @@
+[
+  {
+    "slug": "stock-holders-latest-count-efinance",
+    "title": "stock holders latest-count --backend efinance --limit 5",
+    "returncode": 0,
+    "duration_seconds": 1.99,
+    "stdout_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-holders-latest-count-efinance.stdout.txt",
+    "stderr_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-holders-latest-count-efinance.stderr.txt",
+    "json_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-holders-latest-count-efinance.json"
+  },
+  {
+    "slug": "stock-leaderboard-daily-efinance",
+    "title": "stock leaderboard daily --backend efinance",
+    "returncode": 0,
+    "duration_seconds": 1.01,
+    "stdout_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-leaderboard-daily-efinance.stdout.txt",
+    "stderr_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-leaderboard-daily-efinance.stderr.txt",
+    "json_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-leaderboard-daily-efinance.json"
+  },
+  {
+    "slug": "fund-profile-efinance",
+    "title": "fund profile --backend efinance",
+    "returncode": 1,
+    "duration_seconds": 1.126,
+    "stdout_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\fund-profile-efinance.stdout.txt",
+    "stderr_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\fund-profile-efinance.stderr.txt",
+    "json_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\fund-profile-efinance.json"
+  },
+  {
+    "slug": "bond-flow-today-efinance",
+    "title": "bond flow today --backend efinance",
+    "returncode": 1,
+    "duration_seconds": 1.095,
+    "stdout_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\bond-flow-today-efinance.stdout.txt",
+    "stderr_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\bond-flow-today-efinance.stderr.txt",
+    "json_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\bond-flow-today-efinance.json"
+  },
+  {
+    "slug": "stock-price-latest-auto-aapl",
+    "title": "stock price latest --backend auto --trace-window 4",
+    "returncode": 1,
+    "duration_seconds": 6.621,
+    "stdout_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-price-latest-auto-aapl.stdout.txt",
+    "stderr_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-price-latest-auto-aapl.stderr.txt",
+    "json_path": "D:\\github-project\\efinance-cli\\docs\\20260604-change-artifacts\\stock-price-latest-auto-aapl.json"
+  }
+]

@@ -1,0 +1,81 @@
+Traceback (most recent call last):
+  File "D:\github-project\efinance-cli\opentrade\backends\providers.py", line 183, in execute
+    result = callback(**adapted_request)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\efinance\bond\getter.py", line 362, in get_today_bill
+    df = get_today_bill_for_bond(bond_code)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\efinance\utils\__init__.py", line 48, in run
+    values = func(*args, **kwargs)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\efinance\common\getter.py", line 400, in get_today_bill
+    name = jsonpath(json_response, "$..name")[0]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+TypeError: 'bool' object is not subscriptable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\github-project\efinance-cli\opentrade\__main__.py", line 11, in <module>
+    main()
+    ~~~~^^
+  File "D:\github-project\efinance-cli\opentrade\main.py", line 24, in main
+    create_cli()()
+    ~~~~~~~~~~~~^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "D:\github-project\efinance-cli\opentrade\commands.py", line 151, in callback
+    executor.run(request)
+    ~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 49, in run
+    result = self.invoke(request)
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 38, in invoke
+    value = self._execute_shared_command(request)
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 128, in _execute_shared_command
+    standard_result = facade.invoke(
+        request.command_definition,
+    ...<2 lines>...
+        execution_limit=request.output.limit,
+    )
+  File "D:\github-project\efinance-cli\opentrade\facade.py", line 75, in invoke
+    return self._invoke_single_backend(definition, backend, provider_request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\facade.py", line 86, in _invoke_single_backend
+    result = provider.execute(definition, request_data)
+  File "D:\github-project\efinance-cli\opentrade\backends\base.py", line 199, in execute
+    return wrapped(request_data)
+  File "D:\github-project\efinance-cli\opentrade\retry_utils.py", line 99, in wrapper
+    return decorated(*args, **kwargs)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\vortezwohl\func\retry.py", line 101, in wrapper
+    (_error, _error_type, _error_super_type), _need_retry, _result = validator()
+                                                                     ~~~~~~~~~^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\vortezwohl\func\retry.py", line 99, in validator
+    raise e
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\vortezwohl\func\retry.py", line 87, in validator
+    result = func(*_args, **_kwargs)
+  File "D:\github-project\efinance-cli\opentrade\retry_utils.py", line 82, in tracked_call
+    return function(*args, **kwargs)
+  File "D:\github-project\efinance-cli\opentrade\backends\base.py", line 216, in invoke
+    return handler.execute(request_data)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\backends\providers.py", line 185, in execute
+    raise ProviderExecutionError(
+    ...<4 lines>...
+    ) from exc
+opentrade.backends.base.ProviderExecutionError: efinance bond.flow.today provider-execution-failure at execute: 'bool' object is not subscriptable

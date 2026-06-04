@@ -74,6 +74,50 @@ class RegressionReportingTest(unittest.TestCase):
         self.assertEqual(timeout_class, "upstream_instability")
         self.assertEqual(rate_limit_class, "upstream_instability")
 
+    def test_classify_provider_contract_error_as_adapter_gap(self) -> None:
+        failure_class, _ = classify_regression_failure(
+            command_path="stock profile",
+            requested_backend="auto",
+            stdout="",
+            stderr="ProviderContractError: yfinance stock.profile provider-contract-error at adapt: single symbol required",
+            returncode=1,
+            status="fail",
+            backend_meta={},
+            artifact_reports=[],
+        )
+
+        self.assertEqual(failure_class, "adapter_gap")
+
+    def test_classify_provider_execution_failure_as_provider_failure(self) -> None:
+        failure_class, reason = classify_regression_failure(
+            command_path="fund profile",
+            requested_backend="efinance",
+            stdout="",
+            stderr="ProviderExecutionError: efinance fund.profile provider-execution-failure at execute: Invalid value '-1.13' for dtype 'str'.",
+            returncode=1,
+            status="fail",
+            backend_meta={},
+            artifact_reports=[],
+        )
+
+        self.assertEqual(failure_class, "provider_failure")
+        self.assertIn("ProviderExecutionError", reason or "")
+
+    def test_classify_provider_response_failure_as_provider_failure(self) -> None:
+        failure_class, reason = classify_regression_failure(
+            command_path="bond flow today",
+            requested_backend="efinance",
+            stdout="",
+            stderr="ProviderResponseError: efinance bond.flow.today provider-response-failure at standardize: malformed payload",
+            returncode=1,
+            status="fail",
+            backend_meta={},
+            artifact_reports=[],
+        )
+
+        self.assertEqual(failure_class, "provider_failure")
+        self.assertIn("ProviderResponseError", reason or "")
+
     def test_classify_product_defect_for_missing_artifact(self) -> None:
         failure_class, _ = classify_regression_failure(
             command_path="fund reports download",

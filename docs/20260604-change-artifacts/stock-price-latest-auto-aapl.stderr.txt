@@ -1,0 +1,49 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\github-project\efinance-cli\opentrade\__main__.py", line 11, in <module>
+    main()
+    ~~~~^^
+  File "D:\github-project\efinance-cli\opentrade\main.py", line 24, in main
+    create_cli()()
+    ~~~~~~~~~~~~^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "D:\github-project\efinance-cli\opentrade\commands.py", line 151, in callback
+    executor.run(request)
+    ~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 49, in run
+    result = self.invoke(request)
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 38, in invoke
+    value = self._execute_shared_command(request)
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 128, in _execute_shared_command
+    standard_result = facade.invoke(
+        request.command_definition,
+    ...<2 lines>...
+        execution_limit=request.output.limit,
+    )
+  File "D:\github-project\efinance-cli\opentrade\facade.py", line 74, in invoke
+    return self._invoke_auto(definition, backend, provider_request)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\facade.py", line 112, in _invoke_auto
+    raise AutoBackendExecutionError(attempts)
+opentrade.facade.AutoBackendExecutionError: auto backend 候选全部执行失败
+- yfinance: yfinance stock.price.latest provider-execution-failure at execute: Too Many Requests. Rate limited. Try after a while.
+- efinance: efinance stock.price.latest provider-execution-failure at execute: HTTPSConnectionPool(host='push2.eastmoney.com', port=443): Max retries exceeded with url: /api/qt/ulist.np/get?OSVersion=14.3&appVersion=6.3.8&fields=f12%2Cf14%2Cf3%2Cf2%2Cf15%2Cf16%2Cf17%2Cf4%2Cf8%2Cf10%2Cf9%2Cf5%2Cf6%2Cf18%2Cf20%2Cf21%2Cf13%2Cf124%2Cf297&fltt=2&plat=Iphone&product=EFund&secids=105.AAPL&serverVersion=6.3.6&version=6.3.8 (Caused by ProtocolError('Connection aborted.', RemoteDisconnected('Remote end closed connection without response')))

@@ -3,7 +3,8 @@
 该模块定义新的最小调用单元：
 
 - `CapabilityHandler`：处理单个 capability；
-- `BackendProvider`：声明 provider 身份、支持矩阵和扩展命令占位。
+- `BackendProvider`：声明 provider 身份、支持矩阵和扩展命令占位；
+- `ProviderContractError` / `ProviderFailure`：把本地适配期失败与上游执行期失败分层，供 facade 判断是否允许 auto failover。
 
 当前阶段使用普通基类而不是协议或抽象基类，是为了让首批骨架更容易落地和打桩测试。
 """
@@ -21,6 +22,71 @@ class BackendRateLimitError(RuntimeError):
     """表示 backend 在网络访问阶段命中了限流。"""
 
 
+class ProviderContractError(ValueError):
+    """表示 provider 适配阶段发现的本地契约错误。
+
+    这类错误说明当前 normalized request 无法被该 backend 在本地语义上正确消费，
+    例如单标的/多标的形状不匹配、共享 market 无法映射或 provider 特定参数
+    约束不满足。它不属于上游执行失败，因此 auto 不应继续 failover。
+    """
+
+    failure_kind = "provider-contract-error"
+
+    def __init__(
+        self,
+        backend_name: BackendName,
+        command_key: str,
+        stage: str,
+        detail: str,
+    ) -> None:
+        self.backend_name = backend_name
+        self.command_key = command_key
+        self.stage = stage
+        self.detail = detail
+        message = (
+            f"{backend_name.value} {command_key} {self.failure_kind} at {stage}: {detail}"
+        )
+        super().__init__(message)
+
+
+class ProviderFailure(RuntimeError):
+    """表示 provider 执行期的可归类失败。
+
+    这类异常用于把“本地契约不满足”和“第三方 provider/上游执行失败”分开。
+    facade 不再仅依赖原始 Python 异常类型判断 failover，而是优先看失败来源语义。
+    """
+
+    failure_kind = "provider-failure"
+
+    def __init__(
+        self,
+        backend_name: BackendName,
+        command_key: str,
+        stage: str,
+        detail: str,
+    ) -> None:
+        self.backend_name = backend_name
+        self.command_key = command_key
+        self.stage = stage
+        self.detail = detail
+        message = (
+            f"{backend_name.value} {command_key} {self.failure_kind} at {stage}: {detail}"
+        )
+        super().__init__(message)
+
+
+class ProviderExecutionError(ProviderFailure):
+    """表示第三方 callback 执行过程中发生的 provider 失败。"""
+
+    failure_kind = "provider-execution-failure"
+
+
+class ProviderResponseError(ProviderFailure):
+    """表示第三方返回值在标准化阶段暴露出的 provider 响应失败。"""
+
+    failure_kind = "provider-response-failure"
+
+
 @dataclass(slots=True)
 class ProviderRetryPolicy:
     """描述 provider 级统一重试策略。
@@ -29,6 +95,7 @@ class ProviderRetryPolicy:
         retryable_exceptions: 允许自动重试的异常集合。
         rate_limit_exceptions: 限流异常集合，语义上属于可重试错误的一部分。
         passthrough_exceptions: 必须直接透传、不得进入自动重试的异常集合。
+            当前主要用于 `ProviderContractError` 这类本地契约错误。
     """
 
     retryable_exceptions: tuple[type[BaseException], ...] = ()

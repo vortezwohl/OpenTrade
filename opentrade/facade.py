@@ -8,6 +8,11 @@ from __future__ import annotations
 
 import click
 
+from opentrade.backends.base import (
+    BackendRateLimitError,
+    ProviderContractError,
+    ProviderFailure,
+)
 from opentrade.backends.factory import get_backend_provider
 from opentrade.models import (
     BackendName,
@@ -30,13 +35,19 @@ class AutoBackendExecutionError(RuntimeError):
 
 
 def is_failover_eligible_error(exc: Exception) -> bool:
-    """判断异常是否允许 auto 继续切换 backend。"""
+    """判断异常是否允许 auto 继续切换 backend。
 
-    if isinstance(exc, (click.ClickException, ValueError, TypeError)):
+    只有已分类的 provider 失败和明确的远端故障才继续 failover；
+    本地契约错误和原始输入/参数错误会立即停止。
+    """
+
+    if isinstance(exc, (click.ClickException, ProviderContractError)):
         return False
-    if isinstance(exc, (RuntimeError, OSError, KeyError)):
+    if isinstance(exc, (ProviderFailure, BackendRateLimitError, OSError)):
         return True
-    return True
+    if isinstance(exc, (ValueError, TypeError, KeyError)):
+        return False
+    return False
 
 
 class CommandFacade:

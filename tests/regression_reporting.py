@@ -67,6 +67,11 @@ ADAPTER_HINT_PATTERNS = (
     "shared quote id",
 )
 ADAPTER_FIELD_HINTS = ("market", "quote-id", "quote id", "quote_ids", "fs", "symbol", "symbols")
+PROVIDER_FAILURE_PATTERNS = (
+    "provider-contract-error",
+    "provider-execution-failure",
+    "provider-response-failure",
+)
 ERROR_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception))")
 
 
@@ -209,6 +214,11 @@ def classify_regression_failure(
 
     if returncode == 2 or any(pattern in lowered for pattern in SAMPLE_PATTERNS):
         return "sample_mismatch", reason
+
+    if "provider-contract-error" in lowered:
+        return "adapter_gap", reason
+    if any(pattern in lowered for pattern in ("provider-execution-failure", "provider-response-failure")):
+        return "provider_failure", reason
 
     adapter_hint = any(pattern in lowered for pattern in ADAPTER_HINT_PATTERNS)
     adapter_field_conflict = any(field in lowered for field in ADAPTER_FIELD_HINTS) and any(

@@ -9,7 +9,14 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from opentrade.backends.base import BackendProvider, BackendRateLimitError, CapabilityHandler
+from opentrade.backends.base import (
+    BackendProvider,
+    BackendRateLimitError,
+    CapabilityHandler,
+    ProviderContractError,
+    ProviderExecutionError,
+    ProviderResponseError,
+)
 from opentrade.command_catalog import get_shared_command_definition
 from opentrade.facade import AutoBackendExecutionError, CommandFacade
 from opentrade.models import (
@@ -173,7 +180,14 @@ class FacadeUnitTest(unittest.TestCase):
         self.assertEqual(backend.final_backend, BackendName.AKSHARE)
 
     def test_auto_first_fails_second_succeeds(self) -> None:
-        fail_handler = _make_mock_handler(side_effect=RuntimeError("akshare failed"))
+        fail_handler = _make_mock_handler(
+            side_effect=ProviderExecutionError(
+                BackendName.AKSHARE,
+                self.definition.command_key,
+                "execute",
+                "akshare failed",
+            )
+        )
         success_handler = _make_mock_handler(
             return_value=StandardResult(contract_name="history-bars", data=[{"close": 10.5}])
         )
@@ -197,7 +211,14 @@ class FacadeUnitTest(unittest.TestCase):
         self.assertEqual(backend.final_backend, BackendName.YFINANCE)
 
     def test_auto_all_candidates_fail(self) -> None:
-        fail_handler = _make_mock_handler(side_effect=RuntimeError("all failed"))
+        fail_handler = _make_mock_handler(
+            side_effect=ProviderExecutionError(
+                BackendName.EFINANCE,
+                self.definition.command_key,
+                "execute",
+                "all failed",
+            )
+        )
 
         providers = {
             BackendName.AKSHARE: _make_mock_provider(BackendName.AKSHARE, fail_handler),
@@ -222,7 +243,9 @@ class FacadeUnitTest(unittest.TestCase):
             self.assertIn(name, message)
 
     def test_auto_ratelimit_error_fails_over_to_next_backend(self) -> None:
-        fail_handler = _make_mock_handler(side_effect=YFRateLimitError())
+        fail_handler = _make_mock_handler(
+            side_effect=BackendRateLimitError("Yahoo rate limited the request. Please retry later.")
+        )
         success_handler = _make_mock_handler(
             return_value=StandardResult(contract_name="history-bars", data=[{"close": 10.5}])
         )
@@ -245,6 +268,147 @@ class FacadeUnitTest(unittest.TestCase):
         print_observation("auto 限流后继续兜底", {"final_backend": backend.final_backend.value})
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(backend.final_backend, BackendName.EFINANCE)
+
+    def test_auto_provider_failure_fails_over_to_next_backend(self) -> None:
+        fail_handler = _make_mock_handler(
+            side_effect=ProviderExecutionError(
+                BackendName.EFINANCE,
+                self.definition.command_key,
+                "execute",
+                "upstream crashed",
+            )
+        )
+        success_handler = _make_mock_handler(
+            return_value=StandardResult(contract_name="history-bars", data=[{"close": 10.5}])
+        )
+
+        providers = {
+            BackendName.EFINANCE: _make_mock_provider(BackendName.EFINANCE, fail_handler),
+            BackendName.YFINANCE: _make_mock_provider(BackendName.YFINANCE, success_handler),
+        }
+
+        backend = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.EFINANCE, BackendName.YFINANCE),
+        )
+
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+            result = self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
+
+        self.assertEqual(result.contract_name, "history-bars")
+        self.assertEqual(backend.final_backend, BackendName.YFINANCE)
+        self.assertTrue(backend.fallback_used)
+
+    def test_auto_provider_contract_error_stops_immediately(self) -> None:
+        fail_handler = _make_mock_handler(
+            side_effect=ProviderContractError(
+                BackendName.EFINANCE,
+                self.definition.command_key,
+                "adapt",
+                "single symbol required",
+            )
+        )
+        success_handler = _make_mock_handler(
+            return_value=StandardResult(contract_name="history-bars", data=[{"close": 10.5}])
+        )
+
+        providers = {
+            BackendName.EFINANCE: _make_mock_provider(BackendName.EFINANCE, fail_handler),
+            BackendName.YFINANCE: _make_mock_provider(BackendName.YFINANCE, success_handler),
+        }
+
+        backend = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.EFINANCE, BackendName.YFINANCE),
+        )
+
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+            with self.assertRaises(ProviderContractError):
+                self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
+
+        self.assertEqual(backend.attempted_candidates, [BackendName.EFINANCE])
+        self.assertIsNone(backend.final_backend)
+        success_handler.execute.assert_not_called()
+
+    def test_auto_all_provider_failures_aggregate_error_chain(self) -> None:
+        providers = {
+            BackendName.EFINANCE: _make_mock_provider(
+                BackendName.EFINANCE,
+                _make_mock_handler(
+                    side_effect=ProviderExecutionError(
+                        BackendName.EFINANCE,
+                        self.definition.command_key,
+                        "execute",
+                        "ef upstream crashed",
+                    )
+                ),
+            ),
+            BackendName.YFINANCE: _make_mock_provider(
+                BackendName.YFINANCE,
+                _make_mock_handler(
+                    side_effect=ProviderResponseError(
+                        BackendName.YFINANCE,
+                        self.definition.command_key,
+                        "standardize",
+                        "bad payload",
+                    )
+                ),
+            ),
+        }
+
+        backend = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.EFINANCE, BackendName.YFINANCE),
+        )
+
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+            with self.assertRaises(AutoBackendExecutionError) as ctx:
+                self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
+
+        message = str(ctx.exception)
+        self.assertIn("provider-execution-failure", message)
+        self.assertIn("provider-response-failure", message)
+        self.assertEqual(backend.attempted_candidates, [BackendName.EFINANCE, BackendName.YFINANCE])
+
+    def test_auto_guardrail_provider_failure_records_attempts_and_final_backend(self) -> None:
+        """guardrail ???? provider failure ? auto ???????? backend ??????"""
+        fail_handler = _make_mock_handler(
+            side_effect=ProviderExecutionError(
+                BackendName.EFINANCE,
+                "fund.profile",
+                "execute",
+                "provider-execution-failure at execute: Invalid value '-1.13' for dtype 'str'.",
+            )
+        )
+        success_handler = _make_mock_handler(
+            return_value=StandardResult(contract_name="profile-info", data=[{"symbol": "VTI"}])
+        )
+
+        providers = {
+            BackendName.EFINANCE: _make_mock_provider(BackendName.EFINANCE, fail_handler),
+            BackendName.YFINANCE: _make_mock_provider(BackendName.YFINANCE, success_handler),
+        }
+
+        backend = BackendSelection(
+            requested=None,
+            resolved=BackendName.AUTO,
+            source="default",
+            candidate_chain=(BackendName.EFINANCE, BackendName.YFINANCE),
+        )
+
+        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+            result = self.facade.invoke(self.definition, backend, {"stock_codes": ["000001"]})
+
+        self.assertEqual(result.contract_name, "profile-info")
+        self.assertEqual(backend.attempted_candidates, [BackendName.EFINANCE, BackendName.YFINANCE])
+        self.assertEqual(backend.final_backend, BackendName.YFINANCE)
+        self.assertTrue(backend.fallback_used)
 
     def test_auto_retryable_network_error_after_internal_retry_still_fails_over(self) -> None:
         """当前 backend 内部重试耗尽后，若异常允许 failover，auto 仍继续下一候选。"""

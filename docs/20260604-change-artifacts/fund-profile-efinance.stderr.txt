@@ -1,0 +1,123 @@
+Traceback (most recent call last):
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\series.py", line 1090, in __setitem__
+    self._set_with_engine(key, value)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\series.py", line 1143, in _set_with_engine
+    self._mgr.setitem_inplace(loc, value)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\internals\managers.py", line 2234, in setitem_inplace
+    arr[indexer] = value
+    ~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\arrays\string_.py", line 865, in __setitem__
+    value = self._maybe_convert_setitem_value(value)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\arrays\string_.py", line 839, in _maybe_convert_setitem_value
+    raise TypeError(
+    ...<3 lines>...
+    )
+TypeError: Invalid value '-1.13' for dtype 'str'. Value should be a string or missing value, got 'float' instead.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\github-project\efinance-cli\opentrade\backends\providers.py", line 183, in execute
+    result = callback(**adapted_request)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\efinance\fund\getter.py", line 756, in get_base_info
+    return get_base_info_single(fund_codes)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\decorator\__init__.py", line 247, in fun
+    return caller(func, *(extras + args), **kw)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\retry\api.py", line 73, in retry_decorator
+    return __retry_internal(partial(f, *args, **kwargs), exceptions, tries, delay, max_delay, backoff, jitter,
+                            logger)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\retry\api.py", line 33, in __retry_internal
+    return f()
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\efinance\utils\__init__.py", line 58, in run
+    values[index] = convert(values[index])
+    ~~~~~~^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\series.py", line 1100, in __setitem__
+    self._set_values(indexer, value)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\series.py", line 1168, in _set_values
+    self._mgr = self._mgr.setitem(indexer=key, value=value)
+                ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\internals\managers.py", line 607, in setitem
+    return self.apply("setitem", indexer=indexer, value=value)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\internals\managers.py", line 445, in apply
+    applied = getattr(b, f)(**kwargs)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\internals\blocks.py", line 1667, in setitem
+    values[indexer] = value
+    ~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\arrays\string_.py", line 865, in __setitem__
+    value = self._maybe_convert_setitem_value(value)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\pandas\core\arrays\string_.py", line 839, in _maybe_convert_setitem_value
+    raise TypeError(
+    ...<3 lines>...
+    )
+TypeError: Invalid value '-1.13' for dtype 'str'. Value should be a string or missing value, got 'float' instead.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\github-project\efinance-cli\opentrade\__main__.py", line 11, in <module>
+    main()
+    ~~~~^^
+  File "D:\github-project\efinance-cli\opentrade\main.py", line 24, in main
+    create_cli()()
+    ~~~~~~~~~~~~^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1912, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\click\core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "D:\github-project\efinance-cli\opentrade\commands.py", line 151, in callback
+    executor.run(request)
+    ~~~~~~~~~~~~^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 49, in run
+    result = self.invoke(request)
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 38, in invoke
+    value = self._execute_shared_command(request)
+  File "D:\github-project\efinance-cli\opentrade\executor.py", line 128, in _execute_shared_command
+    standard_result = facade.invoke(
+        request.command_definition,
+    ...<2 lines>...
+        execution_limit=request.output.limit,
+    )
+  File "D:\github-project\efinance-cli\opentrade\facade.py", line 75, in invoke
+    return self._invoke_single_backend(definition, backend, provider_request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\facade.py", line 86, in _invoke_single_backend
+    result = provider.execute(definition, request_data)
+  File "D:\github-project\efinance-cli\opentrade\backends\base.py", line 199, in execute
+    return wrapped(request_data)
+  File "D:\github-project\efinance-cli\opentrade\retry_utils.py", line 99, in wrapper
+    return decorated(*args, **kwargs)
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\vortezwohl\func\retry.py", line 101, in wrapper
+    (_error, _error_type, _error_super_type), _need_retry, _result = validator()
+                                                                     ~~~~~~~~~^^
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\vortezwohl\func\retry.py", line 99, in validator
+    raise e
+  File "D:\github-project\efinance-cli\.venv\Lib\site-packages\vortezwohl\func\retry.py", line 87, in validator
+    result = func(*_args, **_kwargs)
+  File "D:\github-project\efinance-cli\opentrade\retry_utils.py", line 82, in tracked_call
+    return function(*args, **kwargs)
+  File "D:\github-project\efinance-cli\opentrade\backends\base.py", line 216, in invoke
+    return handler.execute(request_data)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "D:\github-project\efinance-cli\opentrade\backends\providers.py", line 185, in execute
+    raise ProviderExecutionError(
+    ...<4 lines>...
+    ) from exc
+opentrade.backends.base.ProviderExecutionError: efinance fund.profile provider-execution-failure at execute: Invalid value '-1.13' for dtype 'str'. Value should be a string or missing value, got 'float' instead.
