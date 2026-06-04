@@ -377,7 +377,7 @@ class FacadeUnitTest(unittest.TestCase):
         self.assertEqual(backend.attempted_candidates, [BackendName.EFINANCE, BackendName.YFINANCE])
 
     def test_auto_guardrail_provider_failure_records_attempts_and_final_backend(self) -> None:
-        """guardrail ???? provider failure ? auto ???????? backend ??????"""
+        """验证 guardrail 命中 provider failure 后，auto 会继续记录尝试链并切换 backend。"""
         fail_handler = _make_mock_handler(
             side_effect=ProviderExecutionError(
                 BackendName.EFINANCE,

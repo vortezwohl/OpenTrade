@@ -110,7 +110,7 @@ class EfinanceSearchHandler(CapabilityHandler):
 
 
 class EfinanceGenericHandler(CapabilityHandler):
-    """æå½ä»¤ç»å®å¨æè°ç¨ `efinance` çéç¨ handlerã"""
+    """按命令绑定动态调用 `efinance` 的通用 handler。"""
 
     def __init__(self, capability_name: str) -> None:
         self.capability_name = capability_name
@@ -120,7 +120,7 @@ class EfinanceGenericHandler(CapabilityHandler):
         module_name = binding["module"]
         function_name = binding["function"]
         if module_name is None or function_name is None:
-            raise RuntimeError(f"å½ä»¤ {self.capability_name} ç¼ºå°ä¸æ¸¸ç»å®")
+            raise RuntimeError(f"命令 {self.capability_name} 缺少上游绑定")
 
         execution_limit = _extract_execution_limit(request_data)
         if (
@@ -216,7 +216,7 @@ def _adapt_efinance_request(
     command_key: str,
     request_data: Mapping[str, object],
 ) -> dict[str, object]:
-    """? efinance ? shared ? extension ?????????????"""
+    """把 efinance 的 shared 与 extension 请求统一适配为上游 kwargs。"""
 
     return _adapt_efinance_shared_request(command_key, request_data)
 
@@ -225,7 +225,7 @@ def _adapt_efinance_shared_request(
     command_key: str,
     request_data: Mapping[str, object],
 ) -> dict[str, object]:
-    """æ shared normalized request ç¿»è¯ä¸º efinance ä¸æ¸¸ kwargsã"""
+    """把 shared normalized request 翻译为 efinance 上游 kwargs。"""
 
     execution_limit = _extract_execution_limit(request_data)
 
@@ -336,7 +336,7 @@ def _adapt_efinance_shared_request(
 
 
 def _extract_execution_limit(request_data: Mapping[str, object]) -> int | None:
-    """ä» provider è¯·æ±ä¸­æåæ§è¡å± limitã"""
+    """从 provider 请求中提取执行层 limit。"""
 
     value = request_data.get(EXECUTION_LIMIT_REQUEST_KEY)
     if value in (None, ""):
@@ -348,7 +348,7 @@ def _extract_execution_limit(request_data: Mapping[str, object]) -> int | None:
 
 
 def _sanitize_provider_request(request_data: Mapping[str, object]) -> dict[str, object]:
-    """ç§»é¤æ§è¡å±åé¨æ§å¶å­æ®µï¼é¿åæ³æ¼å°ç¬¬ä¸æ¹ callback kwargsã"""
+    """移除执行层内部控制字段，避免泄漏到第三方 callback kwargs。"""
 
     return {
         key: value
@@ -363,17 +363,17 @@ def _normalize_efinance_date(
     field_name: str,
     command_key: str,
 ) -> str:
-    """æ shared æ¥æè¾å¥å½ä¸åä¸º efinance ä¸æ¸¸è¦æ±ç `%Y-%m-%d`ã"""
+    """把 shared 日期输入归一化为 efinance 上游要求的 `%Y-%m-%d`。"""
 
     text = str(value or "").strip()
     if not text:
-        raise ValueError(f"{command_key} ç¼ºå°æ¥æå­æ®µ {field_name}")
+        raise ValueError(f"{command_key} 缺少日期字段 {field_name}")
     if len(text) == 8 and text.isdigit():
         return datetime.strptime(text, "%Y%m%d").strftime("%Y-%m-%d")
     if len(text) == 10 and text[4] == "-" and text[7] == "-":
         datetime.strptime(text, "%Y-%m-%d")
         return text
-    raise ValueError(f"{command_key} ç {field_name} ä»æ¯æ YYYYMMDD æ YYYY-MM-DD")
+    raise ValueError(f"{command_key} 的 {field_name} 仅支持 YYYYMMDD 或 YYYY-MM-DD")
 
 
 def _resolve_efinance_market_fs(market_name: object) -> str:
@@ -1060,7 +1060,7 @@ def _standardize_efinance_result(
 ):
     if command_key in {"fund.profile", "bond.flow.today"} and _looks_like_known_bad_payload(result):
         raise StandardizationError(
-            f"{command_key} å½ä¸­äºå·²ç¥ä¸æ¸¸åè¿åè·¯å¾: {type(result).__name__}"
+            f"{command_key} 命中了已知上游坏返回路径: {type(result).__name__}"
         )
     if command_key == "search.local":
         return _build_search_standard_result(result)
@@ -1325,7 +1325,7 @@ def _normalize_profile_mapping(row: dict[str, object], fallback_code: str | None
 
 
 def _looks_like_known_bad_payload(result: object) -> bool:
-    """è¯å«å·²è¯å®çä¸æ¸¸åè¿åå½¢æï¼ç¨³å®å½ç±»ä¸º provider response failureã"""
+    """识别已证实的上游坏返回形态，稳定归类为 provider response failure。"""
 
     return isinstance(result, bool) or result is None
 
@@ -1430,7 +1430,7 @@ def _run_yfinance_with_guardrails(callback, *args, **kwargs):
 
 
 def _build_efinance_retry_policy() -> ProviderRetryPolicy:
-    """è¿å efinance ç provider çº§ç»ä¸éè¯ç­ç¥ã"""
+    """返回 efinance 的 provider 级统一重试策略。"""
 
     return ProviderRetryPolicy(
         retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
@@ -1439,7 +1439,7 @@ def _build_efinance_retry_policy() -> ProviderRetryPolicy:
 
 
 def _build_akshare_retry_policy() -> ProviderRetryPolicy:
-    """è¿å akshare ç provider çº§ç»ä¸éè¯ç­ç¥ã"""
+    """返回 akshare 的 provider 级统一重试策略。"""
 
     return ProviderRetryPolicy(
         retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
@@ -1448,7 +1448,7 @@ def _build_akshare_retry_policy() -> ProviderRetryPolicy:
 
 
 def _build_yfinance_retry_policy() -> ProviderRetryPolicy:
-    """è¿å yfinance ç provider çº§ç»ä¸éè¯ç­ç¥ã"""
+    """返回 yfinance 的 provider 级统一重试策略。"""
 
     return ProviderRetryPolicy(
         retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
@@ -1527,7 +1527,7 @@ def _adapt_yfinance_history_request(
 
     symbols = _resolve_yfinance_history_symbols(command_key, request_data)
     if len(symbols) != 1:
-        raise ProviderContractError(BackendName.YFINANCE, command_key, "adapt", f"yfinance {command_key} åªæ¯æåä¸ªæ ç")
+        raise ProviderContractError(BackendName.YFINANCE, command_key, "adapt", f"yfinance {command_key} 只支持单个标的")
     return {
         "symbol": symbols[0],
         "history_kwargs": _build_yfinance_history_kwargs(request_data),
@@ -1582,7 +1582,7 @@ def _adapt_yfinance_fund_profile_request(request_data: Mapping[str, object]) -> 
 
     values = _coerce_symbol_list(_get_request_value(request_data, "symbols", "fund_codes", "symbol", default=[]))
     if len(values) != 1:
-        raise ProviderContractError(BackendName.YFINANCE, "fund.profile", "adapt", "yfinance fund.profile åªæ¯æåä¸ªæ ç")
+        raise ProviderContractError(BackendName.YFINANCE, "fund.profile", "adapt", "yfinance fund.profile 只支持单个标的")
     return {"symbol": _normalize_yfinance_symbol(values[0])}
 
 
@@ -1714,7 +1714,7 @@ def _resolve_yfinance_realtime_symbols(
     }
     values = _coerce_symbol_list(_get_request_value(request_data, *key_map[command_key], default=[]))
     if command_key in {"stock.price.latest", "stock.price.snapshot"} and len(values) != 1:
-        raise ProviderContractError(BackendName.YFINANCE, command_key, "adapt", f"yfinance {command_key} åªæ¯æåä¸ªæ ç")
+        raise ProviderContractError(BackendName.YFINANCE, command_key, "adapt", f"yfinance {command_key} 只支持单个标的")
     if execution_limit is not None:
         values = values[:execution_limit]
     return [_normalize_yfinance_symbol(value) for value in values]
@@ -1757,7 +1757,7 @@ def _resolve_yfinance_profile_symbol(
     }
     values = _coerce_symbol_list(_get_request_value(request_data, *key_map[command_key], default=[]))
     if len(values) != 1:
-        raise ProviderContractError(BackendName.YFINANCE, command_key, "adapt", f"yfinance {command_key} åªæ¯æåä¸ªæ ç")
+        raise ProviderContractError(BackendName.YFINANCE, command_key, "adapt", f"yfinance {command_key} 只支持单个标的")
     return _normalize_yfinance_symbol(values[0])
 
 def _resolve_yfinance_profile_market(

@@ -213,7 +213,7 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         self.assertIn("provider-execution-failure", str(ctx.exception))
 
     def test_efinance_fund_profile_guardrail_surfaces_provider_execution_failure(self) -> None:
-        """?? efinance backend ??????????????? provider failure?"""
+        """验证 efinance backend 的基金资料坏载荷会归类为 provider failure。"""
         handler = EfinanceGenericHandler("fund.profile")
 
         with patch(
@@ -228,7 +228,7 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         self.assertIn("provider-execution-failure", message)
 
     def test_efinance_bond_flow_today_guardrail_surfaces_provider_response_failure(self) -> None:
-        """?? efinance backend ????????????? provider response failure?"""
+        """验证 efinance backend 的债券当日资金流坏响应会归类为 provider response failure。"""
         handler = EfinanceGenericHandler("bond.flow.today")
 
         with patch("efinance.bond.get_today_bill", return_value=False):
