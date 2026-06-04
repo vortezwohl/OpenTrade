@@ -11,7 +11,7 @@ import click
 
 from opentrade.backends.auto_planner import plan_auto_backend_candidates
 from opentrade.backends.resolver import resolve_backend_selection
-from opentrade.command_catalog import REFERENCE_CATALOG_PATH, get_shared_command_definition
+from opentrade.command_catalog import REFERENCE_CATALOG_MODULE, get_shared_command_definition
 from opentrade.models import BackendName, CommandDefinition, CommandKind, RequestSchema
 from opentrade.request_schema import (
     build_click_option,
@@ -153,9 +153,9 @@ class SchemaAndResolverTest(unittest.TestCase):
         self.assertEqual(normalized["end_date"], "20250530")
 
     def test_command_catalog_uses_repo_owned_metadata(self) -> None:
-        self.assertIn("opentrade", str(REFERENCE_CATALOG_PATH))
-        self.assertNotIn(".skill", str(REFERENCE_CATALOG_PATH))
-        self.assertTrue(REFERENCE_CATALOG_PATH.exists())
+        self.assertEqual(REFERENCE_CATALOG_MODULE, "opentrade.const.command_catalog_data")
+        self.assertIn("opentrade", REFERENCE_CATALOG_MODULE)
+        self.assertNotIn(".skill", REFERENCE_CATALOG_MODULE)
 
     def test_explicit_efinance_resolves_correctly(self) -> None:
         definition = get_shared_command_definition("stock.price.live")

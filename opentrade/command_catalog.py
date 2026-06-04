@@ -1,6 +1,6 @@
 """共享命令目录与运行时命令元数据。
 
-这个模块负责读取仓库内维护的 command catalog，并把它们构造成统一的运行时定义。
+这个模块负责消费仓库内维护的 Python command catalog，并把它们构造成统一的运行时定义。
 
 1. `shared` 命令使用统一 schema 和 backend 支持矩阵；
 2. 单后端命令继续作为 provider 的 extension 能力暴露；
@@ -9,9 +9,9 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
+
+from opentrade.const.command_catalog_data import COMMAND_CATALOG
 
 from opentrade.models import (
     BackendName,
@@ -24,11 +24,9 @@ from opentrade.models import (
 )
 
 
-REFERENCE_CATALOG_PATH = (
-    Path(__file__).resolve().parent / "metadata" / "command-catalog.json"
-)
+REFERENCE_CATALOG_MODULE = "opentrade.const.command_catalog_data"
 
-_REFERENCE_CATALOG = json.loads(REFERENCE_CATALOG_PATH.read_text(encoding="utf-8"))
+_REFERENCE_CATALOG = COMMAND_CATALOG
 
 MARKET_CHOICES: tuple[str, ...] = tuple(_REFERENCE_CATALOG["market_enums"])
 
