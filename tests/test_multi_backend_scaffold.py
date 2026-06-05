@@ -40,7 +40,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertTrue(SHARED_COMMANDS)
         for definition in SHARED_COMMANDS:
             self.assertEqual(definition.kind.value, "shared")
-            self.assertGreaterEqual(len(definition.supported_backends), 2)
+            self.assertGreaterEqual(len(definition.supported_backends), 1)
 
     def test_single_backend_commands_are_provider_extensions(self) -> None:
         definitions = get_single_backend_command_definitions()
@@ -126,6 +126,7 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 get_shared_command_definition("stock.price.live"),
                 get_shared_command_definition("stock.profile"),
                 get_shared_command_definition("fund.nav.history"),
+                get_shared_command_definition("fund.profile"),
                 get_command_definition("quote.price.latest"),
                 get_command_definition("quote.profile"),
         ):
@@ -936,66 +937,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 )
         mock_profile.assert_not_called()
 
-    def test_yfinance_fund_profile_handler_preserves_provider_fields(
-        self
-    ) -> None:
-        definition = get_command_definition("fund.profile")
-        facade = CommandFacade()
-        with patch("opentrade.backends.yfinance_provider._load_yfinance_module") as mock_loader:
-            module, mock_ticker = _build_mock_yfinance_module()
-            mock_loader.return_value = module
-            mock_ticker.return_value.info = {
-                "shortName": "Vanguard Total Stock Market ETF",
-                "market": "fund",
-            }
-            mock_ticker.return_value.history_metadata = {
-                "instrumentType": "ETF"
-            }
-            mock_ticker.return_value.funds_data = type(
-                "FundsData",
-                (),
-                {
-                    "description":
-                    "Fund description",
-                    "fund_overview": {
-                        "family": "Vanguard"
-                    },
-                    "fund_operations":
-                    pd.DataFrame(
-                        [{
-                            "categoryName": "expenseRatio",
-                            "value": 0.03
-                        }]
-                    ),
-                    "asset_classes": {
-                        "equity": 0.99
-                    },
-                    "top_holdings":
-                    pd.DataFrame([{
-                        "symbol": "AAPL",
-                        "holdingPercent": 0.05
-                    }]),
-                    "bond_ratings": {
-                        "AAA": 0.1
-                    },
-                    "sector_weightings": {
-                        "technology": 0.3
-                    },
-                },
-            )()
-            result = facade.invoke(
-                definition,
-                BackendSelection(
-                    requested=BackendName.YFINANCE,
-                    resolved=BackendName.YFINANCE,
-                    source="explicit"
-                ),
-                {"symbols": ["VTI"]},
-            )
-        mock_ticker.assert_called_once_with("VTI")
-        self.assertEqual(result.contract_name, "profile-info")
-        self.assertEqual(result.data["code"], "VTI")
-        self.assertIn("funds_data", result.provider_fields)
+    def test_fund_profile_shared_command_no_longer_supports_yfinance(self) -> None:
+        definition = get_shared_command_definition("fund.profile")
+        self.assertEqual(definition.supported_backends, (BackendName.EFINANCE,))
 
     def test_yfinance_quote_news_extension_returns_provider_records(
         self

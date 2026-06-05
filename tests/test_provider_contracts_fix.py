@@ -7,7 +7,11 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from opentrade.backends.akshare_provider import AkshareSearchHandler
+from opentrade.backends.akshare_provider import (
+    AkshareSearchHandler,
+    _adapt_akshare_stock_history_request,
+    _adapt_akshare_stock_profile_request,
+)
 from opentrade.backends.base import BackendName, ProviderContractError
 from opentrade.backends.efinance_provider import (
     _adapt_efinance_request,
@@ -15,6 +19,7 @@ from opentrade.backends.efinance_provider import (
     _resolve_efinance_quote_ids,
 )
 from opentrade.backends.yfinance_provider import (
+    _adapt_yfinance_fund_nav_history_request,
     _adapt_yfinance_fund_profile_request,
     _adapt_yfinance_history_request,
     _adapt_yfinance_profile_request,
@@ -97,6 +102,17 @@ class ProviderContractsFixTest(unittest.TestCase):
         self.assertEqual(adapted["symbol"], "600519")
         self.assertEqual(adapted["ticker"], "600519.SS")
 
+    def test_yfinance_stock_profile_adds_hk_suffix_without_length_check(self) -> None:
+        adapted = _adapt_yfinance_profile_request(
+            "stock.profile",
+            {
+                "symbol": "700",
+                "market": "Hongkong",
+            },
+        )
+        self.assertEqual(adapted["symbol"], "700")
+        self.assertEqual(adapted["ticker"], "700.HK")
+
     def test_yfinance_realtime_request_rejects_multi_symbol_path(self) -> None:
         with self.assertRaises(ProviderContractError) as ctx:
             _adapt_yfinance_realtime_request(
@@ -123,6 +139,50 @@ class ProviderContractsFixTest(unittest.TestCase):
     def test_yfinance_fund_profile_request_returns_symbol_and_ticker(self) -> None:
         adapted = _adapt_yfinance_fund_profile_request({"symbol": "VTI"})
         self.assertEqual(adapted, {"symbol": "VTI", "ticker": "VTI"})
+
+    def test_yfinance_fund_profile_rejects_mainland_fund_code(self) -> None:
+        with self.assertRaises(ProviderContractError) as ctx:
+            _adapt_yfinance_fund_profile_request({"symbol": "161725"})
+        self.assertIn("Yahoo", str(ctx.exception))
+
+    def test_yfinance_fund_nav_history_rejects_mainland_fund_code(self) -> None:
+        with self.assertRaises(ProviderContractError) as ctx:
+            _adapt_yfinance_fund_nav_history_request({"symbol": "005827"})
+        self.assertIn("Yahoo", str(ctx.exception))
+
+    def test_yfinance_intraday_history_rejects_oversized_window(self) -> None:
+        with self.assertRaises(ProviderContractError) as ctx:
+            _adapt_yfinance_history_request(
+                "stock.price.history",
+                {
+                    "symbols": ["AAPL"],
+                    "market": "US_stock",
+                    "start_date": "20250101",
+                    "end_date": "20250501",
+                    "timeframe": 5,
+                },
+            )
+        self.assertIn("60", str(ctx.exception))
+
+    def test_akshare_stock_history_rejects_unstable_a_share_symbol(self) -> None:
+        with self.assertRaises(ProviderContractError) as ctx:
+            _adapt_akshare_stock_history_request(
+                {
+                    "symbols": ["430047"],
+                    "market": "A_stock",
+                }
+            )
+        self.assertIn("provider-contract-error", str(ctx.exception))
+
+    def test_akshare_stock_profile_rejects_unstable_a_share_symbol(self) -> None:
+        with self.assertRaises(ProviderContractError) as ctx:
+            _adapt_akshare_stock_profile_request(
+                {
+                    "symbol": "430047",
+                    "market": "A_stock",
+                }
+            )
+        self.assertIn("provider-contract-error", str(ctx.exception))
 
     def test_akshare_fund_search_uses_name_and_pinyin_columns(self) -> None:
         frame = pd.DataFrame(

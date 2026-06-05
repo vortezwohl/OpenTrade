@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -448,6 +449,8 @@ def _adapt_yfinance_history_request(
             f"yfinance {command_key} 只支持单个标的",
         )
     symbol = symbols[0]
+    history_kwargs = _build_yfinance_history_kwargs(request_data)
+    _validate_yfinance_history_request(command_key, history_kwargs)
     return {
         "symbol": symbol,
         "ticker": _normalize_yfinance_shared_symbol(
@@ -455,7 +458,7 @@ def _adapt_yfinance_history_request(
             market=_get_request_value(request_data, "market", "market_type"),
             command_key=command_key,
         ),
-        "history_kwargs": _build_yfinance_history_kwargs(request_data),
+        "history_kwargs": history_kwargs,
     }
 
 
@@ -470,7 +473,9 @@ def _adapt_yfinance_fund_nav_history_request(
     )
     return {
         "symbol": symbol,
-        "ticker": _normalize_yfinance_fund_symbol(symbol),
+        "ticker": _normalize_yfinance_fund_symbol(
+            symbol, command_key="fund.nav.history"
+        ),
         "history_kwargs": {
             "period": "max",
             "interval": "1d",
@@ -529,7 +534,9 @@ def _adapt_yfinance_fund_profile_request(
     symbol = _normalize_yfinance_symbol(values[0])
     return {
         "symbol": symbol,
-        "ticker": _normalize_yfinance_fund_symbol(symbol),
+        "ticker": _normalize_yfinance_fund_symbol(
+            symbol, command_key="fund.profile"
+        ),
     }
 
 
@@ -541,17 +548,12 @@ def _normalize_yfinance_shared_symbol(
 ) -> str:
     """把共享 symbol 翻译成 Yahoo 可接受的 ticker。"""
     symbol = _normalize_yfinance_symbol(value)
-    if symbol.endswith((".SS", ".SZ")):
+    if symbol.endswith((".SS", ".SZ", ".HK")):
         return symbol
     market_name = str(market) if market not in (None, "") else None
-    if symbol.isdigit() and len(symbol) == 6:
-        if market_name not in (None, "A_stock"):
-            raise ProviderContractError(
-                BackendName.YFINANCE,
-                command_key,
-                "adapt",
-                f"yfinance {command_key} 无法把 A 股代码用于市场 {market_name}",
-            )
+    if market_name == "Hongkong":
+        return symbol + ".HK"
+    if market_name == "A_stock":
         return _translate_a_share_to_yahoo_ticker(symbol, command_key)
     return symbol
 
@@ -570,9 +572,21 @@ def _translate_a_share_to_yahoo_ticker(symbol: str, command_key: str) -> str:
     )
 
 
-def _normalize_yfinance_fund_symbol(value: str) -> str:
-    """基金共享标识在 yfinance 下直接按 ticker 处理。"""
-    return _normalize_yfinance_symbol(value)
+def _normalize_yfinance_fund_symbol(
+    value: str,
+    *,
+    command_key: str,
+) -> str:
+    """基金共享标识在 yfinance 下只接受 Yahoo 自身 ticker。"""
+    symbol = _normalize_yfinance_symbol(value)
+    if symbol.isdigit():
+        raise ProviderContractError(
+            BackendName.YFINANCE,
+            command_key,
+            "adapt",
+            "yfinance 当前不支持大陆基金代码，请改用 Efinance/Akshare 或直接传 Yahoo 基金 ticker",
+        )
+    return symbol
 
 
 def _build_yfinance_history_kwargs(
@@ -627,6 +641,63 @@ def _normalize_yfinance_date(value: object) -> str | None:
     if len(text) == 8 and text.isdigit():
         return f"{text[0:4]}-{text[4:6]}-{text[6:8]}"
     return text
+
+
+def _validate_yfinance_history_request(
+    command_key: str,
+    history_kwargs: Mapping[str, object],
+) -> None:
+    """校验 yfinance 分时历史窗口，避免直接触发 provider 侧硬失败。"""
+    interval = str(history_kwargs.get("interval") or "")
+    intraday_limits = {
+        "1m": 8,
+        "5m": 60,
+        "15m": 60,
+        "30m": 60,
+        "60m": 730,
+    }
+    limit_days = intraday_limits.get(interval)
+    if limit_days is None:
+        return
+
+    start_text = history_kwargs.get("start")
+    end_text = history_kwargs.get("end")
+    if not start_text or not end_text:
+        raise ProviderContractError(
+            BackendName.YFINANCE,
+            command_key,
+            "adapt",
+            f"yfinance {command_key} 的 {interval} 分时查询必须显式提供 start_date 和 end_date",
+        )
+
+    start_dt = datetime.fromisoformat(str(start_text))
+    end_dt = datetime.fromisoformat(str(end_text))
+    if end_dt <= start_dt:
+        raise ProviderContractError(
+            BackendName.YFINANCE,
+            command_key,
+            "adapt",
+            f"yfinance {command_key} 要求 end_date 晚于 start_date",
+        )
+
+    span = end_dt - start_dt
+    limit = timedelta(days=limit_days)
+    if span > limit:
+        raise ProviderContractError(
+            BackendName.YFINANCE,
+            command_key,
+            "adapt",
+            f"yfinance {command_key} 的 {interval} 分时窗口不能超过 {limit_days} 天",
+        )
+
+    earliest_allowed = datetime.now() - limit
+    if start_dt < earliest_allowed:
+        raise ProviderContractError(
+            BackendName.YFINANCE,
+            command_key,
+            "adapt",
+            f"yfinance {command_key} 的 {interval} 分时起始时间不能早于近 {limit_days} 天",
+        )
 
 
 def _run_yfinance_history(
@@ -921,8 +992,6 @@ def build_yfinance_provider() -> BackendProvider:
         "quote.price.latest": YfinanceRealtimeHandler("quote.price.latest"),
         "stock.profile": YfinanceProfileHandler("stock.profile"),
         "quote.profile": YfinanceProfileHandler("quote.profile"),
-        "fund.nav.history": YfinanceFundNavHistoryHandler(),
-        "fund.profile": YfinanceFundProfileHandler(),
         "yfinance.quote.news": YfinanceQuoteNewsHandler(),
     }
     return BackendProvider(

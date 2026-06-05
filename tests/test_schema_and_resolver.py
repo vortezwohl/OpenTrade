@@ -359,6 +359,16 @@ class SchemaAndResolverTest(unittest.TestCase):
         )
         self.assertEqual(chain, (BackendName.EFINANCE,))
 
+    def test_fund_nav_history_no_longer_advertises_yfinance(self) -> None:
+        definition = get_shared_command_definition("fund.nav.history")
+        self.assertEqual(
+            definition.supported_backends,
+            (BackendName.EFINANCE, BackendName.AKSHARE),
+        )
+
+    def test_fund_profile_no_longer_advertises_yfinance(self) -> None:
+        definition = get_shared_command_definition("fund.profile")
+        self.assertEqual(definition.supported_backends, (BackendName.EFINANCE,))
 
 
 if __name__ == "__main__":

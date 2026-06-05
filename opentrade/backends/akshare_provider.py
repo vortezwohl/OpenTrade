@@ -45,6 +45,24 @@ from opentrade.backends.providers_common import (
     normalize_contract_mapping,
 )
 
+_AKSHARE_SH_PREFIXES = ("600", "601", "603", "605", "688", "689")
+_AKSHARE_SZ_PREFIXES = ("000", "001", "002", "003", "300", "301")
+
+
+def _validate_akshare_a_share_symbol(
+    symbol: str, *, command_key: str
+) -> str:
+    """拒绝 akshare 当前无法稳定映射交易所的 A 股代码。"""
+    normalized = str(symbol).strip()
+    if normalized.startswith(_AKSHARE_SH_PREFIXES + _AKSHARE_SZ_PREFIXES):
+        return normalized
+    raise ProviderContractError(
+        BackendName.AKSHARE,
+        command_key,
+        "adapt",
+        "akshare 当前仅支持可稳定映射到上交所或深交所的 A 股代码",
+    )
+
 
 def _adapt_akshare_search_request(
     request_data: Mapping[str, object]
@@ -76,12 +94,15 @@ def _adapt_akshare_stock_history_request(
 
     adjust_map = {0: "", 1: "qfq", 2: "hfq"}
     period_map = {101: "daily", 102: "weekly", 103: "monthly"}
-    symbol = _get_single_request_value(
-        request_data,
-        "stock.price.history",
-        "symbol",
-        "symbols",
-        "stock_codes",
+    symbol = _validate_akshare_a_share_symbol(
+        _get_single_request_value(
+            request_data,
+            "stock.price.history",
+            "symbol",
+            "symbols",
+            "stock_codes",
+        ),
+        command_key="stock.price.history",
     )
     return {
         "symbol":
@@ -125,12 +146,15 @@ def _adapt_akshare_stock_profile_request(
 
     return {
         "symbol":
-        _get_single_request_value(
-            request_data,
-            "stock.profile",
-            "symbol",
-            "symbols",
-            "stock_codes",
+        _validate_akshare_a_share_symbol(
+            _get_single_request_value(
+                request_data,
+                "stock.profile",
+                "symbol",
+                "symbols",
+                "stock_codes",
+            ),
+            command_key="stock.profile",
         ),
     }
 

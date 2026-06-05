@@ -314,7 +314,6 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
         "supported_backends": (
             BackendName.EFINANCE,
             BackendName.AKSHARE,
-            BackendName.YFINANCE,
         ),
         "limit_strategy":
         LimitStrategy.DISPLAY_ONLY.value,
@@ -324,7 +323,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 cli_name="symbol",
                 annotation=str,
                 required=True,
-                help_text="基金代码或 Yahoo ticker",
+                help_text="基金代码",
                 semantic_type="symbol",
                 legacy_names=("fund_code", ),
             ),
@@ -339,11 +338,12 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
             ),
         ),
     },
+
     "fund.profile": {
         "cli_path": ("fund", "profile"),
         "help_text":
         "查询基金资料",
-        "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
+        "supported_backends": (BackendName.EFINANCE,),
         "limit_strategy":
         LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
@@ -352,13 +352,14 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 cli_name="symbol",
                 annotation=str,
                 required=True,
-                help_text="单个基金代码或 Yahoo ticker",
+                help_text="单个基金代码",
                 semantic_type="symbol",
                 legacy_names=("fund_codes", ),
                 cli_aliases=("symbols", ),
             ),
         ),
     },
+
     "quote.price.history": {
         "cli_path": ("quote", "price", "history"),
         "help_text":

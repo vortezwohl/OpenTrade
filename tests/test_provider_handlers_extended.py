@@ -259,7 +259,7 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         ) as mock_ticker, patch(
             "opentrade.backends.yfinance_provider."
             "_resolve_yfinance_realtime_symbols",
-            return_value=["AAPL"],
+            return_value=[{"symbol": "AAPL", "ticker": "AAPL"}],
         ), patch(
             "opentrade.backends.yfinance_provider._build_yfinance_realtime_row"
         ) as mock_row:
@@ -271,7 +271,9 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
 
             result = handler.execute({"symbols": ["AAPL"]})
             mock_ticker.assert_not_called()
-            mock_row.assert_called_once_with("stock.price.latest", "AAPL")
+            mock_row.assert_called_once_with(
+                "stock.price.latest", "AAPL", "AAPL"
+            )
 
         print_observation(
             "YfinanceRealtime 结果", {
@@ -290,7 +292,7 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
         with patch(
             "opentrade.backends.yfinance_provider."
             "_resolve_yfinance_realtime_symbols",
-            return_value=["AAPL"],
+            return_value=[{"symbol": "AAPL", "ticker": "AAPL"}],
         ), patch(
             "opentrade.backends.yfinance_provider."
             "_build_yfinance_realtime_row",
@@ -582,7 +584,7 @@ class ProviderHandlersExtendedTest(unittest.TestCase):
                 }
             )
 
-        mock_limit.assert_called_once_with("沪深A股", 1)
+        mock_limit.assert_called_once_with("m:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23", 1)
         self.assertEqual(result.contract_name, "realtime-quotes")
         self.assertTrue(result.metadata["execution_limit_applied"])
         self.assertEqual(
