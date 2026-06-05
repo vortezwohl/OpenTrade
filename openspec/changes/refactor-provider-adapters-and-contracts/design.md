@@ -1,6 +1,6 @@
 ## Context
 
-当前仓库的多 backend 结构在方向上已经引入了 BackendProvider、CapabilityHandler、CommandFacade、uto planner 这些分层，但关键边界仍然不干净。
+当前仓库的多 backend 结构在方向上已经引入了 BackendProvider、CapabilityHandler、CommandFacade、auto planner 这些分层，但关键边界仍然不干净。
 
 第一，opentrade/backends/providers.py 目前同时承担了至少五类职责：
 - efinance / akshare / yfinance 三个 backend 的 provider 构建；
@@ -13,11 +13,11 @@
 
 第二，shared 命令层仍然存在多种假统一：
 - quote_id 在 efinance 和 yfinance 下不是同一种标识符，却被放进同一 shared 字段；
-- stock.price.history、quote.price.history、und.profile 等命令在 schema 上允许多值，但部分 backend 适配只支持单值；
+- stock.price.history、quote.price.history、fund.profile 等命令在 schema 上允许多值，但部分 backend 适配只支持单值；
 - market 枚举在 shared 层合法，不代表所有 backend 实际支持该 market；
 - yfinance 对 A 股 shared symbol 没有翻译，只是把输入原样大写后透给 Yahoo ticker。
 
-第三，现有 actory.py 直接从巨型 providers.py 导入三个 uild_*_provider()。这虽然能工作，但意味着 provider 模块拆分时，工厂和包导出也必须一起收敛成新的稳定结构。
+第三，现有 factory.py 直接从巨型 providers.py 导入三个 build_*_provider()。这虽然能工作，但意味着 provider 模块拆分时，工厂和包导出也必须一起收敛成新的稳定结构。
 
 本次设计既服务于用户要求的“把巨型 provider.py 拆成不同 backend 模块”，也服务于更本质的 shared contract 收敛。按设计模式语言说，这次设计的主模式是：
 - Adapter：shared 输入/输出与 provider 原生契约之间的翻译边界；
@@ -31,7 +31,7 @@
 - 把 providers.py 拆成按 backend 和公共职责分离的多个模块，保留在 opentrade/backends 包下。
 - 让公共适配工具、contract 标准化、错误护栏与 backend-specific handler 分层清晰。
 - 把 shared command 的支持矩阵、identifier 语义、单值/多值限制从“隐式适配结果”收敛成显式契约。
-- 让 uto 路由、facade 和测试以后依赖真实能力边界，而不是依赖“某 provider 看起来大概能跑”。
+- 让 auto 路由、facade 和测试以后依赖真实能力边界，而不是依赖“某 provider 看起来大概能跑”。
 - 为后续实现阶段提供可操作的模块落点和迁移顺序，避免一次性大爆炸改动。
 
 **Non-Goals:**
@@ -45,12 +45,12 @@
 ### 决策 1：按 backend + common helper 拆分 providers.py
 
 **选择**：将当前巨型 opentrade/backends/providers.py 拆成至少四类模块，全部保留在 opentrade/backends 包下：
-- provider_efinance.py：只放 efinance 的 handler、适配和 provider 构建。
-- provider_akshare.py：只放 akshare 的 handler、适配和 provider 构建。
-- provider_yfinance.py：只放 yfinance 的 handler、适配和 provider 构建。
+- efinance_provider.py：只放 efinance 的 handler、适配和 provider 构建。
+- akshare_provider.py：只放 akshare 的 handler、适配和 provider 构建。
+- yfinance_provider.py：只放 yfinance 的 handler、适配和 provider 构建。
 - providers_common.py：只放跨 backend 共享的 contract 标准化、request helper、market/identifier 辅助、通用 payload materialization 等。
 
-actory.py 改为从这几个模块导入 uild_*_provider()，而不再依赖单一巨型模块。
+factory.py 改为从这几个模块导入 build_*_provider()，而不再依赖单一巨型模块。
 
 **理由**：
 - provider-specific 变化点应该在各自模块内部闭合；
@@ -107,20 +107,20 @@ ormalize_contract_mapping 相关调用辅助；
 
 **理由**：
 - 这类“表面支持”是当前大量静态违约的来源；
-- uto 路由、测试和文档都依赖支持矩阵，如果矩阵本身不真，就没有上层可以可信；
+- auto 路由、测试和文档都依赖支持矩阵，如果矩阵本身不真，就没有上层可以可信；
 - 明确能力真相后，失败语义会更早、更可解释。
 
 **替代方案与否决原因**：
 - 继续让 adapter 在运行时抛 ProviderContractError 兜底：虽然比崩溃好，但 shared contract 仍然是假的，不采用。
 
-### 决策 5：actory.py 继续做 Facade 风格注册表，不让 CLI 感知模块拆分细节
+### 决策 5：factory.py 继续做 Facade 风格注册表，不让 CLI 感知模块拆分细节
 
 **选择**：无论 provider 模块怎么拆，外部仍通过 opentrade/backends/factory.py 获取 provider。工厂层维持稳定接口：
 - list_backend_providers()
 - get_backend_provider()
 - list_provider_extension_commands()
 
-模块拆分是 ackends 包内部重构，不把新文件结构泄漏给上层执行链。
+模块拆分是 backends 包内部重构，不把新文件结构泄漏给上层执行链。
 
 **理由**：
 - 这保持 Facade 边界稳定；
@@ -135,7 +135,7 @@ ormalize_contract_mapping 相关调用辅助；
 **选择**：实现顺序遵循最小闭环：
 1. 先拆 providers.py，确保行为不变；
 2. 再在新模块结构上收紧 shared contract 和 identifier 语义；
-3. 再调整 uto 路由和支持矩阵；
+3. 再调整 auto 路由和支持矩阵；
 4. 最后更新测试与回归样本。
 
 **理由**：
@@ -151,21 +151,22 @@ ormalize_contract_mapping 相关调用辅助；
 - [风险] 模块拆分阶段可能引入 import 循环或 helper 归属不清。 -> 缓解：先定义 common 可放与不可放的边界，并保持工厂入口不变。
 - [风险] 先搬文件再改行为，短期内会出现“新结构承载旧契约问题”。 -> 缓解：这是刻意分阶段，先控制 diff 半径，再做行为收紧。
 - [风险] 收紧 shared 支持矩阵后，部分原本“勉强可跑”或“文案声称支持”的路径会变成显式失败。 -> 缓解：把这类变化定义为契约修正，并在 spec 与回归测试中明确。
-- [风险] quote.* identifier 语义可能牵动文档、测试和 uto 路由多个层次。 -> 缓解：优先把语义定义清楚，再决定实现时是翻译、降级还是收紧支持。
+- [风险] quote.* identifier 语义可能牵动文档、测试和 auto 路由多个层次。 -> 缓解：优先把语义定义清楚，再决定实现时是翻译、降级还是收紧支持。
 - [风险] common helper 拆分不当，会形成第二个巨型工具文件。 -> 缓解：严格限制 common 只保留跨 backend 真共享的工具，backend-specific helper 一律留在各自模块。
 
 ## Migration Plan
 
-1. 设计并确认新的 ackends 模块布局与文件职责。
+1. 设计并确认新的 backends 模块布局与文件职责。
 2. 迁移 providers.py 中的公共 helper 到 providers_common.py，并为 provider-specific 代码创建独立模块。
-3. 更新 actory.py 和 __init__.py，保持对上层的稳定导出。
+3. 更新 factory.py 和 __init__.py，保持对上层的稳定导出。
 4. 在新模块结构上逐项收敛 efinance / akshare / yfinance 的 shared identifier、market 和 cardinality 适配边界。
-5. 更新 command_catalog.py、equest_schema.py、uto_planner.py 和相关测试，使支持矩阵与真实能力一致。
+5. 更新 command_catalog.py、request_schema.py、auto_planner.py 和相关测试，使支持矩阵与真实能力一致。
 6. 重跑单元测试与回归测试，区分“模块拆分行为未变”和“契约收紧的预期变化”。
 
 ## Open Questions
 
 - quote.* shared 命令最终是收敛成真正统一标识，还是明确降级为 provider-sensitive 入口？
 - A 股到 Yahoo ticker 的映射是否完全由本地 adapter 维护，还是只覆盖可判定的主流形态？
-- providers_common.py 是否还需要进一步拆成 equest_utils.py / esult_standardizers.py 一类更细文件，还是先维持单个 common 模块即可？
-- 对 und.profile、stock.price.history 这类多值 schema 但单值 backend 的命令，是优先补 backend 翻译能力，还是先收紧 shared 语义？
+- providers_common.py 是否还需要进一步拆成 request_utils.py / 
+esult_standardizers.py 一类更细文件，还是先维持单个 common 模块即可？
+- 对 fund.profile、stock.price.history 这类多值 schema 但单值 backend 的命令，是优先补 backend 翻译能力，还是先收紧 shared 语义？

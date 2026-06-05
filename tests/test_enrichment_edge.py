@@ -21,7 +21,9 @@ class EnrichmentEdgeTest(unittest.TestCase):
         """空 DataFrame 应不抛出异常并返回空 DataFrame。"""
         frame = pd.DataFrame(columns=["日期", "开盘", "收盘", "最高", "最低", "成交量"])
         result = enrich_history_frame(frame, "basic")
-        print_observation("空 DataFrame 增强结果", {"columns": list(result.columns)})
+        print_observation(
+            "空 DataFrame 增强结果", {"columns": list(result.columns)}
+        )
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertTrue(result.empty)
@@ -41,10 +43,12 @@ class EnrichmentEdgeTest(unittest.TestCase):
             ]
         )
         result = enrich_history_frame(frame, "full")
-        print_observation("单行 DataFrame 增强结果", {
-            "columns": list(result.columns),
-            "row_count": len(result),
-        })
+        print_observation(
+            "单行 DataFrame 增强结果", {
+                "columns": list(result.columns),
+                "row_count": len(result),
+            }
+        )
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertEqual(len(result), 1)
@@ -56,7 +60,8 @@ class EnrichmentEdgeTest(unittest.TestCase):
         """缺少 '成交量' 列时成交量依赖指标不应出现，其他指标正常。"""
         frame = pd.DataFrame(
             {
-                "日期": pd.date_range("2025-01-02", periods=30, freq="B").astype(str),
+                "日期": pd.date_range("2025-01-02", periods=30,
+                                    freq="B").astype(str),
                 "开盘": [10.0 + i * 0.15 for i in range(30)],
                 "收盘": [10.1 + i * 0.15 for i in range(30)],
                 "最高": [10.2 + i * 0.15 for i in range(30)],
@@ -77,7 +82,8 @@ class EnrichmentEdgeTest(unittest.TestCase):
         """仅含 '收盘' 和 '日期' 时基于收盘价的指标正常，OHLC 指标缺失。"""
         frame = pd.DataFrame(
             {
-                "日期": pd.date_range("2025-01-02", periods=30, freq="B").astype(str),
+                "日期": pd.date_range("2025-01-02", periods=30,
+                                    freq="B").astype(str),
                 "收盘": [10.1 + i * 0.15 for i in range(30)],
             }
         )
@@ -95,7 +101,8 @@ class EnrichmentEdgeTest(unittest.TestCase):
         """英文列名（open/close/high/low/volume）应与中文列名行为一致。"""
         frame_en = pd.DataFrame(
             {
-                "date": pd.date_range("2025-01-02", periods=30, freq="B").astype(str),
+                "date":
+                pd.date_range("2025-01-02", periods=30, freq="B").astype(str),
                 "open": [10.0 + i * 0.15 for i in range(30)],
                 "close": [10.1 + i * 0.15 for i in range(30)],
                 "high": [10.2 + i * 0.15 for i in range(30)],
@@ -121,16 +128,22 @@ class EnrichmentEdgeTest(unittest.TestCase):
         print_observation("中文列名增强列", sorted(result_cn.columns))
 
         # 增强结果的核心指标列应一致（排除原始列名差异）
-        en_indicator_cols = {c for c in result_en.columns if c not in frame_en.columns}
-        cn_indicator_cols = {c for c in result_cn.columns if c not in frame_cn.columns}
+        en_indicator_cols = {
+            c
+            for c in result_en.columns if c not in frame_en.columns
+        }
+        cn_indicator_cols = {
+            c
+            for c in result_cn.columns if c not in frame_cn.columns
+        }
         self.assertEqual(en_indicator_cols, cn_indicator_cols)
 
-    
     def test_full_level_adds_ichimoku_and_parabolic_sar(self) -> None:
-        """full 等级应补充一目均衡、抛物线 SAR 与 pivot 衍生列。"""
+        """Full 等级应补充一目均衡、抛物线 SAR 与 pivot 衍生列。"""
         frame = pd.DataFrame(
             {
-                "日期": pd.date_range("2025-01-02", periods=30, freq="B").astype(str),
+                "日期": pd.date_range("2025-01-02", periods=30,
+                                    freq="B").astype(str),
                 "开盘": [10.0 + i * 0.15 for i in range(30)],
                 "收盘": [10.1 + i * 0.15 for i in range(30)],
                 "最高": [10.2 + i * 0.15 for i in range(30)],
@@ -143,6 +156,7 @@ class EnrichmentEdgeTest(unittest.TestCase):
 
         for col in ["tenkan", "kijun", "parabolic_sar", "senkou_a", "chikou"]:
             self.assertIn(col, result.columns)
+
+
 if __name__ == "__main__":
     unittest.main()
-

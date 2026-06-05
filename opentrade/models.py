@@ -19,9 +19,8 @@ from typing import Any, Callable, Mapping
 class BackendName(str, Enum):
     """定义当前已知的后端标识。
 
-    说明：
-        这里用显式枚举而不是自由字符串，是为了让帮助信息、请求校验和支持矩阵
-        都能围绕同一组稳定标识收敛。未来接入新 provider 时，可以在这里增量扩展。
+    说明：     这里用显式枚举而不是自由字符串，是为了让帮助信息、请求校验和支持矩阵     都能围绕同一组稳定标识收敛。未来接入新
+    provider 时，可以在这里增量扩展。
     """
 
     EFINANCE = "efinance"
@@ -43,9 +42,8 @@ class CommandKind(str, Enum):
 class LimitStrategy(str, Enum):
     """定义 `--limit` 在执行链中的语义策略。
 
-    DISPLAY_ONLY 表示仅在展示层裁剪结果；
-    PROVIDER_REQUEST 表示 adapter 会把 limit 前移到 provider 请求；
-    ADAPTER_LIGHTWEIGHT 表示 adapter 会走更轻量的抓取路径。
+    DISPLAY_ONLY 表示仅在展示层裁剪结果； PROVIDER_REQUEST 表示 adapter 会把 limit 前移到
+    provider 请求； ADAPTER_LIGHTWEIGHT 表示 adapter 会走更轻量的抓取路径。
     """
 
     DISPLAY_ONLY = "display-only"
@@ -103,7 +101,6 @@ class RequestSchema:
 
     def field_map(self) -> dict[str, RequestField]:
         """按内部字段名返回字段映射，便于请求校验与归一化。"""
-
         return {field.name: field for field in self.fields}
 
 
@@ -139,18 +136,15 @@ class CommandDefinition:
     @property
     def command_name(self) -> str:
         """返回 CLI 叶子命令名。"""
-
         return self.cli_path[-1]
 
     @property
     def root_group(self) -> str:
         """返回命令根分组名。"""
-
         return self.cli_path[0]
 
     def supports_backend(self, backend_name: BackendName) -> bool:
         """判断指定 backend 是否在该命令的支持矩阵中。"""
-
         if not self.supported_backends:
             return True
         return backend_name in self.supported_backends
@@ -199,7 +193,6 @@ class BackendSelection:
     @property
     def is_auto(self) -> bool:
         """判断当前解析结果是否仍保留 auto 语义。"""
-
         return self.resolved == BackendName.AUTO
 
 

@@ -1,11 +1,17 @@
 """结构化 observation 输出的组装与事件检测。
 
-该模块位于指标增强层与渲染层之间，负责把增强后的 shared / provider-extension
-结果整理为统一 observation payload。当前主链约束如下：
+该模块位于指标增强层与渲染层之间，
+负责把增强后的 shared / provider-extension 结果整理为统一
+observation payload。当前主链约束如下：
 
-1. `stock.price.history`、`bond.price.history`、`futures.price.history`、`quote.price.history` 与 `fund.nav.history` 走历史序列 observation 模板。
-2. `stock.profile`、`fund.profile`、`bond.profile`、`quote.profile` 通过标准历史补充接口回补后走单标的 observation 模板。
-3. `stock.price.live`、`bond.price.live`、`futures.price.live` 与 `quote.price.latest` 对实时列表逐行回补后走多 source observation 模板。
+1. `stock.price.history`、`bond.price.history`、
+   `futures.price.history`、`quote.price.history` 与
+   `fund.nav.history` 走历史序列 observation 模板。
+2. `stock.profile`、`fund.profile`、`bond.profile`、`quote.profile`
+   通过标准历史补充接口回补后走单标的 observation 模板。
+3. `stock.price.live`、`bond.price.live`、`futures.price.live` 与
+   `quote.price.latest` 对实时列表逐行回补后走
+   多 source observation 模板。
 4. 其他 shared 结果与 provider-extension 结果统一落到 generic observation 兜底。
 
 分流依据是稳定 command key 与结果契约，而不是旧函数驱动命令分类。
@@ -39,9 +45,11 @@ from opentrade.models import (
     ObservationTraceGroup,
 )
 
-
 RAW_FIELD_ALIASES: dict[str, list[str]] = {
-    "code": ["股票代码", "债券代码", "期货代码", "基金代码", "代码", "行情ID", "symbol", "code", "quote_id"],
+    "code": [
+        "股票代码", "债券代码", "期货代码", "基金代码", "代码", "行情ID", "symbol", "code",
+        "quote_id"
+    ],
     "name": ["股票名称", "债券名称", "期货名称", "基金名称", "名称", "name"],
     "date": ["日期", "时间", "date"],
     "close": ["收盘", "最新价", "单位净值", "unit_nav", "close"],
@@ -139,8 +147,14 @@ CURRENT_METRIC_FIELDS: list[str] = [
 
 TRACE_GROUPS: dict[str, list[str]] = {
     "price_ma": ["close", "ma5", "ma10", "ma20", "ema12", "ema26"],
-    "macd_osc": ["macd_dif", "macd_dea", "macd_histogram", "rsi14", "kdj_k", "kdj_d", "kdj_j", "ppo", "ppo_signal"],
-    "volume_flow": ["volume", "obv", "volume_ratio_5", "mfi14", "cmf20", "force_index13", "vwap", "vr"],
+    "macd_osc": [
+        "macd_dif", "macd_dea", "macd_histogram", "rsi14", "kdj_k", "kdj_d",
+        "kdj_j", "ppo", "ppo_signal"
+    ],
+    "volume_flow": [
+        "volume", "obv", "volume_ratio_5", "mfi14", "cmf20", "force_index13",
+        "vwap", "vr"
+    ],
 }
 
 SHARED_OBSERVATION_CONTRACTS: dict[str, ResultContract] = {
@@ -192,7 +206,6 @@ REALTIME_OBSERVATION_COMMAND_KEYS: set[str] = {
 
 def build_observation_output(request: Any, value: Any) -> Any:
     """根据命令与结果构建 observation 输出。"""
-
     if getattr(request.output, "view_mode", "raw") != "observation":
         return value
 
@@ -210,7 +223,6 @@ def build_observation_output(request: Any, value: Any) -> Any:
 
 def normalize_shared_observation_input(request: Any, value: Any) -> Any:
     """在 observation 入口按共享结果契约归一化 provider 风格字段。"""
-
     command_key = resolve_observation_command_key(request)
     if command_key is None:
         return value
@@ -222,30 +234,41 @@ def normalize_shared_observation_input(request: Any, value: Any) -> Any:
     if isinstance(value, pd.DataFrame):
         return normalize_shared_observation_frame(value, contract)
     if isinstance(value, pd.Series):
-        return pd.Series(normalize_shared_observation_mapping(value.to_dict(), contract))
+        return pd.Series(
+            normalize_shared_observation_mapping(value.to_dict(), contract)
+        )
     if isinstance(value, dict):
         normalized: dict[str, Any] = {}
         for key, item in value.items():
             if isinstance(item, pd.DataFrame):
-                normalized[key] = normalize_shared_observation_frame(item, contract)
+                normalized[key] = normalize_shared_observation_frame(
+                    item, contract
+                )
             elif isinstance(item, pd.Series):
-                normalized[key] = pd.Series(normalize_shared_observation_mapping(item.to_dict(), contract))
+                normalized[key] = pd.Series(
+                    normalize_shared_observation_mapping(
+                        item.to_dict(), contract
+                    )
+                )
             elif isinstance(item, dict):
-                normalized[key] = normalize_shared_observation_mapping(item, contract)
+                normalized[key] = normalize_shared_observation_mapping(
+                    item, contract
+                )
             else:
                 normalized[key] = item
         return normalized
     if isinstance(value, list):
         return [
-            normalize_shared_observation_mapping(item, contract) if isinstance(item, dict) else item
-            for item in value
+            normalize_shared_observation_mapping(item, contract)
+            if isinstance(item, dict) else item for item in value
         ]
     return value
 
 
-def normalize_shared_observation_frame(frame: pd.DataFrame, contract: ResultContract) -> pd.DataFrame:
+def normalize_shared_observation_frame(
+    frame: pd.DataFrame, contract: ResultContract
+) -> pd.DataFrame:
     """按共享结果契约归一化 DataFrame 行。"""
-
     if frame.empty:
         return frame.copy()
     rows = [
@@ -255,9 +278,10 @@ def normalize_shared_observation_frame(frame: pd.DataFrame, contract: ResultCont
     return pd.DataFrame(rows)
 
 
-def normalize_shared_observation_mapping(mapping: dict[str, Any], contract: ResultContract) -> dict[str, Any]:
+def normalize_shared_observation_mapping(
+    mapping: dict[str, Any], contract: ResultContract
+) -> dict[str, Any]:
     """按共享结果契约归一化单条记录，并保留原始字段。"""
-
     normalized = normalize_contract_mapping(mapping, contract)
     merged = dict(normalized)
     for key, value in mapping.items():
@@ -266,9 +290,10 @@ def normalize_shared_observation_mapping(mapping: dict[str, Any], contract: Resu
     return merged
 
 
-def build_generic_observation_output(request: Any, value: Any) -> ObservationPayload:
+def build_generic_observation_output(
+    request: Any, value: Any
+) -> ObservationPayload:
     """把未纳入专门模板的结果包装为通用 observation。"""
-
     meta = build_generic_meta(request, value)
     sections = build_generic_sections(value)
     return ObservationPayload(
@@ -283,14 +308,14 @@ def build_generic_observation_output(request: Any, value: Any) -> ObservationPay
 
 def build_history_observation_output(request: Any, value: Any) -> Any:
     """把历史行情结果转换为 observation payload。"""
-
     if isinstance(value, pd.DataFrame):
         return build_payload_from_history_frame(request, value)
     if isinstance(value, dict):
         result: dict[str, Any] = {}
         for key, frame in value.items():
             if isinstance(frame, pd.DataFrame):
-                result[str(key)] = build_payload_from_history_frame(request, frame)
+                result[str(key)
+                       ] = build_payload_from_history_frame(request, frame)
             else:
                 result[str(key)] = frame
         return result
@@ -299,32 +324,40 @@ def build_history_observation_output(request: Any, value: Any) -> Any:
 
 def build_single_row_observation_output(request: Any, value: Any) -> Any:
     """把单行资料结果转换为 observation payload。"""
-
     if isinstance(value, pd.Series):
         payload = build_payload_from_single_row(request, value)
         return payload or value
     if isinstance(value, pd.DataFrame):
-        return build_mapping_payloads_from_rows(request, value, builder=build_payload_from_single_row)
+        return build_mapping_payloads_from_rows(
+            request, value, builder=build_payload_from_single_row
+        )
     return value
 
 
 def build_realtime_list_observation_output(request: Any, value: Any) -> Any:
     """把实时列表结果转换为多 source observation。"""
-
     if not isinstance(value, pd.DataFrame):
         return value
 
     limited = limit_realtime_observation_frame(request, value)
-    result = build_mapping_payloads_from_rows(request, limited, builder=build_payload_from_single_row)
-    return result if result else build_generic_observation_output(request, limited)
+    result = build_mapping_payloads_from_rows(
+        request, limited, builder=build_payload_from_single_row
+    )
+    return result if result else build_generic_observation_output(
+        request, limited
+    )
 
 
-def build_payload_from_history_frame(request: Any, frame: pd.DataFrame) -> ObservationPayload:
+def build_payload_from_history_frame(
+    request: Any, frame: pd.DataFrame
+) -> ObservationPayload:
     """根据增强后的历史行情表构建 observation payload。"""
-
-    trace_window = normalize_trace_window(getattr(request.output, "trace_window", 32))
+    trace_window = normalize_trace_window(
+        getattr(request.output, "trace_window", 32)
+    )
     recent_frame = frame.tail(trace_window).reset_index(drop=True)
-    latest_row = recent_frame.iloc[-1] if not recent_frame.empty else pd.Series(dtype="object")
+    latest_row = recent_frame.iloc[
+        -1] if not recent_frame.empty else pd.Series(dtype="object")
     latest_quote = extract_latest_quote_fields(latest_row)
     series_map = build_series_map(recent_frame)
 
@@ -342,9 +375,10 @@ def build_payload_from_history_frame(request: Any, frame: pd.DataFrame) -> Obser
     )
 
 
-def build_payload_from_single_row(request: Any, row: pd.Series) -> ObservationPayload | None:
+def build_payload_from_single_row(
+    request: Any, row: pd.Series
+) -> ObservationPayload | None:
     """根据单行结果回补历史后构建 observation payload。"""
-
     code = resolve_history_lookup_code(request, row)
     if not code:
         return None
@@ -358,7 +392,9 @@ def build_payload_from_single_row(request: Any, row: pd.Series) -> ObservationPa
     payload = build_payload_from_history_frame(request, enriched)
     latest_quote = extract_latest_quote_fields(row)
     payload.latest_quote = latest_quote
-    payload.current_metrics = merge_current_metrics(payload.current_metrics, extract_current_metrics(row))
+    payload.current_metrics = merge_current_metrics(
+        payload.current_metrics, extract_current_metrics(row)
+    )
     payload.meta = merge_meta_with_latest_quote(payload.meta, latest_quote)
     payload.meta["code"] = code
     return payload
@@ -370,7 +406,6 @@ def build_mapping_payloads_from_rows(
     builder: Any,
 ) -> dict[str, ObservationPayload]:
     """把多行结果转换为 source -> observation payload 映射。"""
-
     payloads: dict[str, ObservationPayload] = {}
     for idx, row in frame.iterrows():
         payload = builder(request, row)
@@ -381,20 +416,20 @@ def build_mapping_payloads_from_rows(
     return payloads
 
 
-def resolve_payload_key(payload: ObservationPayload, row: pd.Series, idx: Any) -> str:
+def resolve_payload_key(
+    payload: ObservationPayload, row: pd.Series, idx: Any
+) -> str:
     """为多 source observation 结果生成稳定 key。"""
-
     return str(
-        payload.meta.get("code")
-        or payload.meta.get("name")
-        or find_first_present_value(row, ["行情ID", "代码", "股票代码", "债券代码", "期货代码", "基金代码", "名称"])
-        or idx
+        payload.meta.get("code") or payload.meta.get("name")
+        or find_first_present_value(
+            row, ["行情ID", "代码", "股票代码", "债券代码", "期货代码", "基金代码", "名称"]
+        ) or idx
     )
 
 
 def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
     """解析用于历史回补的标的标识。"""
-
     command_key = resolve_observation_command_key(request)
     if command_key in REALTIME_OBSERVATION_COMMAND_KEYS:
         symbol = find_first_present_value(row, ["quote_id", "symbol", "code"])
@@ -404,7 +439,8 @@ def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
         symbol = extract_code_from_series(row)
         if symbol is not None:
             return str(symbol)
-        for field_name in ("stock_codes", "fund_codes", "bond_codes", "quote_id", "quote_id_list"):
+        for field_name in ("stock_codes", "fund_codes", "bond_codes",
+                           "quote_id", "quote_id_list"):
             value = request.kwargs.get(field_name)
             if isinstance(value, (list, tuple)) and value:
                 return str(value[0])
@@ -415,7 +451,6 @@ def resolve_history_lookup_code(request: Any, row: pd.Series) -> str | None:
 
 def resolve_observation_command_key(request: Any) -> str | None:
     """解析 observation 主链使用的稳定命令键。"""
-
     command_definition = getattr(request, "command_definition", None)
     if command_definition is not None:
         return command_definition.command_key
@@ -425,28 +460,36 @@ def resolve_observation_command_key(request: Any) -> str | None:
     return None
 
 
-def limit_realtime_observation_frame(request: Any, frame: pd.DataFrame) -> pd.DataFrame:
+def limit_realtime_observation_frame(
+    request: Any, frame: pd.DataFrame
+) -> pd.DataFrame:
     """对 realtime-list observation 应用默认处理上限。"""
-
     if request.output.limit is not None:
         return frame.head(request.output.limit)
     level = normalize_indicator_level(request.output.indicator_level)
     return frame.head(LEVELS[level].realtime_limit)
 
 
-def merge_current_metrics(base_metrics: dict[str, Any], row_metrics: dict[str, Any]) -> dict[str, Any]:
+def merge_current_metrics(
+    base_metrics: dict[str, Any], row_metrics: dict[str, Any]
+) -> dict[str, Any]:
     """合并历史回补指标与单行结果中的即时指标。"""
-
     merged = dict(base_metrics)
-    merged.update({key: value for key, value in row_metrics.items() if value is not None})
+    merged.update(
+        {
+            key: value
+            for key, value in row_metrics.items() if value is not None
+        }
+    )
     return merged
 
 
-def merge_meta_with_latest_quote(meta: dict[str, Any], latest_quote: dict[str, Any]) -> dict[str, Any]:
+def merge_meta_with_latest_quote(
+    meta: dict[str, Any], latest_quote: dict[str, Any]
+) -> dict[str, Any]:
     """用 latest quote 中可提取的信息补齐 meta。"""
-
     merged = dict(meta)
-    for key in ("name",):
+    for key in ("name", ):
         if latest_quote.get(key) is not None:
             merged[key] = latest_quote[key]
     if latest_quote.get("date") is not None:
@@ -456,22 +499,28 @@ def merge_meta_with_latest_quote(meta: dict[str, Any], latest_quote: dict[str, A
 
 def normalize_trace_window(trace_window: int) -> int:
     """规范 trace window，避免非法值。"""
-
     if trace_window <= 0:
         return 32
     return trace_window
 
 
-def build_meta(request: Any, frame: pd.DataFrame, latest_quote: dict[str, Any]) -> dict[str, Any]:
+def build_meta(
+    request: Any, frame: pd.DataFrame, latest_quote: dict[str, Any]
+) -> dict[str, Any]:
     """构建 observation payload 的元信息。"""
-
     meta = {
-        "module": request.spec.module_name,
-        "function": resolve_meta_function_name(request),
-        "view": "observation",
-        "indicator_level": normalize_indicator_level(request.output.indicator_level),
-        "trace_window": normalize_trace_window(request.output.trace_window),
-        "row_count": int(len(frame)),
+        "module":
+        request.spec.module_name,
+        "function":
+        resolve_meta_function_name(request),
+        "view":
+        "observation",
+        "indicator_level":
+        normalize_indicator_level(request.output.indicator_level),
+        "trace_window":
+        normalize_trace_window(request.output.trace_window),
+        "row_count":
+        int(len(frame)),
     }
     backend_meta = build_backend_meta(request)
     meta.update(backend_meta)
@@ -485,14 +534,19 @@ def build_meta(request: Any, frame: pd.DataFrame, latest_quote: dict[str, Any]) 
 
 def build_generic_meta(request: Any, value: Any) -> dict[str, Any]:
     """构建通用 observation payload 的元信息。"""
-
     meta = {
-        "module": request.spec.module_name,
-        "function": resolve_meta_function_name(request),
-        "view": "observation",
-        "indicator_level": normalize_indicator_level(request.output.indicator_level),
-        "trace_window": normalize_trace_window(request.output.trace_window),
-        "result_type": type(value).__name__,
+        "module":
+        request.spec.module_name,
+        "function":
+        resolve_meta_function_name(request),
+        "view":
+        "observation",
+        "indicator_level":
+        normalize_indicator_level(request.output.indicator_level),
+        "trace_window":
+        normalize_trace_window(request.output.trace_window),
+        "result_type":
+        type(value).__name__,
     }
     meta.update(build_backend_meta(request))
     if isinstance(value, pd.DataFrame):
@@ -510,36 +564,47 @@ def build_generic_meta(request: Any, value: Any) -> dict[str, Any]:
 
 def build_backend_meta(request: Any) -> dict[str, Any]:
     """把当前请求中的 backend 解析结果转成 observation 可见元信息。"""
-
     backend_selection = getattr(request, "backend_selection", None)
     if backend_selection is None:
         return {}
     final_backend = backend_selection.final_backend
-    if final_backend is None and backend_selection.resolved != BackendName.AUTO:
+    if (
+        final_backend is None
+        and backend_selection.resolved != BackendName.AUTO
+    ):
         final_backend = backend_selection.resolved
     return {
         "requested_backend": (
             backend_selection.requested.value
-            if backend_selection.requested is not None
-            else None
+            if backend_selection.requested is not None else None
         ),
         "resolved_backend": backend_selection.resolved.value,
         "final_backend": (
-            final_backend.value
-            if final_backend is not None
-            else None
+            final_backend.value if final_backend is not None else None
         ),
-        "candidate_chain": [item.value for item in backend_selection.candidate_chain],
+        "candidate_chain":
+        [item.value for item in backend_selection.candidate_chain],
     }
 
 
 def build_generic_sections(value: Any) -> list[ObservationSection]:
     """根据结果类型构建通用 observation sections。"""
-
     if isinstance(value, pd.DataFrame):
-        return [ObservationSection(name="result", rows=normalize_dataframe_rows(value), render_hint="records")]
+        return [
+            ObservationSection(
+                name="result",
+                rows=normalize_dataframe_rows(value),
+                render_hint="records"
+            )
+        ]
     if isinstance(value, pd.Series):
-        return [ObservationSection(name="result", rows=[normalize_mapping(value.to_dict())], render_hint="kv")]
+        return [
+            ObservationSection(
+                name="result",
+                rows=[normalize_mapping(value.to_dict())],
+                render_hint="kv"
+            )
+        ]
     if isinstance(value, dict):
         sections: list[ObservationSection] = []
         for key, item in value.items():
@@ -583,19 +648,36 @@ def build_generic_sections(value: Any) -> list[ObservationSection]:
             sections.append(
                 ObservationSection(
                     name=section_name,
-                    rows=[{"value": normalize_scalar(item)}],
+                    rows=[{
+                        "value": normalize_scalar(item)
+                    }],
                     render_hint="kv",
                 )
             )
-        return sections or [ObservationSection(name="result", rows=[], render_hint="records")]
+        return sections or [
+            ObservationSection(name="result", rows=[], render_hint="records")
+        ]
     if isinstance(value, (list, tuple, set)):
-        return [ObservationSection(name="result", rows=normalize_sequence_rows(value), render_hint="records")]
-    return [ObservationSection(name="result", rows=[{"value": normalize_scalar(value)}], render_hint="kv")]
+        return [
+            ObservationSection(
+                name="result",
+                rows=normalize_sequence_rows(value),
+                render_hint="records"
+            )
+        ]
+    return [
+        ObservationSection(
+            name="result",
+            rows=[{
+                "value": normalize_scalar(value)
+            }],
+            render_hint="kv"
+        )
+    ]
 
 
 def normalize_dataframe_rows(frame: pd.DataFrame) -> list[dict[str, Any]]:
     """把 DataFrame 统一转换为 observation section 行。"""
-
     if frame.empty:
         return []
     records = frame.to_dict(orient="records")
@@ -604,7 +686,6 @@ def normalize_dataframe_rows(frame: pd.DataFrame) -> list[dict[str, Any]]:
 
 def normalize_sequence_rows(value: Any) -> list[dict[str, Any]]:
     """把顺序结果统一转换为 observation section 行。"""
-
     rows: list[dict[str, Any]] = []
     for item in list(value):
         if isinstance(item, dict):
@@ -618,17 +699,17 @@ def normalize_sequence_rows(value: Any) -> list[dict[str, Any]]:
 
 def normalize_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
     """把映射结果递归标准化为基础标量。"""
-
-    return {str(key): normalize_scalar(value) for key, value in mapping.items()}
+    return {
+        str(key): normalize_scalar(value)
+        for key, value in mapping.items()
+    }
 
 
 def extract_latest_quote_fields(row: pd.Series) -> dict[str, Any]:
     """从结果行中提取英文字段 latest quote。"""
-
     result: dict[str, Any] = {}
     if row.empty:
         return result
-
     for field_name, candidates in RAW_FIELD_ALIASES.items():
         value = find_first_present_value(row, candidates)
         if value is not None:
@@ -638,21 +719,22 @@ def extract_latest_quote_fields(row: pd.Series) -> dict[str, Any]:
 
 def extract_current_metrics(row: pd.Series) -> dict[str, Any]:
     """提取当前 bar 的关键指标值。"""
-
     result: dict[str, Any] = {}
     if row.empty:
         return result
-
     for field_name in CURRENT_METRIC_FIELDS:
-        value = find_first_present_value(row, SERIES_ALIASES.get(field_name, [field_name]))
+        value = find_first_present_value(
+            row, SERIES_ALIASES.get(field_name, [field_name])
+        )
         if value is not None:
             result[field_name] = normalize_scalar(value)
     return result
 
 
-def find_first_present_value(row: pd.Series, candidates: Iterable[str]) -> Any | None:
+def find_first_present_value(
+    row: pd.Series, candidates: Iterable[str]
+) -> Any | None:
     """从多个候选列名中取第一个非空值。"""
-
     for candidate in candidates:
         if candidate in row.index and pd.notna(row[candidate]):
             return row[candidate]
@@ -661,22 +743,23 @@ def find_first_present_value(row: pd.Series, candidates: Iterable[str]) -> Any |
 
 def build_series_map(frame: pd.DataFrame) -> dict[str, pd.Series]:
     """把 DataFrame 中的可用字段整理为英文字段的数值序列。"""
-
     series_map: dict[str, pd.Series] = {}
     if frame.empty:
         return series_map
-
     for field_name, candidates in SERIES_ALIASES.items():
         for candidate in candidates:
             if candidate in frame.columns:
-                series_map[field_name] = pd.to_numeric(frame[candidate], errors="coerce")
+                series_map[field_name] = pd.to_numeric(
+                    frame[candidate], errors="coerce"
+                )
                 break
     return series_map
 
 
-def build_trace_groups(frame: pd.DataFrame, series_map: dict[str, pd.Series]) -> list[ObservationTraceGroup]:
+def build_trace_groups(
+    frame: pd.DataFrame, series_map: dict[str, pd.Series]
+) -> list[ObservationTraceGroup]:
     """根据最近窗口构建 trace group 列表。"""
-
     trace_groups: list[ObservationTraceGroup] = []
     if frame.empty:
         return trace_groups
@@ -691,19 +774,23 @@ def build_trace_groups(frame: pd.DataFrame, series_map: dict[str, pd.Series]) ->
         for idx, bar_offset in enumerate(offsets):
             point: dict[str, Any] = {"bar_offset": bar_offset}
             for field_name in available_fields:
-                point[field_name] = normalize_scalar(series_map[field_name].iloc[idx])
+                point[field_name] = normalize_scalar(
+                    series_map[field_name].iloc[idx]
+                )
             points.append(point)
-        trace_groups.append(ObservationTraceGroup(name=group_name, points=points))
+        trace_groups.append(
+            ObservationTraceGroup(name=group_name, points=points)
+        )
     return trace_groups
 
 
-def detect_recent_events(frame: pd.DataFrame, series_map: dict[str, pd.Series]) -> list[ObservationEvent]:
+def detect_recent_events(
+    frame: pd.DataFrame, series_map: dict[str, pd.Series]
+) -> list[ObservationEvent]:
     """识别最近窗口内的客观近期事件。"""
-
     events: list[ObservationEvent] = []
     if frame.empty or len(frame) < 2:
         return events
-
     append_cross_events(events, series_map, "ma5", "ma10")
     append_cross_events(events, series_map, "ma10", "ma20")
     append_cross_events(events, series_map, "macd_dif", "macd_dea")
@@ -715,13 +802,19 @@ def detect_recent_events(frame: pd.DataFrame, series_map: dict[str, pd.Series]) 
     append_series_cross_threshold_events(events, series_map, "cmf20", 0.0)
     append_series_cross_threshold_events(events, series_map, "cci14", 100.0)
     append_series_cross_threshold_events(events, series_map, "cci14", -100.0)
-    append_series_cross_threshold_events(events, series_map, "volume_ratio_5", 1.0)
+    append_series_cross_threshold_events(
+        events, series_map, "volume_ratio_5", 1.0
+    )
 
     append_series_cross_events(events, series_map, "close", "ma20")
     append_series_cross_events(events, series_map, "close", "supertrend")
 
-    append_band_touch_events(events, series_map, "close", "boll_upper", "touched_upper_band")
-    append_band_touch_events(events, series_map, "close", "boll_lower", "touched_lower_band")
+    append_band_touch_events(
+        events, series_map, "close", "boll_upper", "touched_upper_band"
+    )
+    append_band_touch_events(
+        events, series_map, "close", "boll_lower", "touched_lower_band"
+    )
     append_sign_change_events(events, series_map, "supertrend_direction")
     append_consecutive_direction_events(events, series_map, "obv", streak=3)
 
@@ -729,9 +822,11 @@ def detect_recent_events(frame: pd.DataFrame, series_map: dict[str, pd.Series]) 
     return events
 
 
-def append_cross_events(events: list[ObservationEvent], series_map: dict[str, pd.Series], left: str, right: str) -> None:
+def append_cross_events(
+    events: list[ObservationEvent], series_map: dict[str, pd.Series],
+    left: str, right: str
+) -> None:
     """检测两条序列之间的 crossing 事件。"""
-
     if left not in series_map or right not in series_map:
         return
 
@@ -744,9 +839,11 @@ def append_cross_events(events: list[ObservationEvent], series_map: dict[str, pd
     )
 
 
-def append_series_cross_events(events: list[ObservationEvent], series_map: dict[str, pd.Series], left: str, right: str) -> None:
+def append_series_cross_events(
+    events: list[ObservationEvent], series_map: dict[str, pd.Series],
+    left: str, right: str
+) -> None:
     """检测价格或指标与另一条序列的 crossing 事件。"""
-
     append_cross_events(events, series_map, left, right)
 
 
@@ -758,13 +855,14 @@ def append_pairwise_events(
     right_series: pd.Series,
 ) -> None:
     """按窗口遍历并记录 crossing 事件。"""
-
     for idx in range(1, len(left_series)):
         prev_left = left_series.iloc[idx - 1]
         prev_right = right_series.iloc[idx - 1]
         curr_left = left_series.iloc[idx]
         curr_right = right_series.iloc[idx]
-        if not all(pd.notna(value) for value in [prev_left, prev_right, curr_left, curr_right]):
+        if not all(pd.notna(value)
+                   for value in [prev_left, prev_right, curr_left, curr_right]
+                   ):
             continue
 
         bars_ago = idx - len(left_series) + 1
@@ -780,7 +878,10 @@ def append_pairwise_events(
                     prev_b=float(prev_right),
                     curr_a=float(curr_left),
                     curr_b=float(curr_right),
-                    description=f"{left_name} moved from below to above {right_name}",
+                    description=(
+                        f"{left_name} moved from below to above "
+                        f"{right_name}"
+                    ),
                 )
             )
         elif prev_left >= prev_right and curr_left < curr_right:
@@ -795,7 +896,10 @@ def append_pairwise_events(
                     prev_b=float(prev_right),
                     curr_a=float(curr_left),
                     curr_b=float(curr_right),
-                    description=f"{left_name} moved from above to below {right_name}",
+                    description=(
+                        f"{left_name} moved from above to below "
+                        f"{right_name}"
+                    ),
                 )
             )
 
@@ -807,7 +911,6 @@ def append_series_cross_threshold_events(
     threshold: float,
 ) -> None:
     """检测序列穿越固定阈值的事件。"""
-
     series = series_map.get(field_name)
     if series is None:
         return
@@ -832,7 +935,10 @@ def append_series_cross_threshold_events(
                     prev_b=threshold,
                     curr_a=float(curr_value),
                     curr_b=threshold,
-                    description=f"{field_name} moved from at-or-below to above {threshold_label}",
+                    description=(
+                        f"{field_name} moved from at-or-below to above "
+                        f"{threshold_label}"
+                    ),
                 )
             )
         elif prev_value >= threshold and curr_value < threshold:
@@ -847,7 +953,10 @@ def append_series_cross_threshold_events(
                     prev_b=threshold,
                     curr_a=float(curr_value),
                     curr_b=threshold,
-                    description=f"{field_name} moved from at-or-above to below {threshold_label}",
+                    description=(
+                        f"{field_name} moved from at-or-above to below "
+                        f"{threshold_label}"
+                    ),
                 )
             )
 
@@ -860,26 +969,27 @@ def append_band_touch_events(
     relation: str,
 ) -> None:
     """检测价格触碰上下轨的事件。"""
-
     price_series = series_map.get(price_name)
     boundary_series = series_map.get(boundary_name)
     if price_series is None or boundary_series is None:
         return
-
     comparator = (
         (lambda price, boundary: price >= boundary)
-        if relation == "touched_upper_band"
-        else (lambda price, boundary: price <= boundary)
+        if relation == "touched_upper_band" else
+        (lambda price, boundary: price <= boundary)
     )
     for idx in range(1, len(price_series)):
         prev_price = price_series.iloc[idx - 1]
         prev_boundary = boundary_series.iloc[idx - 1]
         curr_price = price_series.iloc[idx]
         curr_boundary = boundary_series.iloc[idx]
-        if not all(pd.notna(value) for value in [prev_price, prev_boundary, curr_price, curr_boundary]):
+        if not all(pd.notna(value) for value in [prev_price, prev_boundary,
+                                                 curr_price, curr_boundary]):
             continue
 
-        if comparator(curr_price, curr_boundary) and not comparator(prev_price, prev_boundary):
+        if comparator(
+                curr_price,
+                curr_boundary) and not comparator(prev_price, prev_boundary):
             bars_ago = idx - len(price_series) + 1
             events.append(
                 ObservationEvent(
@@ -892,14 +1002,19 @@ def append_band_touch_events(
                     prev_b=float(prev_boundary),
                     curr_a=float(curr_price),
                     curr_b=float(curr_boundary),
-                    description=f"{price_name} {relation.replace('_', ' ')} {boundary_name}",
+                    description=(
+                        f"{price_name} {relation.replace('_', ' ')} "
+                        f"{boundary_name}"
+                    ),
                 )
             )
 
 
-def append_sign_change_events(events: list[ObservationEvent], series_map: dict[str, pd.Series], field_name: str) -> None:
+def append_sign_change_events(
+    events: list[ObservationEvent], series_map: dict[str, pd.Series],
+    field_name: str
+) -> None:
     """检测正负号切换或方向切换事件。"""
-
     series = series_map.get(field_name)
     if series is None:
         return
@@ -943,14 +1058,13 @@ def append_consecutive_direction_events(
     streak: int,
 ) -> None:
     """检测连续上涨或连续下跌事件。"""
-
     series = series_map.get(field_name)
     if series is None or len(series) <= streak:
         return
 
     diffs = series.diff()
     for idx in range(streak, len(series)):
-        window = diffs.iloc[idx - streak + 1 : idx + 1]
+        window = diffs.iloc[idx - streak + 1:idx + 1]
         if window.isna().any():
             continue
 
@@ -963,7 +1077,10 @@ def append_consecutive_direction_events(
                     subject_a=field_name,
                     relation=f"rose_{streak}_bars",
                     curr_a=float(series.iloc[idx]),
-                    description=f"{field_name} rose for {streak} consecutive bars",
+                    description=(
+                        f"{field_name} rose for {streak} "
+                        "consecutive bars"
+                    ),
                 )
             )
         elif (window < 0).all():
@@ -974,14 +1091,16 @@ def append_consecutive_direction_events(
                     subject_a=field_name,
                     relation=f"fell_{streak}_bars",
                     curr_a=float(series.iloc[idx]),
-                    description=f"{field_name} fell for {streak} consecutive bars",
+                    description=(
+                        f"{field_name} fell for {streak} "
+                        "consecutive bars"
+                    ),
                 )
             )
 
 
 def normalize_threshold_label(threshold: float) -> str:
     """把阈值转成稳定的英文标识片段。"""
-
     if float(threshold).is_integer():
         return str(int(threshold))
     return str(threshold).replace(".", "_")
@@ -989,7 +1108,6 @@ def normalize_threshold_label(threshold: float) -> str:
 
 def normalize_scalar(value: Any) -> Any:
     """把标量值转成适合 observation payload 的基础类型。"""
-
     if value is None or pd.isna(value):
         return None
     if isinstance(value, (int, float, str, bool)):
@@ -1004,5 +1122,6 @@ def normalize_scalar(value: Any) -> Any:
 
 def resolve_meta_function_name(request: Any) -> str:
     """优先在 observation 元信息中暴露现行稳定命令键。"""
-
-    return resolve_observation_command_key(request) or request.spec.function_name
+    return resolve_observation_command_key(
+        request
+    ) or request.spec.function_name

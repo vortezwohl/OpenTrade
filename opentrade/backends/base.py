@@ -4,9 +4,11 @@
 
 - `CapabilityHandler`：处理单个 capability；
 - `BackendProvider`：声明 provider 身份、支持矩阵和扩展命令占位；
-- `ProviderContractError` / `ProviderFailure`：把本地适配期失败与上游执行期失败分层，供 facade 判断是否允许 auto failover。
+- `ProviderContractError` / `ProviderFailure`：把本地适配期失败与
+  上游执行期失败分层，供 facade 判断是否允许 auto failover。
 
-当前阶段使用普通基类而不是协议或抽象基类，是为了让首批骨架更容易落地和打桩测试。
+当前阶段使用普通基类而不是协议或抽象基类，
+是为了让首批骨架更容易落地和打桩测试。
 """
 
 from __future__ import annotations
@@ -26,8 +28,9 @@ class ProviderContractError(ValueError):
     """表示 provider 适配阶段发现的本地契约错误。
 
     这类错误说明当前 normalized request 无法被该 backend 在本地语义上正确消费，
-    例如单标的/多标的形状不匹配、共享 market 无法映射或 provider 特定参数
-    约束不满足。它不属于上游执行失败，因此 auto 不应继续 failover。
+    例如单标的/多标的形状不匹配、共享 market 无法映射，
+    或 provider 特定参数约束不满足。它不属于上游执行失败，
+    因此 auto 不应继续 failover。
     """
 
     failure_kind = "provider-contract-error"
@@ -44,7 +47,8 @@ class ProviderContractError(ValueError):
         self.stage = stage
         self.detail = detail
         message = (
-            f"{backend_name.value} {command_key} {self.failure_kind} at {stage}: {detail}"
+            f"{backend_name.value} {command_key} "
+            f"{self.failure_kind} at {stage}: {detail}"
         )
         super().__init__(message)
 
@@ -52,8 +56,9 @@ class ProviderContractError(ValueError):
 class ProviderFailure(RuntimeError):
     """表示 provider 执行期的可归类失败。
 
-    这类异常用于把“本地契约不满足”和“第三方 provider/上游执行失败”分开。
-    facade 不再仅依赖原始 Python 异常类型判断 failover，而是优先看失败来源语义。
+    这类异常用于把“本地契约不满足”和
+    “第三方 provider/上游执行失败”分开。facade 不再仅依赖
+    原始 Python 异常类型判断 failover，而是优先看失败来源语义。
     """
 
     failure_kind = "provider-failure"
@@ -70,7 +75,8 @@ class ProviderFailure(RuntimeError):
         self.stage = stage
         self.detail = detail
         message = (
-            f"{backend_name.value} {command_key} {self.failure_kind} at {stage}: {detail}"
+            f"{backend_name.value} {command_key} "
+            f"{self.failure_kind} at {stage}: {detail}"
         )
         super().__init__(message)
 
@@ -103,9 +109,10 @@ class ProviderRetryPolicy:
     passthrough_exceptions: tuple[type[BaseException], ...] = ()
 
     @property
-    def effective_retryable_exceptions(self) -> tuple[type[BaseException], ...]:
+    def effective_retryable_exceptions(
+        self
+    ) -> tuple[type[BaseException], ...]:
         """返回合并后的可重试异常集合，并去重保持顺序稳定。"""
-
         merged: list[type[BaseException]] = []
         for item in self.retryable_exceptions + self.rate_limit_exceptions:
             if item not in merged:
@@ -120,7 +127,6 @@ class CapabilityHandler:
 
     def execute(self, request_data: dict[str, Any]) -> StandardResult:
         """执行能力请求并返回标准结果。"""
-
         raise NotImplementedError
 
 
@@ -137,8 +143,13 @@ class BackendProvider:
 
     backend_name: BackendName
     handlers: dict[str, CapabilityHandler] = field(default_factory=dict)
-    extension_commands: tuple[CommandDefinition, ...] = field(default_factory=tuple)
-    retry_policy: ProviderRetryPolicy = field(default_factory=ProviderRetryPolicy)
+    extension_commands: tuple[
+        CommandDefinition,
+        ...,
+    ] = field(default_factory=tuple)
+    retry_policy: ProviderRetryPolicy = field(
+        default_factory=ProviderRetryPolicy
+    )
     _retry_wrapper_cache: dict[
         tuple[
             str,
@@ -146,21 +157,22 @@ class BackendProvider:
             tuple[type[BaseException], ...],
         ],
         Callable[[dict[str, Any]], StandardResult],
-    ] = field(default_factory=dict, init=False, repr=False)
+    ] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def supports(self, capability_name: str) -> bool:
         """判断 provider 是否支持指定 capability。"""
-
         return capability_name in self.handlers
 
     def get_handler(self, capability_name: str) -> CapabilityHandler:
         """返回 capability handler。"""
-
         try:
             return self.handlers[capability_name]
         except KeyError as exc:
             raise KeyError(
-                f"Backend '{self.backend_name.value}' 不支持 capability '{capability_name}'"
+                f"Backend '{self.backend_name.value}' 不支持 capability "
+                f"'{capability_name}'"
             ) from exc
 
     def execute(
@@ -180,7 +192,6 @@ class BackendProvider:
         Raises:
             Exception: 透传 handler 自身错误，或在重试耗尽后保留原有异常语义。
         """
-
         handler = self.get_handler(definition.capability)
         if definition.has_side_effect:
             return handler.execute(request_data)
@@ -206,7 +217,6 @@ class BackendProvider:
         passthrough_exceptions: tuple[type[BaseException], ...],
     ) -> Callable[[dict[str, Any]], StandardResult]:
         """返回当前 handler 的稳定重试包装器。"""
-
         cache_key = (capability_name, retry_exceptions, passthrough_exceptions)
         cached = self._retry_wrapper_cache.get(cache_key)
         if cached is not None:

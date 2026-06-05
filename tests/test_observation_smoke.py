@@ -1,4 +1,4 @@
-"""structured observation 输出的组装与 shared 命令烟雾测试。
+"""Structured observation 输出的组装与 shared 命令烟雾测试。
 
 该文件只覆盖当前仍然真实存在的 shared 命令链路，重点验证：
 
@@ -15,7 +15,10 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from opentrade.command_catalog import get_command_definition, get_shared_command_definition
+from opentrade.command_catalog import (
+    get_command_definition,
+    get_shared_command_definition,
+)
 from opentrade.enrichment.service import fetch_standard_history_for_request
 from opentrade.models import (
     BackendName,
@@ -25,7 +28,10 @@ from opentrade.models import (
     ObservationPayload,
     OutputOptions,
 )
-from opentrade.observation import build_observation_output, detect_recent_events
+from opentrade.observation import (
+    build_observation_output,
+    detect_recent_events,
+)
 from tests.cli_regression_support import print_observation
 
 
@@ -77,7 +83,9 @@ def build_history_frame() -> pd.DataFrame:
     )
 
 
-def build_shared_stock_history_request(trace_window: int = 32) -> InvocationRequest:
+def build_shared_stock_history_request(
+    trace_window: int = 32
+) -> InvocationRequest:
     """构造 shared 股票历史 observation 请求。"""
     definition = get_shared_command_definition("stock.price.history")
     return InvocationRequest(
@@ -110,7 +118,9 @@ def build_shared_stock_history_request(trace_window: int = 32) -> InvocationRequ
     )
 
 
-def build_shared_stock_profile_request(trace_window: int = 32) -> InvocationRequest:
+def build_shared_stock_profile_request(
+    trace_window: int = 32
+) -> InvocationRequest:
     """构造 shared 股票资料 observation 请求。"""
     definition = get_shared_command_definition("stock.profile")
     return InvocationRequest(
@@ -120,7 +130,10 @@ def build_shared_stock_profile_request(trace_window: int = 32) -> InvocationRequ
             callback=lambda **_: None,
             help_text="test",
         ),
-        kwargs={"stock_codes": ["000001"], "market_type": "A_stock"},
+        kwargs={
+            "stock_codes": ["000001"],
+            "market_type": "A_stock"
+        },
         output=OutputOptions(
             format_name="table",
             indicator_level="full",
@@ -136,7 +149,9 @@ def build_shared_stock_profile_request(trace_window: int = 32) -> InvocationRequ
     )
 
 
-def build_shared_fund_nav_history_request(trace_window: int = 32) -> InvocationRequest:
+def build_shared_fund_nav_history_request(
+    trace_window: int = 32
+) -> InvocationRequest:
     """构造 shared 基金净值历史 observation 请求。"""
     definition = get_shared_command_definition("fund.nav.history")
     return InvocationRequest(
@@ -146,7 +161,10 @@ def build_shared_fund_nav_history_request(trace_window: int = 32) -> InvocationR
             callback=lambda **_: None,
             help_text="test",
         ),
-        kwargs={"fund_code": "161725", "pz": 40000},
+        kwargs={
+            "fund_code": "161725",
+            "pz": 40000
+        },
         output=OutputOptions(
             format_name="table",
             indicator_level="full",
@@ -162,7 +180,9 @@ def build_shared_fund_nav_history_request(trace_window: int = 32) -> InvocationR
     )
 
 
-def build_shared_fund_nav_history_batch_request(trace_window: int = 32) -> InvocationRequest:
+def build_shared_fund_nav_history_batch_request(
+    trace_window: int = 32
+) -> InvocationRequest:
     """构造 shared 基金批量净值历史 observation 请求。"""
     definition = get_command_definition("fund.nav.history-batch")
     return InvocationRequest(
@@ -172,7 +192,10 @@ def build_shared_fund_nav_history_batch_request(trace_window: int = 32) -> Invoc
             callback=lambda **_: None,
             help_text="test",
         ),
-        kwargs={"fund_codes": ["161725", "110022"], "pz": 40000},
+        kwargs={
+            "fund_codes": ["161725", "110022"],
+            "pz": 40000
+        },
         output=OutputOptions(
             format_name="table",
             indicator_level="full",
@@ -188,7 +211,9 @@ def build_shared_fund_nav_history_batch_request(trace_window: int = 32) -> Invoc
     )
 
 
-def build_shared_bond_history_request(trace_window: int = 32) -> InvocationRequest:
+def build_shared_bond_history_request(
+    trace_window: int = 32
+) -> InvocationRequest:
     """构造 shared 债券历史 observation 请求。"""
     definition = get_command_definition("bond.price.history")
     return InvocationRequest(
@@ -220,7 +245,9 @@ def build_shared_bond_history_request(trace_window: int = 32) -> InvocationReque
     )
 
 
-def build_shared_quote_profile_request(trace_window: int = 32) -> InvocationRequest:
+def build_shared_quote_profile_request(
+    trace_window: int = 32
+) -> InvocationRequest:
     """构造 shared 通用行情资料 observation 请求。"""
     definition = get_shared_command_definition("quote.profile")
     return InvocationRequest(
@@ -246,7 +273,9 @@ def build_shared_quote_profile_request(trace_window: int = 32) -> InvocationRequ
     )
 
 
-def build_shared_stock_live_request(trace_window: int = 32, limit: int | None = None) -> InvocationRequest:
+def build_shared_stock_live_request(
+    trace_window: int = 32, limit: int | None = None
+) -> InvocationRequest:
     """构造 shared 股票实时 observation 请求。"""
     definition = get_shared_command_definition("stock.price.live")
     return InvocationRequest(
@@ -256,7 +285,10 @@ def build_shared_stock_live_request(trace_window: int = 32, limit: int | None = 
             callback=lambda **_: None,
             help_text="test",
         ),
-        kwargs={"fs": (), "market_type": "A_stock"},
+        kwargs={
+            "fs": (),
+            "market_type": "A_stock"
+        },
         output=OutputOptions(
             format_name="table",
             indicator_level="full",
@@ -276,21 +308,31 @@ def build_shared_stock_live_request(trace_window: int = 32, limit: int | None = 
 class ObservationSmokeTest(unittest.TestCase):
     """覆盖 shared observation 结构化输出的关键烟雾场景。"""
 
-    def test_trace_window_defaults_to_32_and_accepts_user_override(self) -> None:
+    def test_trace_window_defaults_to_32_and_accepts_user_override(
+        self
+    ) -> None:
         """默认 trace window 为 32，用户传值时应按请求裁剪。"""
         frame = build_history_frame()
-        default_payload = build_observation_output(build_shared_stock_history_request(), frame)
-        override_payload = build_observation_output(build_shared_stock_history_request(trace_window=4), frame)
+        default_payload = build_observation_output(
+            build_shared_stock_history_request(), frame
+        )
+        override_payload = build_observation_output(
+            build_shared_stock_history_request(trace_window=4), frame
+        )
         self.assertIsInstance(default_payload, ObservationPayload)
         self.assertIsInstance(override_payload, ObservationPayload)
         print_observation("默认 trace payload.meta", default_payload.meta)
         print_observation("覆盖 trace payload.meta", override_payload.meta)
 
         self.assertEqual(default_payload.meta["trace_window"], 32)
-        self.assertEqual(len(default_payload.trace_points[0].points), len(frame))
+        self.assertEqual(
+            len(default_payload.trace_points[0].points), len(frame)
+        )
         self.assertEqual(override_payload.meta["trace_window"], 4)
         self.assertEqual(len(override_payload.trace_points[0].points), 4)
-        self.assertEqual(override_payload.trace_points[0].points[0]["bar_offset"], -3)
+        self.assertEqual(
+            override_payload.trace_points[0].points[0]["bar_offset"], -3
+        )
 
     def test_recent_events_cover_multiple_indicator_families(self) -> None:
         """近期事件应覆盖均线交叉、阈值跨越、band touch 与方向变化。"""
@@ -313,7 +355,7 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIn("obv_rose_3_bars", keys)
 
     def test_shared_stock_history_can_build_observation_payload(self) -> None:
-        """shared stock history 结果应能生成标准历史 observation。"""
+        """Shared stock history 结果应能生成标准历史 observation。"""
         frame = build_history_frame().rename(
             columns={
                 "股票代码": "symbol",
@@ -327,7 +369,9 @@ class ObservationSmokeTest(unittest.TestCase):
             }
         )
         frame["symbol"] = "000001"
-        payload = build_observation_output(build_shared_stock_history_request(trace_window=4), frame)
+        payload = build_observation_output(
+            build_shared_stock_history_request(trace_window=4), frame
+        )
         print_observation("shared stock history payload", payload)
 
         self.assertIsInstance(payload, ObservationPayload)
@@ -343,7 +387,9 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertTrue(payload.trace_points)
         self.assertTrue(payload.recent_events)
 
-    def test_shared_stock_history_observation_exposes_final_backend_under_auto(self) -> None:
+    def test_shared_stock_history_observation_exposes_final_backend_under_auto(
+        self
+    ) -> None:
         frame = build_history_frame().rename(
             columns={
                 "股票代码": "symbol",
@@ -362,7 +408,9 @@ class ObservationSmokeTest(unittest.TestCase):
             requested=None,
             resolved=BackendName.AUTO,
             source="default",
-            candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
+            candidate_chain=(
+                BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE
+            ),
             final_backend=BackendName.YFINANCE,
         )
 
@@ -371,12 +419,17 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.meta["requested_backend"], None)
         self.assertEqual(payload.meta["resolved_backend"], "auto")
         self.assertEqual(payload.meta["final_backend"], "yfinance")
-        self.assertEqual(payload.meta["candidate_chain"], ["akshare", "yfinance", "efinance"])
+        self.assertEqual(
+            payload.meta["candidate_chain"],
+            ["akshare", "yfinance", "efinance"]
+        )
 
-    def test_shared_stock_history_observation_normalizes_provider_alias_columns(self) -> None:
-        """shared stock history 应优先通过契约层兼容 provider 别名列。"""
+    def test_shared_stock_history_alias_columns(self) -> None:
+        """Shared stock history 应优先通过契约层兼容 provider 别名列。"""
         frame = build_history_frame().copy()
-        payload = build_observation_output(build_shared_stock_history_request(trace_window=4), frame)
+        payload = build_observation_output(
+            build_shared_stock_history_request(trace_window=4), frame
+        )
 
         print_observation("shared stock history alias payload", payload)
         self.assertIsInstance(payload, ObservationPayload)
@@ -398,7 +451,9 @@ class ObservationSmokeTest(unittest.TestCase):
             }
         )
         frame["symbol"] = "113519"
-        payload = build_observation_output(build_shared_bond_history_request(trace_window=4), frame)
+        payload = build_observation_output(
+            build_shared_bond_history_request(trace_window=4), frame
+        )
 
         print_observation("shared bond history payload", payload)
         self.assertIsInstance(payload, ObservationPayload)
@@ -406,8 +461,10 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.meta["code"], "113519")
         self.assertEqual(payload.latest_quote["close"], 106.0)
 
-    def test_shared_history_lookup_uses_standard_supplement_interface(self) -> None:
-        """shared 历史回补应走标准补充接口，而不是旧 provider 直调。"""
+    def test_shared_history_lookup_uses_standard_supplement_interface(
+        self
+    ) -> None:
+        """Shared 历史回补应走标准补充接口，而不是旧 provider 直调。"""
         request = build_shared_stock_history_request(trace_window=4)
         standard_rows = [
             {
@@ -430,9 +487,14 @@ class ObservationSmokeTest(unittest.TestCase):
             },
         ]
 
-        standard_result = type("MockStandardResult", (), {"data": standard_rows})()
-        with patch("opentrade.facade.CommandFacade.invoke", return_value=standard_result) as mock_invoke:
-            frame = fetch_standard_history_for_request(request, "000001", "basic")
+        standard_result = type(
+            "MockStandardResult", (), {"data": standard_rows}
+        )()
+        with patch("opentrade.facade.CommandFacade.invoke",
+                   return_value=standard_result) as mock_invoke:
+            frame = fetch_standard_history_for_request(
+                request, "000001", "basic"
+            )
 
         print_observation(
             "shared history lookup frame",
@@ -443,7 +505,7 @@ class ObservationSmokeTest(unittest.TestCase):
         mock_invoke.assert_called_once()
 
     def test_shared_stock_profile_can_build_observation_payload(self) -> None:
-        """shared stock profile 结果应能复用共享历史回补生成 observation payload。"""
+        """Shared stock profile 结果应能复用共享历史回补生成 observation payload。"""
         profile_row = pd.Series(
             {
                 "code": "000001",
@@ -472,7 +534,9 @@ class ObservationSmokeTest(unittest.TestCase):
                 (),
                 {"data": history_frame.to_dict(orient="records")},
             )()
-            payload = build_observation_output(build_shared_stock_profile_request(trace_window=4), profile_row)
+            payload = build_observation_output(
+                build_shared_stock_profile_request(trace_window=4), profile_row
+            )
 
         print_observation("shared stock profile payload", payload)
         self.assertIsInstance(payload, ObservationPayload)
@@ -506,16 +570,20 @@ class ObservationSmokeTest(unittest.TestCase):
         )
 
         with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
-            mock_invoke.side_effect = lambda _definition, _backend, request_data: type(
-                "MockStandardResult",
-                (),
-                {
-                    "data": history_frame.assign(
-                        symbol=request_data["codes"][0],
-                    ).to_dict(orient="records")
-                },
-            )()
-            payload = build_observation_output(build_shared_quote_profile_request(trace_window=4), profile_row)
+            mock_invoke.side_effect = (
+                lambda _definition, _backend, request_data: type(
+                    "MockStandardResult",
+                    (),
+                    {
+                        "data": history_frame.assign(
+                            symbol=request_data["codes"][0],
+                        ).to_dict(orient="records")
+                    },
+                )()
+            )
+            payload = build_observation_output(
+                build_shared_quote_profile_request(trace_window=4), profile_row
+            )
 
         print_observation("shared quote profile payload", payload)
         self.assertIsInstance(payload, ObservationPayload)
@@ -523,8 +591,10 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.meta["code"], "1.000001")
         self.assertEqual(payload.current_metrics["close"], 106.0)
 
-    def test_shared_stock_profile_observation_normalizes_provider_alias_fields(self) -> None:
-        """shared stock profile 应优先通过契约层兼容 provider 字段别名。"""
+    def test_shared_stock_profile_observation_normalizes_provider_alias_fields(
+        self
+    ) -> None:
+        """Shared stock profile 应优先通过契约层兼容 provider 字段别名。"""
         profile_row = pd.Series(
             {
                 "股票代码": "000001",
@@ -553,7 +623,9 @@ class ObservationSmokeTest(unittest.TestCase):
                 (),
                 {"data": history_frame.to_dict(orient="records")},
             )()
-            payload = build_observation_output(build_shared_stock_profile_request(trace_window=4), profile_row)
+            payload = build_observation_output(
+                build_shared_stock_profile_request(trace_window=4), profile_row
+            )
 
         print_observation("shared stock profile alias payload", payload)
         self.assertIsInstance(payload, ObservationPayload)
@@ -561,15 +633,31 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertEqual(payload.latest_quote["name"], "平安银行")
         self.assertEqual(payload.current_metrics["close"], 106.0)
 
-    def test_shared_fund_nav_history_builds_defined_history_observation(self) -> None:
-        """shared fund nav history 应走明确的净值序列 observation 主链。"""
+    def test_shared_fund_nav_history_builds_defined_history_observation(
+        self
+    ) -> None:
+        """Shared fund nav history 应走明确的净值序列 observation 主链。"""
         frame = pd.DataFrame(
             [
-                {"date": "2026-05-26", "symbol": "161725", "unit_nav": 1.001, "accumulated_nav": 2.001, "change_pct": 0.1},
-                {"date": "2026-05-27", "symbol": "161725", "unit_nav": 1.002, "accumulated_nav": 2.003, "change_pct": 0.2},
+                {
+                    "date": "2026-05-26",
+                    "symbol": "161725",
+                    "unit_nav": 1.001,
+                    "accumulated_nav": 2.001,
+                    "change_pct": 0.1
+                },
+                {
+                    "date": "2026-05-27",
+                    "symbol": "161725",
+                    "unit_nav": 1.002,
+                    "accumulated_nav": 2.003,
+                    "change_pct": 0.2
+                },
             ]
         )
-        payload = build_observation_output(build_shared_fund_nav_history_request(trace_window=4), frame)
+        payload = build_observation_output(
+            build_shared_fund_nav_history_request(trace_window=4), frame
+        )
 
         print_observation("shared fund nav history payload", payload)
         self.assertIsInstance(payload, ObservationPayload)
@@ -580,36 +668,89 @@ class ObservationSmokeTest(unittest.TestCase):
         self.assertIn("close", payload.current_metrics)
         self.assertFalse(payload.sections)
 
-    def test_shared_fund_nav_history_batch_builds_multi_source_payloads(self) -> None:
+    def test_shared_fund_nav_history_batch_builds_multi_source_payloads(
+        self
+    ) -> None:
         frame_map = {
-            "161725": pd.DataFrame(
+            "161725":
+            pd.DataFrame(
                 [
-                    {"date": "2026-05-26", "symbol": "161725", "unit_nav": 1.001},
-                    {"date": "2026-05-27", "symbol": "161725", "unit_nav": 1.002},
+                    {
+                        "date": "2026-05-26",
+                        "symbol": "161725",
+                        "unit_nav": 1.001
+                    },
+                    {
+                        "date": "2026-05-27",
+                        "symbol": "161725",
+                        "unit_nav": 1.002
+                    },
                 ]
             ),
-            "110022": pd.DataFrame(
+            "110022":
+            pd.DataFrame(
                 [
-                    {"date": "2026-05-26", "symbol": "110022", "unit_nav": 2.001},
-                    {"date": "2026-05-27", "symbol": "110022", "unit_nav": 2.003},
+                    {
+                        "date": "2026-05-26",
+                        "symbol": "110022",
+                        "unit_nav": 2.001
+                    },
+                    {
+                        "date": "2026-05-27",
+                        "symbol": "110022",
+                        "unit_nav": 2.003
+                    },
                 ]
             ),
         }
-        payloads = build_observation_output(build_shared_fund_nav_history_batch_request(trace_window=4), frame_map)
+        payloads = build_observation_output(
+            build_shared_fund_nav_history_batch_request(trace_window=4),
+            frame_map
+        )
 
         print_observation("shared fund nav history-batch payloads", payloads)
         self.assertIsInstance(payloads, dict)
         self.assertEqual(sorted(payloads), ["110022", "161725"])
-        self.assertTrue(all(isinstance(item, ObservationPayload) for item in payloads.values()))
-        self.assertEqual(payloads["161725"].meta["function"], "fund.nav.history-batch")
+        self.assertTrue(
+            all(
+                isinstance(item, ObservationPayload)
+                for item in payloads.values()
+            )
+        )
+        self.assertEqual(
+            payloads["161725"].meta["function"], "fund.nav.history-batch"
+        )
 
-    def test_shared_stock_live_can_build_multi_source_observation_with_limit(self) -> None:
-        """shared stock live 应能生成受 limit 控制的多 source observation。"""
+    def test_shared_stock_live_can_build_multi_source_observation_with_limit(
+        self
+    ) -> None:
+        """Shared stock live 应能生成受 limit 控制的多 source observation。"""
         frame = pd.DataFrame(
             [
-                {"symbol": "000001", "name": "平安银行", "close": 10.1, "open": 10.0, "high": 10.2, "low": 9.9},
-                {"symbol": "000002", "name": "万科A", "close": 8.8, "open": 8.7, "high": 8.9, "low": 8.6},
-                {"symbol": "000004", "name": "国华网安", "close": 12.3, "open": 12.1, "high": 12.5, "low": 12.0},
+                {
+                    "symbol": "000001",
+                    "name": "平安银行",
+                    "close": 10.1,
+                    "open": 10.0,
+                    "high": 10.2,
+                    "low": 9.9
+                },
+                {
+                    "symbol": "000002",
+                    "name": "万科A",
+                    "close": 8.8,
+                    "open": 8.7,
+                    "high": 8.9,
+                    "low": 8.6
+                },
+                {
+                    "symbol": "000004",
+                    "name": "国华网安",
+                    "close": 12.3,
+                    "open": 12.1,
+                    "high": 12.5,
+                    "low": 12.0
+                },
             ]
         )
         history_frame = build_history_frame().rename(
@@ -628,11 +769,16 @@ class ObservationSmokeTest(unittest.TestCase):
         def build_history_result(symbol: str):
             rows = history_frame.copy()
             rows["symbol"] = symbol
-            return type("MockStandardResult", (), {"data": rows.to_dict(orient="records")})()
+            return type(
+                "MockStandardResult", (),
+                {"data": rows.to_dict(orient="records")}
+            )()
 
         with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
-            mock_invoke.side_effect = lambda _definition, _backend, request_data: build_history_result(
-                request_data["stock_codes"][0]
+            mock_invoke.side_effect = (
+                lambda _definition, _backend, request_data: (
+                    build_history_result(request_data["stock_codes"][0])
+                )
             )
             payloads = build_observation_output(
                 build_shared_stock_live_request(trace_window=4, limit=2),
@@ -642,15 +788,31 @@ class ObservationSmokeTest(unittest.TestCase):
         print_observation("shared stock live payloads", payloads)
         self.assertIsInstance(payloads, dict)
         self.assertEqual(sorted(payloads), ["000001", "000002"])
-        self.assertTrue(all(isinstance(item, ObservationPayload) for item in payloads.values()))
-        self.assertEqual(payloads["000001"].meta["function"], "stock.price.live")
+        self.assertTrue(
+            all(
+                isinstance(item, ObservationPayload)
+                for item in payloads.values()
+            )
+        )
+        self.assertEqual(
+            payloads["000001"].meta["function"], "stock.price.live"
+        )
         self.assertEqual(payloads["000001"].latest_quote["code"], "000001")
 
-    def test_shared_stock_live_observation_normalizes_provider_alias_rows(self) -> None:
-        """shared stock live 应优先通过契约层兼容 provider 实时行别名。"""
+    def test_shared_stock_live_observation_normalizes_provider_alias_rows(
+        self
+    ) -> None:
+        """Shared stock live 应优先通过契约层兼容 provider 实时行别名。"""
         frame = pd.DataFrame(
             [
-                {"代码": "000001", "名称": "平安银行", "最新价": 10.1, "今开": 10.0, "最高": 10.2, "最低": 9.9},
+                {
+                    "代码": "000001",
+                    "名称": "平安银行",
+                    "最新价": 10.1,
+                    "今开": 10.0,
+                    "最高": 10.2,
+                    "最低": 9.9
+                },
             ]
         )
         history_frame = build_history_frame().rename(
@@ -667,21 +829,27 @@ class ObservationSmokeTest(unittest.TestCase):
         )
 
         with patch("opentrade.facade.CommandFacade.invoke") as mock_invoke:
-            mock_invoke.side_effect = lambda _definition, _backend, request_data: type(
-                "MockStandardResult",
-                (),
-                {
-                    "data": history_frame.assign(
-                        symbol=request_data["stock_codes"][0],
-                    ).to_dict(orient="records")
-                },
-            )()
-            payloads = build_observation_output(build_shared_stock_live_request(trace_window=4, limit=1), frame)
+            mock_invoke.side_effect = (
+                lambda _definition, _backend, request_data: type(
+                    "MockStandardResult",
+                    (),
+                    {
+                        "data": history_frame.assign(
+                            symbol=request_data["stock_codes"][0],
+                        ).to_dict(orient="records")
+                    },
+                )()
+            )
+            payloads = build_observation_output(
+                build_shared_stock_live_request(trace_window=4, limit=1), frame
+            )
 
         print_observation("shared stock live alias payloads", payloads)
         self.assertIsInstance(payloads, dict)
         self.assertEqual(list(payloads), ["000001"])
-        self.assertEqual(payloads["000001"].meta["function"], "stock.price.live")
+        self.assertEqual(
+            payloads["000001"].meta["function"], "stock.price.live"
+        )
 
 
 if __name__ == "__main__":

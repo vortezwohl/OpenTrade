@@ -1,7 +1,7 @@
 """国内常见技术分析软件风格指标。
 
-这些指标在 A 股语境中更常见，很多交易软件会直接提供同名字段。这里把它们实现为
-纯算子，方便后续在策略或命令层直接复用。
+这些指标在 A 股语境中更常见，很多交易软件会直接提供同名字段。
+这里把它们实现为纯算子，方便后续在策略或命令层直接复用。
 """
 
 from __future__ import annotations
@@ -11,7 +11,12 @@ from typing import Iterable
 import pandas as pd
 
 from opentrade.indicators.base import sma
-from opentrade.indicators.utils import safe_divide, to_frame, to_series, validate_period
+from opentrade.indicators.utils import (
+    safe_divide,
+    to_frame,
+    to_series,
+    validate_period,
+)
 from opentrade.indicators.volume import ease_of_movement
 
 
@@ -22,13 +27,20 @@ def bias(values: pd.Series | Iterable[float], period: int = 6) -> pd.Series:
     return safe_divide(series - ma, ma) * 100
 
 
-def bbi(values: pd.Series | Iterable[float], periods: tuple[int, int, int, int] = (3, 6, 12, 24)) -> pd.Series:
+def bbi(
+    values: pd.Series | Iterable[float],
+    periods: tuple[int, int, int, int] = (3, 6, 12, 24)
+) -> pd.Series:
     """多空指标 BBI。"""
     series = to_series(values)
     return sum(sma(series, period) for period in periods) / len(periods)
 
 
-def psy(values: pd.Series | Iterable[float], period: int = 12, ma_period: int = 6) -> pd.DataFrame:
+def psy(
+    values: pd.Series | Iterable[float],
+    period: int = 12,
+    ma_period: int = 6
+) -> pd.DataFrame:
     """心理线 PSY。"""
     validate_period(period)
     series = to_series(values)
@@ -38,7 +50,11 @@ def psy(values: pd.Series | Iterable[float], period: int = 12, ma_period: int = 
     return to_frame({"psy": psy_series, "psy_ma": psy_ma})
 
 
-def vr(close: pd.Series | Iterable[float], volume: pd.Series | Iterable[float], period: int = 26) -> pd.Series:
+def vr(
+    close: pd.Series | Iterable[float],
+    volume: pd.Series | Iterable[float],
+    period: int = 26
+) -> pd.Series:
     """成交量变异率 VR。"""
     close_series = to_series(close)
     volume_series = to_series(volume)
@@ -46,12 +62,24 @@ def vr(close: pd.Series | Iterable[float], volume: pd.Series | Iterable[float], 
     av = volume_series.where(close_series > previous_close, 0.0)
     bv = volume_series.where(close_series < previous_close, 0.0)
     cv = volume_series.where(close_series == previous_close, 0.0)
-    numerator = av.rolling(period, min_periods=period).sum() + cv.rolling(period, min_periods=period).sum() / 2
-    denominator = bv.rolling(period, min_periods=period).sum() + cv.rolling(period, min_periods=period).sum() / 2
+    numerator = av.rolling(
+        period, min_periods=period
+    ).sum() + cv.rolling(
+        period, min_periods=period
+    ).sum() / 2
+    denominator = bv.rolling(
+        period, min_periods=period
+    ).sum() + cv.rolling(
+        period, min_periods=period
+    ).sum() / 2
     return safe_divide(numerator, denominator) * 100
 
 
-def mtm(values: pd.Series | Iterable[float], period: int = 12, ma_period: int = 6) -> pd.DataFrame:
+def mtm(
+    values: pd.Series | Iterable[float],
+    period: int = 12,
+    ma_period: int = 6
+) -> pd.DataFrame:
     """动量线 MTM。"""
     series = to_series(values)
     mtm_series = series - series.shift(period)
@@ -59,7 +87,12 @@ def mtm(values: pd.Series | Iterable[float], period: int = 12, ma_period: int = 
     return to_frame({"mtm": mtm_series, "mtm_ma": mtm_ma})
 
 
-def dma(values: pd.Series | Iterable[float], short_period: int = 10, long_period: int = 50, ama_period: int = 10) -> pd.DataFrame:
+def dma(
+    values: pd.Series | Iterable[float],
+    short_period: int = 10,
+    long_period: int = 50,
+    ama_period: int = 10
+) -> pd.DataFrame:
     """平行线差指标 DMA。"""
     series = to_series(values)
     dif = sma(series, short_period) - sma(series, long_period)
@@ -86,8 +119,10 @@ def brar(
         (open_series - low_series).rolling(period, min_periods=period).sum(),
     ) * 100
     br = safe_divide(
-        (high_series - previous_close).clip(lower=0).rolling(period, min_periods=period).sum(),
-        (previous_close - low_series).clip(lower=0).rolling(period, min_periods=period).sum(),
+        (high_series - previous_close
+         ).clip(lower=0).rolling(period, min_periods=period).sum(),
+        (previous_close -
+         low_series).clip(lower=0).rolling(period, min_periods=period).sum(),
     ) * 100
     return to_frame({"ar": ar, "br": br})
 
@@ -113,7 +148,15 @@ def cr(
     ma2 = sma(cr_series, 10)
     ma3 = sma(cr_series, 20)
     ma4 = sma(cr_series, 40)
-    return to_frame({"cr": cr_series, "ma1": ma1, "ma2": ma2, "ma3": ma3, "ma4": ma4})
+    return to_frame(
+        {
+            "cr": cr_series,
+            "ma1": ma1,
+            "ma2": ma2,
+            "ma3": ma3,
+            "ma4": ma4
+        }
+    )
 
 
 def emv(

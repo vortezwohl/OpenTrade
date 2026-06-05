@@ -9,7 +9,6 @@ from __future__ import annotations
 import unittest
 
 import pandas as pd
-import numpy as np
 
 from opentrade import indicators
 from tests.cli_regression_support import print_observation
@@ -19,11 +18,11 @@ def _ohlcv() -> pd.DataFrame:
     """构造一段 30 行的标准 OHLCV 样本数据。"""
     return pd.DataFrame(
         {
-            "open":  [10.0 + i * 0.15 for i in range(30)],
-            "high":  [10.2 + i * 0.15 for i in range(30)],
-            "low":   [9.9 + i * 0.15 for i in range(30)],
+            "open": [10.0 + i * 0.15 for i in range(30)],
+            "high": [10.2 + i * 0.15 for i in range(30)],
+            "low": [9.9 + i * 0.15 for i in range(30)],
             "close": [10.1 + i * 0.15 for i in range(30)],
-            "volume":[10000 + i * 200 for i in range(30)],
+            "volume": [10000 + i * 200 for i in range(30)],
         }
     )
 
@@ -36,7 +35,7 @@ class IndicatorsFullTest(unittest.TestCase):
         cls.frame = _ohlcv()
         cls.o = cls.frame["open"]
         cls.h = cls.frame["high"]
-        cls.l = cls.frame["low"]
+        cls.low_series = cls.frame["low"]
         cls.c = cls.frame["close"]
         cls.v = cls.frame["volume"]
 
@@ -49,7 +48,15 @@ class IndicatorsFullTest(unittest.TestCase):
         import inspect
 
         module_funcs: dict[str, list[str]] = {}
-        for mod_name in ["base", "trend", "momentum", "volume", "volatility", "price", "chinese"]:
+        for mod_name in [
+            "base",
+            "trend",
+            "momentum",
+            "volume",
+            "volatility",
+            "price",
+            "chinese",
+        ]:
             full_name = f"opentrade.indicators.{mod_name}"
             mod = __import__(full_name, fromlist=["*"])
             funcs = sorted(
@@ -68,15 +75,23 @@ class IndicatorsFullTest(unittest.TestCase):
         extra = all_exported - all_module_funcs
         missing = all_module_funcs - all_exported
 
-        print_observation("__all__ 差异", {
-            "extra_in_all": sorted(extra),
-            "missing_from_all": sorted(missing),
-        })
+        print_observation(
+            "__all__ 差异", {
+                "extra_in_all": sorted(extra),
+                "missing_from_all": sorted(missing),
+            }
+        )
         # 只检查无遗漏（extra 可能是兼容性别名，可接受）
         # 排除内部工具函数（非指标算子）
-        utility_funcs = {'to_frame', 'rolling_mean', 'validate_period', 'rolling_std', 'to_series', 'safe_divide'}
+        utility_funcs = {
+            'to_frame', 'rolling_mean', 'validate_period', 'rolling_std',
+            'to_series', 'safe_divide'
+        }
         missing_indicators = missing - utility_funcs
-        self.assertEqual(len(missing_indicators), 0, f'__all__ 遗漏了指标函数: {missing_indicators}')
+        self.assertEqual(
+            len(missing_indicators), 0,
+            f'__all__ 遗漏了指标函数: {missing_indicators}'
+        )
 
     # ------------------------------------------------------------------
     # 趋势类指标
@@ -85,16 +100,41 @@ class IndicatorsFullTest(unittest.TestCase):
     def test_trend_indicators_callable(self) -> None:
         """趋势类指标应均可调用且不崩溃。"""
         cases = [
-            ("adx", lambda: indicators.adx(self.h, self.l, self.c)),
-            ("supertrend", lambda: indicators.supertrend(self.h, self.l, self.c)),
-            ("parabolic_sar", lambda: indicators.parabolic_sar(self.h, self.l)),
-            ("aroon_indicator", lambda: indicators.aroon_indicator(self.h, self.l)),
-            ("dmi", lambda: indicators.dmi(self.h, self.l, self.c)),
-            ("donchian_channel", lambda: indicators.donchian_channel(self.h, self.l)),
-            ("ichimoku_cloud", lambda: indicators.ichimoku_cloud(self.h, self.l, self.c)),
-            ("keltner_channel", lambda: indicators.keltner_channel(self.h, self.l, self.c)),
+            ("adx", lambda: indicators.adx(self.h, self.low_series, self.c)),
+            (
+                "supertrend",
+                lambda: indicators.supertrend(self.h, self.low_series, self.c)
+            ),
+            (
+                "parabolic_sar",
+                lambda: indicators.parabolic_sar(self.h, self.low_series)
+            ),
+            (
+                "aroon_indicator",
+                lambda: indicators.aroon_indicator(self.h, self.low_series)
+            ),
+            ("dmi", lambda: indicators.dmi(self.h, self.low_series, self.c)),
+            (
+                "donchian_channel",
+                lambda: indicators.donchian_channel(self.h, self.low_series)
+            ),
+            (
+                "ichimoku_cloud",
+                lambda: indicators.ichimoku_cloud(
+                    self.h, self.low_series, self.c
+                )
+            ),
+            (
+                "keltner_channel",
+                lambda: indicators.keltner_channel(
+                    self.h, self.low_series, self.c
+                )
+            ),
             ("macd", lambda: indicators.macd(self.c)),
-            ("moving_average_envelope", lambda: indicators.moving_average_envelope(self.c)),
+            (
+                "moving_average_envelope",
+                lambda: indicators.moving_average_envelope(self.c)
+            ),
         ]
         for name, fn in cases:
             with self.subTest(indicator=name):
@@ -108,18 +148,29 @@ class IndicatorsFullTest(unittest.TestCase):
     def test_momentum_indicators_callable(self) -> None:
         """动量类指标应均可调用且不崩溃。"""
         cases = [
-            ("cci", lambda: indicators.cci(self.h, self.l, self.c)),
+            ("cci", lambda: indicators.cci(self.h, self.low_series, self.c)),
             ("dpo", lambda: indicators.dpo(self.c)),
-            ("kdj", lambda: indicators.kdj(self.h, self.l, self.c)),
+            ("kdj", lambda: indicators.kdj(self.h, self.low_series, self.c)),
             ("momentum", lambda: indicators.momentum(self.c)),
             ("ppo", lambda: indicators.ppo(self.c)),
             ("roc", lambda: indicators.roc(self.c)),
             ("rsi", lambda: indicators.rsi(self.c)),
-            ("stochastic_oscillator", lambda: indicators.stochastic_oscillator(self.h, self.l, self.c)),
+            (
+                "stochastic_oscillator", lambda: indicators.
+                stochastic_oscillator(self.h, self.low_series, self.c)
+            ),
             ("trix", lambda: indicators.trix(self.c)),
             ("tsi", lambda: indicators.tsi(self.c)),
-            ("ultimate_oscillator", lambda: indicators.ultimate_oscillator(self.h, self.l, self.c)),
-            ("williams_r", lambda: indicators.williams_r(self.h, self.l, self.c)),
+            (
+                "ultimate_oscillator",
+                lambda: indicators.ultimate_oscillator(
+                    self.h, self.low_series, self.c
+                )
+            ),
+            (
+                "williams_r",
+                lambda: indicators.williams_r(self.h, self.low_series, self.c)
+            ),
         ]
         for name, fn in cases:
             with self.subTest(indicator=name):
@@ -133,16 +184,45 @@ class IndicatorsFullTest(unittest.TestCase):
     def test_volume_indicators_callable(self) -> None:
         """成交量类指标应均可调用且不崩溃。"""
         cases = [
-            ("accumulation_distribution", lambda: indicators.accumulation_distribution(self.h, self.l, self.c, self.v)),
-            ("chaikin_money_flow", lambda: indicators.chaikin_money_flow(self.h, self.l, self.c, self.v)),
-            ("chaikin_oscillator", lambda: indicators.chaikin_oscillator(self.h, self.l, self.c, self.v)),
-            ("ease_of_movement", lambda: indicators.ease_of_movement(self.h, self.l, self.v)),
+            (
+                "accumulation_distribution", lambda: indicators.
+                accumulation_distribution(
+                    self.h, self.low_series, self.c, self.v
+                )
+            ),
+            (
+                "chaikin_money_flow", lambda: indicators.
+                chaikin_money_flow(self.h, self.low_series, self.c, self.v)
+            ),
+            (
+                "chaikin_oscillator", lambda: indicators.
+                chaikin_oscillator(self.h, self.low_series, self.c, self.v)
+            ),
+            (
+                "ease_of_movement",
+                lambda: indicators.ease_of_movement(
+                    self.h, self.low_series, self.v
+                )
+            ),
             ("force_index", lambda: indicators.force_index(self.c, self.v)),
-            ("mfi", lambda: indicators.mfi(self.h, self.l, self.c, self.v)),
+            (
+                "mfi",
+                lambda: indicators.mfi(
+                    self.h, self.low_series, self.c, self.v
+                ),
+            ),
             ("obv", lambda: indicators.obv(self.c, self.v)),
-            ("price_volume_trend", lambda: indicators.price_volume_trend(self.c, self.v)),
+            (
+                "price_volume_trend",
+                lambda: indicators.price_volume_trend(self.c, self.v)
+            ),
             ("volume_ratio", lambda: indicators.volume_ratio(self.v)),
-            ("vwap", lambda: indicators.vwap(self.h, self.l, self.c, self.v)),
+            (
+                "vwap",
+                lambda: indicators.vwap(
+                    self.h, self.low_series, self.c, self.v
+                ),
+            ),
         ]
         for name, fn in cases:
             with self.subTest(indicator=name):
@@ -156,12 +236,24 @@ class IndicatorsFullTest(unittest.TestCase):
     def test_volatility_indicators_callable(self) -> None:
         """波动性类指标应均可调用且不崩溃。"""
         cases = [
-            ("atr", lambda: indicators.atr(self.h, self.l, self.c)),
+            ("atr", lambda: indicators.atr(self.h, self.low_series, self.c)),
             ("bollinger_bands", lambda: indicators.bollinger_bands(self.c)),
-            ("chaikin_volatility", lambda: indicators.chaikin_volatility(self.h, self.l)),
-            ("historical_volatility", lambda: indicators.historical_volatility(self.c)),
-            ("mass_index", lambda: indicators.mass_index(self.h, self.l)),
-            ("natr", lambda: indicators.natr(self.h, self.l, self.c)),
+            (
+                "chaikin_volatility",
+                lambda: indicators.chaikin_volatility(self.h, self.low_series)
+            ),
+            (
+                "historical_volatility",
+                lambda: indicators.historical_volatility(self.c)
+            ),
+            (
+                "mass_index",
+                lambda: indicators.mass_index(self.h, self.low_series),
+            ),
+            (
+                "natr",
+                lambda: indicators.natr(self.h, self.low_series, self.c),
+            ),
         ]
         for name, fn in cases:
             with self.subTest(indicator=name):
@@ -175,10 +267,14 @@ class IndicatorsFullTest(unittest.TestCase):
     def test_price_indicators_callable(self) -> None:
         """价格结构类指标应均可调用且不崩溃。"""
         # fibonacci_retracement 返回 dict
-        result = indicators.fibonacci_retracement(self.h, self.l)
-        self.assertIsInstance(result, pd.DataFrame, f"fibonacci_retracement 应返回 DataFrame，实际 {type(result).__name__}")
+        result = indicators.fibonacci_retracement(self.h, self.low_series)
+        self.assertIsInstance(
+            result,
+            pd.DataFrame,
+            f"fibonacci_retracement 应返回 DataFrame，实际 {type(result).__name__}",
+        )
         # pivot_points 返回 DataFrame
-        result2 = indicators.pivot_points(self.h, self.l, self.c)
+        result2 = indicators.pivot_points(self.h, self.low_series, self.c)
         self.assertIsNotNone(result2)
 
     # ------------------------------------------------------------------
@@ -188,13 +284,26 @@ class IndicatorsFullTest(unittest.TestCase):
     def test_chinese_indicators_callable(self) -> None:
         """中文特色指标应均可调用且不崩溃。"""
         cases = [
-            ("asi", lambda: indicators.asi(self.h, self.l, self.c, self.o)),
+            (
+                "asi",
+                lambda: indicators.asi(
+                    self.h, self.low_series, self.c, self.o
+                ),
+            ),
             ("bbi", lambda: indicators.bbi(self.c)),
             ("bias", lambda: indicators.bias(self.c)),
-            ("brar", lambda: indicators.brar(self.h, self.l, self.c, self.o)),
-            ("cr", lambda: indicators.cr(self.h, self.l, self.c)),
+            (
+                "brar",
+                lambda: indicators.brar(
+                    self.h, self.low_series, self.c, self.o
+                ),
+            ),
+            (
+                "cr",
+                lambda: indicators.cr(self.h, self.low_series, self.c),
+            ),
             ("dma", lambda: indicators.dma(self.c)),
-            ("emv", lambda: indicators.emv(self.h, self.l, self.v)),
+            ("emv", lambda: indicators.emv(self.h, self.low_series, self.v)),
             ("mtm", lambda: indicators.mtm(self.c)),
             ("psy", lambda: indicators.psy(self.c)),
             ("vr", lambda: indicators.vr(self.c, self.v)),
@@ -220,11 +329,22 @@ class IndicatorsFullTest(unittest.TestCase):
             ("trima", lambda: indicators.trima(self.c, period=10)),
             ("wma", lambda: indicators.wma(self.c, period=10)),
             ("zlema", lambda: indicators.zlema(self.c, period=10)),
-            ("true_range", lambda: indicators.true_range(self.h, self.l, self.c)),
+            (
+                "true_range",
+                lambda: indicators.true_range(self.h, self.low_series, self.c)
+            ),
             ("highest", lambda: indicators.highest(self.c, period=10)),
             ("lowest", lambda: indicators.lowest(self.c, period=10)),
-            ("median_price", lambda: indicators.median_price(self.h, self.l)),
-            ("typical_price", lambda: indicators.typical_price(self.h, self.l, self.c)),
+            (
+                "median_price",
+                lambda: indicators.median_price(self.h, self.low_series),
+            ),
+            (
+                "typical_price",
+                lambda: indicators.typical_price(
+                    self.h, self.low_series, self.c
+                )
+            ),
         ]
         for name, fn in cases:
             with self.subTest(indicator=name):
@@ -254,21 +374,31 @@ class IndicatorsFullTest(unittest.TestCase):
 
     def test_rsi_hand_calculation(self) -> None:
         """RSI 方向应与价格趋势一致。"""
-        prices = pd.Series([10.0, 10.5, 10.3, 10.8, 11.0, 10.9, 11.5, 12.0, 11.8, 12.5,
-                            12.8, 13.0, 12.7, 13.2, 13.5, 13.3, 13.8, 14.0, 14.2, 14.5])
+        prices = pd.Series(
+            [
+                10.0, 10.5, 10.3, 10.8, 11.0, 10.9, 11.5, 12.0, 11.8, 12.5,
+                12.8, 13.0, 12.7, 13.2, 13.5, 13.3, 13.8, 14.0, 14.2, 14.5
+            ]
+        )
         result = indicators.rsi(prices, period=5)
         print_observation("RSI 手工验证结果", result.to_list())
 
         valid = result.dropna()
-        self.assertTrue(valid.mean() > 45.0, f"上涨趋势中 RSI 均值应较高，实际 {valid.mean():.1f}")
+        self.assertTrue(
+            valid.mean() > 45.0,
+            f"上涨趋势中 RSI 均值应较高，实际 {valid.mean():.1f}",
+        )
 
     def test_adx_hand_calculation(self) -> None:
         """ADX 输出应包含三列且值在合理范围。"""
-        result = indicators.adx(self.h, self.l, self.c, period=5)
-        print_observation("ADX 手工验证统计", {
-            "type": type(result).__name__,
-            "shape": str(result.shape) if hasattr(result, "shape") else "N/A",
-        })
+        result = indicators.adx(self.h, self.low_series, self.c, period=5)
+        print_observation(
+            "ADX 手工验证统计", {
+                "type": type(result).__name__,
+                "shape":
+                str(result.shape) if hasattr(result, "shape") else "N/A",
+            }
+        )
 
         # ADX 应在 0-100 之间
         if isinstance(result, pd.DataFrame) and "adx" in result.columns:
@@ -285,10 +415,15 @@ class IndicatorsFullTest(unittest.TestCase):
         此测试记录已知行为，不要求通过，仅用于确认问题仍然存在或已被修复。
         """
         try:
-            result = indicators.rolling_support_resistance(self.h, self.l, self.c)
+            result = indicators.rolling_support_resistance(
+                self.h, self.low_series, self.c
+            )
             # 如果修复了，至少应返回非空结果
             self.assertIsNotNone(result)
-            print_observation("rolling_support_resistance 已修复", type(result).__name__)
+            print_observation(
+                "rolling_support_resistance 已修复",
+                type(result).__name__
+            )
         except ValueError as e:
             print_observation("rolling_support_resistance 已知问题", str(e))
             # 记录已知问题不判定失败

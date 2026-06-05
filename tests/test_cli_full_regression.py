@@ -6,26 +6,41 @@ from unittest.mock import patch
 import click
 from click.testing import CliRunner
 
-from opentrade.backends.base import BackendProvider, CapabilityHandler, ProviderExecutionError
+from opentrade.backends.base import (
+    BackendProvider,
+    CapabilityHandler,
+    ProviderExecutionError,
+)
 from opentrade.backends.factory import list_provider_extension_commands
 from opentrade.command_catalog import get_shared_command_definition
 from opentrade.command_catalog import SHARED_COMMANDS
 from opentrade.commands import create_root_command
 from opentrade.executor import CommandExecutor
 from opentrade.facade import AutoBackendExecutionError
-from opentrade.models import BackendName, BackendSelection, CommandSpec, InvocationRequest, OutputOptions, StandardResult, WatchOptions
+from opentrade.models import (
+    BackendName,
+    BackendSelection,
+    CommandSpec,
+    InvocationRequest,
+    OutputOptions,
+    StandardResult,
+    WatchOptions,
+)
 
 
-def collect_leaf_paths(command: click.Command, prefix: tuple[str, ...] = ()) -> list[tuple[str, ...]]:
+def collect_leaf_paths(
+    command: click.Command, prefix: tuple[str, ...] = ()
+) -> list[tuple[str, ...]]:
     if isinstance(command, click.Group):
         paths: list[tuple[str, ...]] = []
         for name, child in command.commands.items():
-            paths.extend(collect_leaf_paths(child, prefix + (name,)))
+            paths.extend(collect_leaf_paths(child, prefix + (name, )))
         return paths
     return [prefix]
 
 
 class CliFullRegressionTest(unittest.TestCase):
+
     def setUp(self) -> None:
         self.runner = CliRunner()
         self.cli = create_root_command()
@@ -33,22 +48,38 @@ class CliFullRegressionTest(unittest.TestCase):
     def test_root_help_exposes_new_taxonomy(self) -> None:
         result = self.runner.invoke(self.cli, ["--help"])
         self.assertEqual(result.exit_code, 0, msg=result.output)
-        for token in ("stock", "fund", "bond", "futures", "quote", "market", "resolve", "search", "watch"):
+        for token in (
+            "stock",
+            "fund",
+            "bond",
+            "futures",
+            "quote",
+            "market",
+            "resolve",
+            "search",
+            "watch",
+        ):
             self.assertIn(token, result.output)
         for token in ("equity", "akshare", "instrument"):
             self.assertNotIn(token, result.output)
 
-    def test_leaf_inventory_matches_catalog_plus_extension_and_watch(self) -> None:
-        actual = sorted(" ".join(path) for path in collect_leaf_paths(self.cli))
+    def test_leaf_inventory_matches_catalog_plus_extension_and_watch(
+        self
+    ) -> None:
+        actual = sorted(
+            " ".join(path) for path in collect_leaf_paths(self.cli)
+        )
         expected = sorted(
             {
                 "watch",
                 *(
-                    " ".join(command.cli_path)
-                    for command in SHARED_COMMANDS
+                    " ".join(command.cli_path) for command in SHARED_COMMANDS
                     if command.command_key != "instrument.search"
                 ),
-                *(" ".join(command.cli_path) for command in list_provider_extension_commands()),
+                *(
+                    " ".join(command.cli_path)
+                    for command in list_provider_extension_commands()
+                ),
             }
         )
         self.assertEqual(actual, expected)
@@ -60,19 +91,29 @@ class CliFullRegressionTest(unittest.TestCase):
         def fake_run(self, request):  # noqa: ANN001
             captured.append(
                 {
-                    "path": request.spec.cli_path,
-                    "command_key": request.command_definition.command_key,
-                    "kwargs": dict(request.kwargs),
-                    "backend": request.backend_selection.resolved.value,
-                    "candidate_chain": tuple(item.value for item in request.backend_selection.candidate_chain),
+                    "path":
+                    request.spec.cli_path,
+                    "command_key":
+                    request.command_definition.command_key,
+                    "kwargs":
+                    dict(request.kwargs),
+                    "backend":
+                    request.backend_selection.resolved.value,
+                    "candidate_chain":
+                    tuple(
+                        item.value
+                        for item in request.backend_selection.candidate_chain
+                    ),
                 }
             )
 
         with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
-            result = self.runner.invoke(self.cli, ["search", "--query", "AAPL"])
+            result = self.runner.invoke(
+                self.cli, ["search", "--query", "AAPL"]
+            )
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
-        self.assertEqual(captured[0]["path"], ("search",))
+        self.assertEqual(captured[0]["path"], ("search", ))
         self.assertEqual(captured[0]["command_key"], "instrument.search")
         self.assertEqual(captured[0]["kwargs"]["keyword"], "AAPL")
         self.assertEqual(captured[0]["backend"], "auto")
@@ -81,18 +122,54 @@ class CliFullRegressionTest(unittest.TestCase):
     def test_representative_commands_route_through_executor(self) -> None:
         captured: list[dict[str, object]] = []
         commands = [
-            (["stock", "price", "history", "--symbols", "000001"], "stock.price.history", "auto"),
-            (["stock", "price", "history", "--symbols", "AAPL", "--backend", "yfinance"], "stock.price.history", "yfinance"),
-            (["fund", "nav", "history", "--symbol", "161725"], "fund.nav.history", "auto"),
-            (["fund", "nav", "history-batch", "--symbols", "161725", "--symbols", "110022"], "fund.nav.history-batch", "efinance"),
+            (
+                ["stock", "price", "history", "--symbols",
+                 "000001"], "stock.price.history", "auto"
+            ),
+            (
+                [
+                    "stock", "price", "history", "--symbols", "AAPL",
+                    "--backend", "yfinance"
+                ], "stock.price.history", "yfinance"
+            ),
+            (
+                ["fund", "nav", "history", "--symbol",
+                 "161725"], "fund.nav.history", "auto"
+            ),
+            (
+                [
+                    "fund", "nav", "history-batch", "--symbols", "161725",
+                    "--symbols", "110022"
+                ], "fund.nav.history-batch", "efinance"
+            ),
             (["bond", "catalog"], "bond.catalog", "efinance"),
             (["futures", "price", "live"], "futures.price.live", "efinance"),
-            (["quote", "price", "latest", "--quote-ids", "1.000001"], "quote.price.latest", "auto"),
-            (["quote", "price", "latest", "--quote-ids", "AAPL", "--backend", "yfinance"], "quote.price.latest", "yfinance"),
-            (["quote", "news", "--quote-id", "AAPL", "--result-count", "3"], "yfinance.quote.news", "yfinance"),
-            (["market", "price", "live", "--market", "A_stock"], "market.price.live", "efinance"),
-            (["resolve", "quote-id", "--symbol", "000001"], "resolve.quote-id", "efinance"),
-            (["search", "local", "--query", "AAPL"], "search.local", "efinance"),
+            (
+                ["quote", "price", "latest", "--quote-ids",
+                 "1.000001"], "quote.price.latest", "auto"
+            ),
+            (
+                [
+                    "quote", "price", "latest", "--quote-ids", "AAPL",
+                    "--backend", "yfinance"
+                ], "quote.price.latest", "yfinance"
+            ),
+            (
+                ["quote", "news", "--quote-id", "AAPL", "--result-count",
+                 "3"], "yfinance.quote.news", "yfinance"
+            ),
+            (
+                ["market", "price", "live", "--market",
+                 "A_stock"], "market.price.live", "efinance"
+            ),
+            (
+                ["resolve", "quote-id", "--symbol",
+                 "000001"], "resolve.quote-id", "efinance"
+            ),
+            (
+                ["search", "local", "--query",
+                 "AAPL"], "search.local", "efinance"
+            ),
         ]
 
         def fake_run(self, request):  # noqa: ANN001
@@ -108,10 +185,15 @@ class CliFullRegressionTest(unittest.TestCase):
         with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             for args, _, _ in commands:
                 result = self.runner.invoke(self.cli, args)
-                self.assertEqual(result.exit_code, 0, msg=f"{args}: {result.output}")
+                self.assertEqual(
+                    result.exit_code,
+                    0,
+                    msg=f"{args}: {result.output}",
+                )
 
         self.assertEqual(len(captured), len(commands))
-        for item, (_, command_key, backend) in zip(captured, commands, strict=False):
+        for item, (_, command_key, backend) in zip(captured, commands,
+                                                   strict=False):
             self.assertEqual(item["command_key"], command_key)
             self.assertEqual(item["backend"], backend)
 
@@ -128,7 +210,9 @@ class CliFullRegressionTest(unittest.TestCase):
             )
 
         with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
-            result = self.runner.invoke(self.cli, ["stock", "industry", "boards"])
+            result = self.runner.invoke(
+                self.cli, ["stock", "industry", "boards"]
+            )
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
         self.assertEqual(captured[0]["path"], ("stock", "industry", "boards"))
@@ -179,32 +263,51 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertIn("--result-count", result.output)
         self.assertEqual(result.output.count("--count INTEGER"), 1)
 
-    def test_help_mentions_yfinance_semantics_for_supported_shared_command(self) -> None:
-        result = self.runner.invoke(self.cli, ["quote", "price", "latest", "--help"])
+    def test_help_mentions_yfinance_semantics_for_supported_shared_command(
+        self
+    ) -> None:
+        result = self.runner.invoke(
+            self.cli, ["quote", "price", "latest", "--help"]
+        )
         self.assertEqual(result.exit_code, 0, msg=result.output)
         self.assertIn("支持后端: efinance, yfinance", result.output)
         self.assertIn("Yahoo ticker / symbol", result.output)
 
-    def test_watch_wrapper_keeps_provider_extension_default_routing(self) -> None:
+    def test_watch_wrapper_keeps_provider_extension_default_routing(
+        self
+    ) -> None:
         captured: list[dict[str, object]] = []
 
         def fake_run(self, request):  # noqa: ANN001
             captured.append(
                 {
-                    "path": request.spec.cli_path,
-                    "command_key": request.command_definition.command_key,
-                    "backend": request.backend_selection.resolved.value,
-                    "candidate_chain": tuple(item.value for item in request.backend_selection.candidate_chain),
-                    "watch_enabled": request.watch.enabled,
-                    "interval": request.watch.interval,
-                    "count": request.watch.count,
+                    "path":
+                    request.spec.cli_path,
+                    "command_key":
+                    request.command_definition.command_key,
+                    "backend":
+                    request.backend_selection.resolved.value,
+                    "candidate_chain":
+                    tuple(
+                        item.value
+                        for item in request.backend_selection.candidate_chain
+                    ),
+                    "watch_enabled":
+                    request.watch.enabled,
+                    "interval":
+                    request.watch.interval,
+                    "count":
+                    request.watch.count,
                 }
             )
 
         with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(
                 self.cli,
-                ["watch", "--interval", "3", "--count", "2", "stock", "industry", "boards"],
+                [
+                    "watch", "--interval", "3", "--count", "2", "stock",
+                    "industry", "boards"
+                ],
             )
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -216,22 +319,33 @@ class CliFullRegressionTest(unittest.TestCase):
         self.assertEqual(captured[0]["interval"], 3.0)
         self.assertEqual(captured[0]["count"], 2)
 
-    def test_watch_wrapper_keeps_auto_candidate_chain_for_shared_command(self) -> None:
+    def test_watch_wrapper_keeps_auto_candidate_chain_for_shared_command(
+        self
+    ) -> None:
         captured: list[dict[str, object]] = []
 
         def fake_run(self, request):  # noqa: ANN001
             captured.append(
                 {
-                    "backend": request.backend_selection.resolved.value,
-                    "candidate_chain": tuple(item.value for item in request.backend_selection.candidate_chain),
-                    "watch_enabled": request.watch.enabled,
+                    "backend":
+                    request.backend_selection.resolved.value,
+                    "candidate_chain":
+                    tuple(
+                        item.value
+                        for item in request.backend_selection.candidate_chain
+                    ),
+                    "watch_enabled":
+                    request.watch.enabled,
                 }
             )
 
         with patch("opentrade.executor.CommandExecutor.run", new=fake_run):
             result = self.runner.invoke(
                 self.cli,
-                ["watch", "--interval", "3", "--count", "2", "stock", "price", "history", "--symbols", "000001"],
+                [
+                    "watch", "--interval", "3", "--count", "2", "stock",
+                    "price", "history", "--symbols", "000001"
+                ],
             )
 
         self.assertEqual(result.exit_code, 0, msg=result.output)
@@ -243,29 +357,54 @@ class CliFullRegressionTest(unittest.TestCase):
         definition = get_shared_command_definition("stock.price.history")
 
         class RuntimeFailHandler(CapabilityHandler):
+
             def __init__(self, message: str) -> None:
                 self.message = message
 
-            def execute(self, request_data: dict[str, object]) -> StandardResult:
-                raise ProviderExecutionError(BackendName.AKSHARE, "stock.price.history", "execute", self.message)
+            def execute(
+                self, request_data: dict[str, object]
+            ) -> StandardResult:
+                raise ProviderExecutionError(
+                    BackendName.AKSHARE, "stock.price.history", "execute",
+                    self.message
+                )
 
         providers = {
-            BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": RuntimeFailHandler("akshare failed")}),
-            BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": RuntimeFailHandler("yfinance failed")}),
-            BackendName.EFINANCE: BackendProvider(BackendName.EFINANCE, {"stock.price.history": RuntimeFailHandler("opentrade failed")}),
+            BackendName.AKSHARE:
+            BackendProvider(
+                BackendName.AKSHARE,
+                {"stock.price.history": RuntimeFailHandler("akshare failed")}
+            ),
+            BackendName.YFINANCE:
+            BackendProvider(
+                BackendName.YFINANCE,
+                {"stock.price.history": RuntimeFailHandler("yfinance failed")}
+            ),
+            BackendName.EFINANCE:
+            BackendProvider(
+                BackendName.EFINANCE, {
+                    "stock.price.history":
+                    RuntimeFailHandler("opentrade failed")
+                }
+            ),
         }
         backend = BackendSelection(
             requested=None,
             resolved=BackendName.AUTO,
             source="default",
-            candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
+            candidate_chain=(
+                BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE
+            ),
         )
 
-        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider",
+                   side_effect=lambda name: providers[name]):
             with self.assertRaises(AutoBackendExecutionError) as context:
                 from opentrade.facade import CommandFacade
 
-                CommandFacade().invoke(definition, backend, {"stock_codes": ["000001"]})
+                CommandFacade().invoke(
+                    definition, backend, {"stock_codes": ["000001"]}
+                )
 
         message = str(context.exception)
         self.assertIn("akshare failed", message)
@@ -284,13 +423,20 @@ class CliFullRegressionTest(unittest.TestCase):
             ),
             kwargs={"stock_codes": ["000001"]},
             output=OutputOptions(format_name="json", view_mode="raw"),
-            watch=WatchOptions(enabled=True, interval=0.0, count=2, clear_screen=False),
-            command_definition=get_shared_command_definition("stock.price.history"),
+            watch=WatchOptions(
+                enabled=True, interval=0.0, count=2, clear_screen=False
+            ),
+            command_definition=get_shared_command_definition(
+                "stock.price.history"
+            ),
             backend_selection=BackendSelection(
                 requested=None,
                 resolved=BackendName.AUTO,
                 source="default",
-                candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
+                candidate_chain=(
+                    BackendName.AKSHARE, BackendName.YFINANCE,
+                    BackendName.EFINANCE
+                ),
             ),
         )
         observed: list[tuple[str, tuple[str, ...], str | None]] = []
@@ -299,16 +445,25 @@ class CliFullRegressionTest(unittest.TestCase):
             observed.append(
                 (
                     runtime_request.backend_selection.resolved.value,
-                    tuple(item.value for item in runtime_request.backend_selection.candidate_chain),
+                    tuple(
+                        item.value for item in
+                        runtime_request.backend_selection.candidate_chain
+                    ),
                     (
                         runtime_request.backend_selection.final_backend.value
-                        if runtime_request.backend_selection.final_backend is not None
-                        else None
+                        if runtime_request.backend_selection.final_backend
+                        is not None else None
                     ),
                 )
             )
-            runtime_request.backend_selection.final_backend = BackendName.YFINANCE
-            return type("MockResult", (), {"value": {"iteration": len(observed)}})()
+            runtime_request.backend_selection.final_backend = (
+                BackendName.YFINANCE
+            )
+            return type(
+                "MockResult", (), {"value": {
+                    "iteration": len(observed)
+                }}
+            )()
 
         with patch.object(CommandExecutor, "invoke", new=fake_invoke):
             with patch("click.echo"):
@@ -316,8 +471,12 @@ class CliFullRegressionTest(unittest.TestCase):
                 executor.run(request)
 
         self.assertEqual(len(observed), 2)
-        self.assertEqual(observed[0], ("auto", ("akshare", "yfinance", "efinance"), None))
-        self.assertEqual(observed[1], ("auto", ("akshare", "yfinance", "efinance"), None))
+        self.assertEqual(
+            observed[0], ("auto", ("akshare", "yfinance", "efinance"), None)
+        )
+        self.assertEqual(
+            observed[1], ("auto", ("akshare", "yfinance", "efinance"), None)
+        )
 
     def test_required_schema_fields_fail_readably(self) -> None:
         result = self.runner.invoke(self.cli, ["stock", "price", "history"])
@@ -331,4 +490,3 @@ class CliFullRegressionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

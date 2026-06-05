@@ -18,7 +18,11 @@ import pandas as pd
 from opentrade.backends.auto_planner import plan_auto_backend_candidates
 from opentrade.enrichment import enrich_market_data
 from opentrade.facade import CommandFacade
-from opentrade.models import InvocationRequest, InvocationResult, LimitStrategy
+from opentrade.models import (
+    InvocationRequest,
+    InvocationResult,
+    LimitStrategy,
+)
 from opentrade.observation import build_observation_output
 from opentrade.rendering import render_value
 from opentrade.request_schema import validate_request_data
@@ -29,8 +33,13 @@ class CommandExecutor:
 
     def invoke(self, request: InvocationRequest) -> InvocationResult:
         """执行并返回结构化结果。"""
-        if request.command_definition is None or request.backend_selection is None:
-            raise click.ClickException("Legacy function-driven commands are no longer supported.")
+        if (
+            request.command_definition is None
+            or request.backend_selection is None
+        ):
+            raise click.ClickException(
+                "Legacy function-driven commands are no longer supported."
+            )
         if request.backend_selection.is_auto:
             request.backend_selection.final_backend = None
             request.backend_selection.attempted_candidates.clear()
@@ -53,13 +62,17 @@ class CommandExecutor:
         """以 watch 模式重复执行请求。"""
         if not request.spec.allow_watch:
             raise click.ClickException(
-                f"{request.spec.module_name}.{request.spec.function_name} does not support watch mode."
+                f"{request.spec.module_name}."
+                f"{request.spec.function_name} does not support watch mode."
             )
 
         iteration = 0
         while True:
             iteration += 1
-            if request.backend_selection is not None and request.backend_selection.is_auto:
+            if (
+                request.backend_selection is not None
+                and request.backend_selection.is_auto
+            ):
                 request.backend_selection.final_backend = None
                 request.backend_selection.attempted_candidates.clear()
                 request.backend_selection.fallback_used = False
@@ -67,17 +80,25 @@ class CommandExecutor:
             if request.watch.clear_screen:
                 click.clear()
             header = (
-                f"[watch] {request.spec.module_name}.{request.spec.function_name} "
-                f"refresh #{iteration}, interval {request.watch.interval}s"
+                f"[watch] {request.spec.module_name}."
+                f"{request.spec.function_name} refresh #{iteration}, "
+                f"interval {request.watch.interval}s"
             )
             click.echo(header)
             click.echo(self._render(request, result))
 
-            if request.watch.count is not None and iteration >= request.watch.count:
+            if (
+                request.watch.count is not None
+                and iteration >= request.watch.count
+            ):
                 break
             time.sleep(request.watch.interval)
 
-    def _emit(self, request: InvocationRequest, result: InvocationResult) -> None:
+    def _emit(
+        self,
+        request: InvocationRequest,
+        result: InvocationResult,
+    ) -> None:
         """输出最终渲染结果。"""
         text = self._render(request, result)
         if request.output.output_path:
@@ -93,21 +114,24 @@ class CommandExecutor:
 
     @staticmethod
     def _sanitize_console_text(text: str) -> str:
-        """在控制台输出前降级不兼容字符，避免 Windows GBK 终端报错。"""
+        """在控制台输出前降级不兼容字符。
 
+        这样可以避免 Windows GBK 终端直接报错。
+        """
         encoding = sys.stdout.encoding or "utf-8"
         try:
             text.encode(encoding)
             return text
         except UnicodeEncodeError:
-            return text.encode(encoding, errors="replace").decode(
+            return text.encode(
+                encoding, errors="replace"
+            ).decode(
                 encoding,
                 errors="replace",
             )
 
     def _execute_shared_command(self, request: InvocationRequest) -> Any:
         """执行 shared 命令并返回标准结果。"""
-
         assert request.command_definition is not None
         assert request.backend_selection is not None
 
@@ -116,13 +140,16 @@ class CommandExecutor:
             request.kwargs,
         )
         if request.backend_selection.is_auto:
-            request.backend_selection.candidate_chain = plan_auto_backend_candidates(
-                request.command_definition,
-                request_data,
+            request.backend_selection.candidate_chain = (
+                plan_auto_backend_candidates(
+                    request.command_definition,
+                    request_data,
+                )
             )
             if not request.backend_selection.candidate_chain:
                 raise click.ClickException(
-                    f"命令 '{' '.join(request.command_definition.cli_path)}' 没有可用的 auto backend 候选"
+                    f"命令 '{' '.join(request.command_definition.cli_path)}' "
+                    f"没有可用的 auto backend 候选"
                 )
         facade = CommandFacade()
         standard_result = facade.invoke(
@@ -138,9 +165,10 @@ class CommandExecutor:
         return self._materialize_standard_result(request, standard_result)
 
     @staticmethod
-    def _build_limit_metadata(request: InvocationRequest, standard_result: Any) -> dict[str, Any]:
+    def _build_limit_metadata(
+        request: InvocationRequest, standard_result: Any
+    ) -> dict[str, Any]:
         """根据 provider 元数据判定 `--limit` 的真实执行语义。"""
-
         limit_value = request.output.limit
         strategy = request.command_definition.limit_strategy
         effect = "none"
@@ -149,7 +177,9 @@ class CommandExecutor:
 
         if limit_value is not None:
             provider_metadata = getattr(standard_result, "metadata", {}) or {}
-            execution_limit_applied = bool(provider_metadata.get("execution_limit_applied", False))
+            execution_limit_applied = bool(
+                provider_metadata.get("execution_limit_applied", False)
+            )
             display_limit_applied = True
             if execution_limit_applied:
                 effect = "execution-aware"
@@ -168,9 +198,10 @@ class CommandExecutor:
             "execution_limit_applied": execution_limit_applied,
         }
 
-    def _materialize_standard_result(self, request: InvocationRequest, standard_result: Any) -> Any:
+    def _materialize_standard_result(
+        self, request: InvocationRequest, standard_result: Any
+    ) -> Any:
         """把标准结果物化成 rendering 可消费的结构。"""
-
         data = getattr(standard_result, "data", standard_result)
         materialized = data
         if isinstance(data, list) and data and isinstance(data[0], dict):
@@ -180,7 +211,8 @@ class CommandExecutor:
                 key: self._materialize_standard_rows(request, value)
                 for key, value in data.items()
             }
-        elif isinstance(data, dict) and getattr(standard_result, "contract_name", None) == "profile-info":
+        elif isinstance(data, dict) and getattr(
+                standard_result, "contract_name", None) == "profile-info":
             materialized = pd.Series(data)
 
         if request.output.view_mode == "raw":
@@ -188,41 +220,41 @@ class CommandExecutor:
             backend_metadata = {
                 "requested_backend": (
                     backend_selection.requested.value
-                    if backend_selection is not None and backend_selection.requested is not None
-                    else None
+                    if backend_selection is not None
+                    and backend_selection.requested is not None else None
                 ),
                 "resolved_backend": (
                     backend_selection.resolved.value
-                    if backend_selection is not None
-                    else None
+                    if backend_selection is not None else None
                 ),
                 "planned_candidates": (
                     [item.value for item in backend_selection.candidate_chain]
-                    if backend_selection is not None
-                    else []
+                    if backend_selection is not None else []
                 ),
                 "attempted_candidates": (
-                    [item.value for item in backend_selection.attempted_candidates]
-                    if backend_selection is not None
-                    else []
+                    [
+                        item.value
+                        for item in backend_selection.attempted_candidates
+                    ] if backend_selection is not None else []
                 ),
                 "final_backend": (
                     backend_selection.final_backend.value
-                    if backend_selection is not None and backend_selection.final_backend is not None
-                    else None
+                    if backend_selection is not None
+                    and backend_selection.final_backend is not None else None
                 ),
                 "fallback_used": (
                     backend_selection.fallback_used
-                    if backend_selection is not None
-                    else False
+                    if backend_selection is not None else False
                 ),
                 **self._build_limit_metadata(request, standard_result),
             }
             return {
-                "contract_name": getattr(standard_result, "contract_name", None),
+                "contract_name":
+                getattr(standard_result, "contract_name", None),
                 "data": data,
                 "raw_payload": getattr(standard_result, "raw_payload", None),
-                "provider_fields": getattr(standard_result, "provider_fields", {}),
+                "provider_fields":
+                getattr(standard_result, "provider_fields", {}),
                 "metadata": {
                     **getattr(standard_result, "metadata", {}),
                     **backend_metadata,
@@ -236,13 +268,11 @@ class CommandExecutor:
         rows: list[dict[str, Any]],
     ) -> pd.DataFrame:
         """把标准行记录转换成 DataFrame。"""
-
         _ = request
         return pd.DataFrame(rows)
 
     def _is_standard_row_mapping(self, value: dict[str, Any]) -> bool:
         """判断字典是否是 `source -> rows` 形式的标准结果。"""
-
         if not value:
             return True
         for item in value.values():
@@ -255,7 +285,9 @@ class CommandExecutor:
         return True
 
 
-def split_runtime_options(raw_kwargs: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def split_runtime_options(
+    raw_kwargs: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """拆分业务参数与 CLI 运行时参数。"""
     runtime_keys = {
         "format_name",

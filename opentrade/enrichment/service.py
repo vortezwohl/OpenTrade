@@ -16,7 +16,6 @@ from opentrade.enrichment.indicators import enrich_history_frame
 from opentrade.enrichment.levels import LEVELS, normalize_indicator_level
 from opentrade.models import InvocationRequest
 
-
 SHARED_HISTORY_COMMAND_KEYS: set[str] = {
     "stock.price.history",
     "bond.price.history",
@@ -62,7 +61,6 @@ REALTIME_HISTORY_COMMAND_MAP: dict[str, str] = {
 
 def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
     """根据稳定命令键和结果类型附加技术指标。"""
-
     command_key = resolve_runtime_command_key(request)
     level = normalize_indicator_level(request.output.indicator_level)
 
@@ -77,17 +75,20 @@ def enrich_market_data(request: InvocationRequest, value: Any) -> Any:
 
 def enrich_history_result(value: Any, level: str) -> Any:
     """增强历史 K 线结果。"""
-
     if isinstance(value, pd.DataFrame):
         return enrich_history_frame(value, level)
     if isinstance(value, dict):
-        return {key: enrich_history_frame(frame, level) for key, frame in value.items()}
+        return {
+            key: enrich_history_frame(frame, level)
+            for key, frame in value.items()
+        }
     return value
 
 
-def enrich_single_result(request: InvocationRequest, value: Any, level: str) -> Any:
+def enrich_single_result(
+    request: InvocationRequest, value: Any, level: str
+) -> Any:
     """增强单标的静态资料结果。"""
-
     if not isinstance(value, pd.Series):
         return value
     code = extract_code_from_series(value)
@@ -105,9 +106,10 @@ def enrich_single_result(request: InvocationRequest, value: Any, level: str) -> 
     return result
 
 
-def enrich_realtime_list_result(request: InvocationRequest, value: Any, level: str) -> Any:
+def enrich_realtime_list_result(
+    request: InvocationRequest, value: Any, level: str
+) -> Any:
     """增强实时列表结果。"""
-
     if not isinstance(value, pd.DataFrame):
         return value
     config = LEVELS[level]
@@ -127,7 +129,6 @@ def enrich_row_with_history(
     level: str,
 ) -> pd.Series:
     """对单行结果通过标准补充接口做历史回补增强。"""
-
     code = extract_code_from_series(row)
     if not code:
         return row
@@ -149,7 +150,6 @@ def fetch_standard_history_for_request(
     level: str,
 ) -> pd.DataFrame | None:
     """通过标准补充接口回补共享 capability 的历史结果。"""
-
     command_key = resolve_runtime_command_key(request)
     history_command_key = resolve_history_lookup_command_key(command_key)
     if history_command_key is None:
@@ -163,11 +163,13 @@ def fetch_standard_history_for_request(
     config = LEVELS[level]
     facade = CommandFacade()
     history_definition = (
-        request.command_definition
-        if command_key == history_command_key and request.command_definition is not None
-        else get_shared_command_definition(history_command_key)
+        request.command_definition if command_key == history_command_key
+        and request.command_definition is not None else
+        get_shared_command_definition(history_command_key)
     )
-    request_data = build_history_lookup_request_data(request, history_command_key, code)
+    request_data = build_history_lookup_request_data(
+        request, history_command_key, code
+    )
     backend_selection = request.backend_selection
     if getattr(backend_selection, "final_backend", None) is not None:
         backend_selection = type(backend_selection)(
@@ -199,7 +201,6 @@ def fetch_standard_history_for_request(
 
 def resolve_history_lookup_command_key(command_key: str | None) -> str | None:
     """把当前命令归并到对应的历史回补主链。"""
-
     if command_key in SHARED_HISTORY_COMMAND_KEYS:
         return command_key
     if command_key in PROFILE_HISTORY_COMMAND_MAP:
@@ -215,7 +216,6 @@ def build_history_lookup_request_data(
     code: str,
 ) -> dict[str, object]:
     """为不同资产历史主链构造最小回补请求。"""
-
     common_history_fields = {
         "beg": request.kwargs.get("beg", "19000101"),
         "end": request.kwargs.get("end", "20500101"),
@@ -250,7 +250,9 @@ def build_history_lookup_request_data(
             "fund_code": code,
             "pz": request.kwargs.get("pz", 40000),
         }
-    raise KeyError(f"Unsupported history lookup command: {history_command_key}")
+    raise KeyError(
+        f"Unsupported history lookup command: {history_command_key}"
+    )
 
 
 def materialize_history_lookup_frame(
@@ -258,7 +260,6 @@ def materialize_history_lookup_frame(
     code: str,
 ) -> pd.DataFrame | None:
     """把标准历史结果恢复成用于指标补充的 DataFrame。"""
-
     if isinstance(data, list):
         return pd.DataFrame(data)
     if isinstance(data, dict):
@@ -273,7 +274,6 @@ def materialize_history_lookup_frame(
 
 def resolve_runtime_command_key(request: InvocationRequest) -> str | None:
     """解析当前请求在新架构下的稳定命令键。"""
-
     if request.command_definition is not None:
         return request.command_definition.command_key
     if request.spec.module_name == "shared":
@@ -283,7 +283,6 @@ def resolve_runtime_command_key(request: InvocationRequest) -> str | None:
 
 def extract_code_from_series(series: pd.Series) -> str | None:
     """从结果行或详情中提取证券代码。"""
-
     candidates = [
         "股票代码",
         "债券代码",

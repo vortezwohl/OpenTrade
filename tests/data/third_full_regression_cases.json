@@ -1,0 +1,1917 @@
+[
+  {
+    "id": "search__default",
+    "path": "search",
+    "backend": null,
+    "tokens": [
+      "search",
+      "--query",
+      "平安银行",
+      "--result-count",
+      "5"
+    ],
+    "note": "默认搜索路由样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "search"
+  },
+  {
+    "id": "search__auto",
+    "path": "search",
+    "backend": "auto",
+    "tokens": [
+      "search",
+      "--query",
+      "平安银行",
+      "--result-count",
+      "5",
+      "--use-local-cache",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "搜索 auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "search"
+  },
+  {
+    "id": "search__efinance",
+    "path": "search",
+    "backend": "efinance",
+    "tokens": [
+      "search",
+      "--query",
+      "平安银行",
+      "--result-count",
+      "5",
+      "--backend",
+      "efinance"
+    ],
+    "note": "搜索 efinance 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "search"
+  },
+  {
+    "id": "search__akshare",
+    "path": "search",
+    "backend": "akshare",
+    "tokens": [
+      "search",
+      "--query",
+      "平安银行",
+      "--result-count",
+      "5",
+      "--backend",
+      "akshare"
+    ],
+    "note": "搜索 akshare 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "search"
+  },
+  {
+    "id": "search__yfinance",
+    "path": "search",
+    "backend": "yfinance",
+    "tokens": [
+      "search",
+      "--query",
+      "AAPL",
+      "--market",
+      "US_stock",
+      "--result-count",
+      "5",
+      "--no-use-local-cache",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "搜索 yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "search"
+  },
+  {
+    "id": "search-local__efinance",
+    "path": "search local",
+    "backend": "efinance",
+    "tokens": [
+      "search",
+      "local",
+      "--query",
+      "平安",
+      "--market",
+      "A_stock",
+      "--backend",
+      "efinance"
+    ],
+    "note": "本地缓存搜索样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "search"
+  },
+  {
+    "id": "watch__default",
+    "path": "watch",
+    "backend": null,
+    "tokens": [
+      "watch",
+      "--count",
+      "1",
+      "--interval",
+      "0.2",
+      "--no-clear",
+      "stock",
+      "price",
+      "latest",
+      "--symbols",
+      "000001",
+      "--backend",
+      "efinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "顶层 watch 包装器样本。",
+    "tags": [
+      "watch",
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 60,
+    "artifacts": [],
+    "category": "watch"
+  },
+  {
+    "id": "stock-price-history__auto",
+    "path": "stock price history",
+    "backend": "auto",
+    "tokens": [
+      "stock",
+      "price",
+      "history",
+      "--symbols",
+      "000001",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--market",
+      "A_stock",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock history auto。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-history__efinance",
+    "path": "stock price history",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "price",
+      "history",
+      "--symbols",
+      "000001",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--timeframe",
+      "101",
+      "--adjustment",
+      "1",
+      "--market",
+      "A_stock",
+      "--ignore-errors",
+      "--use-id-cache",
+      "--backend",
+      "efinance",
+      "--indicator-level",
+      "full",
+      "--full"
+    ],
+    "note": "stock history efinance 全参数样本。",
+    "tags": [
+      "indicator-level",
+      "full"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-history__akshare",
+    "path": "stock price history",
+    "backend": "akshare",
+    "tokens": [
+      "stock",
+      "price",
+      "history",
+      "--symbols",
+      "000001",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--backend",
+      "akshare",
+      "--no-index"
+    ],
+    "note": "stock history akshare 样本。",
+    "tags": [
+      "no-index"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-history__yfinance",
+    "path": "stock price history",
+    "backend": "yfinance",
+    "tokens": [
+      "stock",
+      "price",
+      "history",
+      "--symbols",
+      "AAPL",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock history yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-latest__auto",
+    "path": "stock price latest",
+    "backend": "auto",
+    "tokens": [
+      "stock",
+      "price",
+      "latest",
+      "--symbols",
+      "000001",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock latest auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-latest__efinance",
+    "path": "stock price latest",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "price",
+      "latest",
+      "--symbols",
+      "000001",
+      "--backend",
+      "efinance",
+      "--format",
+      "csv",
+      "--output",
+      "D:/github-project/efinance-cli/docs/20260601-third-regression-artifacts/stock-price-latest-efinance.csv",
+      "--encoding",
+      "utf-8"
+    ],
+    "note": "stock latest efinance 输出文件样本。",
+    "tags": [
+      "format-csv",
+      "output",
+      "encoding"
+    ],
+    "timeout": 150,
+    "artifacts": [
+      "D:/github-project/efinance-cli/docs/20260601-third-regression-artifacts/stock-price-latest-efinance.csv"
+    ],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-latest__yfinance",
+    "path": "stock price latest",
+    "backend": "yfinance",
+    "tokens": [
+      "stock",
+      "price",
+      "latest",
+      "--symbols",
+      "AAPL",
+      "--backend",
+      "yfinance",
+      "--format",
+      "tsv"
+    ],
+    "note": "stock latest yfinance tsv 样本。",
+    "tags": [
+      "format-tsv"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-live__auto",
+    "path": "stock price live",
+    "backend": "auto",
+    "tokens": [
+      "stock",
+      "price",
+      "live",
+      "--market",
+      "A_stock",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock live auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-live__efinance",
+    "path": "stock price live",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "price",
+      "live",
+      "--market",
+      "A_stock",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "stock live efinance 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-live__akshare",
+    "path": "stock price live",
+    "backend": "akshare",
+    "tokens": [
+      "stock",
+      "price",
+      "live",
+      "--market",
+      "A_stock",
+      "--backend",
+      "akshare",
+      "--no-index",
+      "--limit",
+      "5"
+    ],
+    "note": "stock live akshare 样本。",
+    "tags": [
+      "no-index"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-snapshot__auto",
+    "path": "stock price snapshot",
+    "backend": "auto",
+    "tokens": [
+      "stock",
+      "price",
+      "snapshot",
+      "--symbol",
+      "000001",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock snapshot auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-snapshot__efinance",
+    "path": "stock price snapshot",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "price",
+      "snapshot",
+      "--symbol",
+      "000001",
+      "--backend",
+      "efinance",
+      "--transpose"
+    ],
+    "note": "stock snapshot transpose 样本。",
+    "tags": [
+      "transpose"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-price-snapshot__yfinance",
+    "path": "stock price snapshot",
+    "backend": "yfinance",
+    "tokens": [
+      "stock",
+      "price",
+      "snapshot",
+      "--symbol",
+      "AAPL",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock snapshot yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-profile__auto",
+    "path": "stock profile",
+    "backend": "auto",
+    "tokens": [
+      "stock",
+      "profile",
+      "--symbols",
+      "000001",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock profile auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-profile__efinance",
+    "path": "stock profile",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "profile",
+      "--symbols",
+      "000001",
+      "--backend",
+      "efinance",
+      "--full"
+    ],
+    "note": "stock profile full 样本。",
+    "tags": [
+      "full"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-profile__akshare",
+    "path": "stock profile",
+    "backend": "akshare",
+    "tokens": [
+      "stock",
+      "profile",
+      "--symbols",
+      "000001",
+      "--backend",
+      "akshare"
+    ],
+    "note": "stock profile akshare 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-profile__yfinance",
+    "path": "stock profile",
+    "backend": "yfinance",
+    "tokens": [
+      "stock",
+      "profile",
+      "--symbols",
+      "AAPL",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "stock profile yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "fund-nav-history__auto",
+    "path": "fund nav history",
+    "backend": "auto",
+    "tokens": [
+      "fund",
+      "nav",
+      "history",
+      "--symbol",
+      "VOO",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "fund nav auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-nav-history__efinance",
+    "path": "fund nav history",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "nav",
+      "history",
+      "--symbol",
+      "161725",
+      "--max-pages",
+      "1",
+      "--backend",
+      "efinance"
+    ],
+    "note": "fund nav efinance 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-nav-history__akshare",
+    "path": "fund nav history",
+    "backend": "akshare",
+    "tokens": [
+      "fund",
+      "nav",
+      "history",
+      "--symbol",
+      "161725",
+      "--backend",
+      "akshare"
+    ],
+    "note": "fund nav akshare 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-nav-history__yfinance",
+    "path": "fund nav history",
+    "backend": "yfinance",
+    "tokens": [
+      "fund",
+      "nav",
+      "history",
+      "--symbol",
+      "VOO",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "fund nav yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-profile__auto",
+    "path": "fund profile",
+    "backend": "auto",
+    "tokens": [
+      "fund",
+      "profile",
+      "--symbols",
+      "161725",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "fund profile auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-profile__efinance",
+    "path": "fund profile",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "profile",
+      "--symbols",
+      "161725",
+      "--backend",
+      "efinance"
+    ],
+    "note": "fund profile efinance 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-profile__yfinance",
+    "path": "fund profile",
+    "backend": "yfinance",
+    "tokens": [
+      "fund",
+      "profile",
+      "--symbols",
+      "VOO",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "fund profile yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "quote-price-history__auto",
+    "path": "quote price history",
+    "backend": "auto",
+    "tokens": [
+      "quote",
+      "price",
+      "history",
+      "--symbols",
+      "000001",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--market",
+      "A_stock",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "quote history auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-price-history__efinance",
+    "path": "quote price history",
+    "backend": "efinance",
+    "tokens": [
+      "quote",
+      "price",
+      "history",
+      "--symbols",
+      "000001",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--timeframe",
+      "101",
+      "--adjustment",
+      "1",
+      "--market",
+      "A_stock",
+      "--ignore-errors",
+      "--use-id-cache",
+      "--backend",
+      "efinance",
+      "--indicator-level",
+      "full"
+    ],
+    "note": "quote history efinance 全参数样本。",
+    "tags": [
+      "indicator-level"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-price-history__yfinance",
+    "path": "quote price history",
+    "backend": "yfinance",
+    "tokens": [
+      "quote",
+      "price",
+      "history",
+      "--symbols",
+      "AAPL",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "quote history yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-price-latest__auto",
+    "path": "quote price latest",
+    "backend": "auto",
+    "tokens": [
+      "quote",
+      "price",
+      "latest",
+      "--quote-ids",
+      "0.000001",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "quote latest auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-price-latest__efinance",
+    "path": "quote price latest",
+    "backend": "efinance",
+    "tokens": [
+      "quote",
+      "price",
+      "latest",
+      "--quote-ids",
+      "0.000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "quote latest efinance 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-price-latest__yfinance",
+    "path": "quote price latest",
+    "backend": "yfinance",
+    "tokens": [
+      "quote",
+      "price",
+      "latest",
+      "--quote-ids",
+      "AAPL",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "quote latest yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-profile__auto",
+    "path": "quote profile",
+    "backend": "auto",
+    "tokens": [
+      "quote",
+      "profile",
+      "--quote-id",
+      "0.000001",
+      "--backend",
+      "auto",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "quote profile auto 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-profile__efinance",
+    "path": "quote profile",
+    "backend": "efinance",
+    "tokens": [
+      "quote",
+      "profile",
+      "--quote-id",
+      "0.000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "quote profile efinance 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-profile__yfinance",
+    "path": "quote profile",
+    "backend": "yfinance",
+    "tokens": [
+      "quote",
+      "profile",
+      "--quote-id",
+      "AAPL",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw",
+      "--trace-window",
+      "8"
+    ],
+    "note": "quote profile yfinance 样本。",
+    "tags": [
+      "format-json",
+      "view-raw",
+      "trace-window"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "stock-constituents__efinance",
+    "path": "stock constituents",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "constituents",
+      "--symbol",
+      "000300",
+      "--backend",
+      "efinance"
+    ],
+    "note": "指数成分股样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-flow-history__efinance",
+    "path": "stock flow history",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "flow",
+      "history",
+      "--symbol",
+      "000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "个股资金流历史样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-flow-today__efinance",
+    "path": "stock flow today",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "flow",
+      "today",
+      "--symbol",
+      "000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "个股资金流当日样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-holders-latest-count__efinance",
+    "path": "stock holders latest-count",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "holders",
+      "latest-count",
+      "--date",
+      "20250331",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "股东户数样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-holders-top10__efinance",
+    "path": "stock holders top10",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "holders",
+      "top10",
+      "--symbol",
+      "000001",
+      "--top",
+      "5",
+      "--backend",
+      "efinance"
+    ],
+    "note": "十大股东样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-ipo-latest__efinance",
+    "path": "stock ipo latest",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "ipo",
+      "latest",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "IPO 样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-leaderboard-daily__efinance",
+    "path": "stock leaderboard daily",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "leaderboard",
+      "daily",
+      "--start-date",
+      "20250530",
+      "--end-date",
+      "20250530",
+      "--backend",
+      "efinance"
+    ],
+    "note": "龙虎榜样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-performance-quarterly__efinance",
+    "path": "stock performance quarterly",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "performance",
+      "quarterly",
+      "--date",
+      "20250331",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "季度业绩样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-report-dates__efinance",
+    "path": "stock report-dates",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "report-dates",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "财报日期样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-sector__efinance",
+    "path": "stock sector",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "sector",
+      "--symbol",
+      "000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "板块归属样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "stock-trades__efinance",
+    "path": "stock trades",
+    "backend": "efinance",
+    "tokens": [
+      "stock",
+      "trades",
+      "--symbol",
+      "000001",
+      "--max-records",
+      "20",
+      "--backend",
+      "efinance"
+    ],
+    "note": "股票逐笔成交样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "fund-nav-history-batch__efinance",
+    "path": "fund nav history-batch",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "nav",
+      "history-batch",
+      "--symbols",
+      "161725",
+      "--symbols",
+      "005827",
+      "--max-pages",
+      "1",
+      "--backend",
+      "efinance",
+      "--format",
+      "json"
+    ],
+    "note": "基金净值批量样本。",
+    "tags": [
+      "format-json"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-catalog__efinance",
+    "path": "fund catalog",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "catalog",
+      "--fund-type",
+      "全部",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "基金目录样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-managers__efinance",
+    "path": "fund managers",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "managers",
+      "--fund-type",
+      "全部",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "基金经理样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-estimate-live__efinance",
+    "path": "fund estimate live",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "estimate",
+      "live",
+      "--symbols",
+      "161725",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金估值样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-performance-period__efinance",
+    "path": "fund performance period",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "performance",
+      "period",
+      "--symbol",
+      "161725",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金阶段业绩样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-disclosure-dates__efinance",
+    "path": "fund disclosure dates",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "disclosure",
+      "dates",
+      "--symbol",
+      "161725",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金披露日期样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-allocation-industry__efinance",
+    "path": "fund allocation industry",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "allocation",
+      "industry",
+      "--symbol",
+      "161725",
+      "--dates",
+      "20241231",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金行业配置样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-allocation-position__efinance",
+    "path": "fund allocation position",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "allocation",
+      "position",
+      "--symbol",
+      "161725",
+      "--dates",
+      "20241231",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金持仓配置样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-allocation-types__efinance",
+    "path": "fund allocation types",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "allocation",
+      "types",
+      "--symbol",
+      "161725",
+      "--dates",
+      "20241231",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金资产类型配置样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "fund"
+  },
+  {
+    "id": "fund-reports-download__efinance",
+    "path": "fund reports download",
+    "backend": "efinance",
+    "tokens": [
+      "fund",
+      "reports",
+      "download",
+      "--symbol",
+      "161725",
+      "--max-files",
+      "1",
+      "--output-dir",
+      "D:/github-project/efinance-cli/docs/20260601-third-regression-artifacts/fund-reports-download",
+      "--backend",
+      "efinance"
+    ],
+    "note": "基金报告下载样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [
+      "D:/github-project/efinance-cli/docs/20260601-third-regression-artifacts/fund-reports-download"
+    ],
+    "category": "fund"
+  },
+  {
+    "id": "bond-catalog__efinance",
+    "path": "bond catalog",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "catalog",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "债券目录样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "bond-flow-history__efinance",
+    "path": "bond flow history",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "flow",
+      "history",
+      "--symbol",
+      "113527",
+      "--backend",
+      "efinance"
+    ],
+    "note": "债券资金流历史样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "bond-flow-today__efinance",
+    "path": "bond flow today",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "flow",
+      "today",
+      "--symbol",
+      "113527",
+      "--backend",
+      "efinance"
+    ],
+    "note": "债券资金流当日样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "bond-price-history__efinance",
+    "path": "bond price history",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "price",
+      "history",
+      "--symbols",
+      "113527",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--timeframe",
+      "101",
+      "--adjustment",
+      "1",
+      "--backend",
+      "efinance"
+    ],
+    "note": "债券历史行情样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "bond-price-live__efinance",
+    "path": "bond price live",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "price",
+      "live",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "债券实时行情样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "bond-profile__efinance",
+    "path": "bond profile",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "profile",
+      "--symbols",
+      "113527",
+      "--backend",
+      "efinance",
+      "--format",
+      "json",
+      "--view",
+      "raw"
+    ],
+    "note": "债券资料样本。",
+    "tags": [
+      "format-json",
+      "view-raw"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "bond-trades__efinance",
+    "path": "bond trades",
+    "backend": "efinance",
+    "tokens": [
+      "bond",
+      "trades",
+      "--symbol",
+      "113527",
+      "--max-records",
+      "20",
+      "--backend",
+      "efinance"
+    ],
+    "note": "债券逐笔成交样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "bond"
+  },
+  {
+    "id": "futures-catalog__efinance",
+    "path": "futures catalog",
+    "backend": "efinance",
+    "tokens": [
+      "futures",
+      "catalog",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "期货目录样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "futures"
+  },
+  {
+    "id": "futures-price-history__efinance",
+    "path": "futures price history",
+    "backend": "efinance",
+    "tokens": [
+      "futures",
+      "price",
+      "history",
+      "--quote-ids",
+      "114.jd2606",
+      "--start-date",
+      "20250501",
+      "--end-date",
+      "20250503",
+      "--timeframe",
+      "101",
+      "--adjustment",
+      "1",
+      "--backend",
+      "efinance"
+    ],
+    "note": "期货历史行情样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "futures"
+  },
+  {
+    "id": "futures-price-live__efinance",
+    "path": "futures price live",
+    "backend": "efinance",
+    "tokens": [
+      "futures",
+      "price",
+      "live",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "期货实时行情样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "futures"
+  },
+  {
+    "id": "futures-trades__efinance",
+    "path": "futures trades",
+    "backend": "efinance",
+    "tokens": [
+      "futures",
+      "trades",
+      "--quote-id",
+      "114.jd2606",
+      "--max-records",
+      "20",
+      "--backend",
+      "efinance"
+    ],
+    "note": "期货逐笔成交样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "futures"
+  },
+  {
+    "id": "quote-flow-history__efinance",
+    "path": "quote flow history",
+    "backend": "efinance",
+    "tokens": [
+      "quote",
+      "flow",
+      "history",
+      "--symbol",
+      "000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "通用行情资金流历史样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-flow-today__efinance",
+    "path": "quote flow today",
+    "backend": "efinance",
+    "tokens": [
+      "quote",
+      "flow",
+      "today",
+      "--symbol",
+      "000001",
+      "--backend",
+      "efinance"
+    ],
+    "note": "通用行情资金流当日样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "quote-trades__efinance",
+    "path": "quote trades",
+    "backend": "efinance",
+    "tokens": [
+      "quote",
+      "trades",
+      "--quote-id",
+      "0.000001",
+      "--max-records",
+      "20",
+      "--backend",
+      "efinance"
+    ],
+    "note": "通用行情逐笔成交样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  },
+  {
+    "id": "market-add__efinance",
+    "path": "market add",
+    "backend": "efinance",
+    "tokens": [
+      "market",
+      "add",
+      "--market-category",
+      "codex_regression",
+      "--market-id",
+      "999",
+      "--market-name",
+      "Codex-Regression-Market",
+      "--deduplicate",
+      "--backend",
+      "efinance"
+    ],
+    "note": "市场注册副作用样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "market"
+  },
+  {
+    "id": "market-price-live__efinance",
+    "path": "market price live",
+    "backend": "efinance",
+    "tokens": [
+      "market",
+      "price",
+      "live",
+      "--market",
+      "m:105+t:3",
+      "--backend",
+      "efinance",
+      "--limit",
+      "5"
+    ],
+    "note": "市场实时行情样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "market"
+  },
+  {
+    "id": "resolve-quote-id__default",
+    "path": "resolve quote-id",
+    "backend": null,
+    "tokens": [
+      "resolve",
+      "quote-id",
+      "--symbol",
+      "000001",
+      "--market",
+      "A_stock"
+    ],
+    "note": "resolve 默认路由样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "resolve"
+  },
+  {
+    "id": "resolve-quote-id__efinance",
+    "path": "resolve quote-id",
+    "backend": "efinance",
+    "tokens": [
+      "resolve",
+      "quote-id",
+      "--symbol",
+      "000001",
+      "--market",
+      "A_stock",
+      "--use-local-cache",
+      "--ignore-errors",
+      "--backend",
+      "efinance",
+      "--format",
+      "json",
+      "--view",
+      "raw"
+    ],
+    "note": "resolve 全参数样本。",
+    "tags": [
+      "format-json",
+      "view-raw"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "resolve"
+  },
+  {
+    "id": "stock-industry-boards__akshare",
+    "path": "stock industry boards",
+    "backend": "akshare",
+    "tokens": [
+      "stock",
+      "industry",
+      "boards",
+      "--backend",
+      "akshare",
+      "--limit",
+      "5"
+    ],
+    "note": "akshare 行业板块样本。",
+    "tags": [],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "stock"
+  },
+  {
+    "id": "quote-news__yfinance",
+    "path": "quote news",
+    "backend": "yfinance",
+    "tokens": [
+      "quote",
+      "news",
+      "--quote-id",
+      "AAPL",
+      "--result-count",
+      "5",
+      "--backend",
+      "yfinance",
+      "--format",
+      "json",
+      "--view",
+      "raw"
+    ],
+    "note": "yfinance 新闻样本。",
+    "tags": [
+      "format-json",
+      "view-raw"
+    ],
+    "timeout": 150,
+    "artifacts": [],
+    "category": "quote"
+  }
+]

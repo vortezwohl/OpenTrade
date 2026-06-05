@@ -27,14 +27,12 @@ from opentrade.models import (
     OutputOptions,
 )
 
-
 BOX_MAX_CONTENT_WIDTH = 62
 TRACE_BLOCK_BAR_COUNT = 8
 
 
 def should_include_index(options: OutputOptions) -> bool:
     """统一判断导出类输出是否需要保留索引列。"""
-
     if options.format_name in {"csv", "tsv"}:
         return False
     return not options.no_index
@@ -42,7 +40,6 @@ def should_include_index(options: OutputOptions) -> bool:
 
 def render_value(value: Any, options: OutputOptions) -> str:
     """把函数返回值渲染为字符串。"""
-
     if options.format_name == "json":
         return render_json(value)
     if options.format_name == "csv":
@@ -54,12 +51,13 @@ def render_value(value: Any, options: OutputOptions) -> str:
 
 def render_table(value: Any, options: OutputOptions) -> str:
     """按表格风格渲染结果。"""
-
     if value is None:
         return "NULL"
     if isinstance(value, ObservationPayload):
         return render_observation_table(value, options)
-    if isinstance(value, dict) and any(isinstance(item, ObservationPayload) for item in value.values()):
+    if isinstance(value, dict) and any(
+        isinstance(item, ObservationPayload) for item in value.values()
+    ):
         return render_observation_mapping(value, options)
     if isinstance(value, pd.DataFrame):
         return render_dataframe(value, options)
@@ -75,19 +73,21 @@ def render_table(value: Any, options: OutputOptions) -> str:
 
 def render_json(value: Any) -> str:
     """渲染 JSON。"""
-
-    return json.dumps(to_serializable(value), ensure_ascii=False, indent=2, default=str)
+    return json.dumps(
+        to_serializable(value), ensure_ascii=False, indent=2, default=str
+    )
 
 
 def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
     """渲染 CSV/TSV。"""
-
     if isinstance(value, ObservationPayload):
         return observation_to_long_frame(value).to_csv(
             index=should_include_index(options),
             sep=sep,
         )
-    if isinstance(value, dict) and any(isinstance(item, ObservationPayload) for item in value.values()):
+    if isinstance(value, dict) and any(
+        isinstance(item, ObservationPayload) for item in value.values()
+    ):
         frames: list[pd.DataFrame] = []
         for key, item in value.items():
             if isinstance(item, ObservationPayload):
@@ -98,7 +98,9 @@ def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
             frames.append(frame)
         if not frames:
             return ""
-        return pd.concat(frames, ignore_index=True).to_csv(
+        return pd.concat(
+            frames, ignore_index=True
+        ).to_csv(
             index=should_include_index(options),
             sep=sep,
         )
@@ -117,44 +119,49 @@ def render_csv(value: Any, options: OutputOptions, sep: str = ",") -> str:
             frames.append(frame)
         if not frames:
             return ""
-        return pd.concat(frames, ignore_index=True).to_csv(
+        return pd.concat(
+            frames, ignore_index=True
+        ).to_csv(
             index=should_include_index(options),
             sep=sep,
         )
-    frame = pd.DataFrame({"value": list(value) if isinstance(value, (list, tuple, set)) else [value]})
+    frame = pd.DataFrame(
+        {
+            "value":
+            list(value) if isinstance(value, (list, tuple, set)) else [value]
+        }
+    )
     return frame.to_csv(index=should_include_index(options), sep=sep)
 
 
 def render_dataframe(frame: pd.DataFrame, options: OutputOptions) -> str:
     """渲染 DataFrame。"""
-
     frame = maybe_limit(frame, options)
     if options.transpose:
         frame = frame.transpose()
     if not options.full:
         with pd.option_context(
-            "display.max_columns",
-            20,
-            "display.width",
-            200,
-            "display.max_colwidth",
-            60,
+                "display.max_columns",
+                20,
+                "display.width",
+                200,
+                "display.max_colwidth",
+                60,
         ):
             return frame.to_string(index=not options.no_index)
     with pd.option_context(
-        "display.max_columns",
-        None,
-        "display.width",
-        None,
-        "display.max_colwidth",
-        None,
+            "display.max_columns",
+            None,
+            "display.width",
+            None,
+            "display.max_colwidth",
+            None,
     ):
         return frame.to_string(index=not options.no_index)
 
 
 def render_mapping(value: dict[Any, Any], options: OutputOptions) -> str:
     """渲染字典结果。"""
-
     if not value:
         return "{}"
     chunks: list[str] = []
@@ -166,7 +173,6 @@ def render_mapping(value: dict[Any, Any], options: OutputOptions) -> str:
 
 def render_sequence(value: Any, options: OutputOptions) -> str:
     """渲染列表、元组或集合。"""
-
     data = list(value)
     frame = pd.DataFrame({"value": data})
     return render_dataframe(frame, options)
@@ -174,7 +180,6 @@ def render_sequence(value: Any, options: OutputOptions) -> str:
 
 def maybe_limit(frame: pd.DataFrame, options: OutputOptions) -> pd.DataFrame:
     """按配置裁剪行数。"""
-
     if options.limit is None:
         return frame
     return frame.head(options.limit)
@@ -182,7 +187,6 @@ def maybe_limit(frame: pd.DataFrame, options: OutputOptions) -> pd.DataFrame:
 
 def to_dataframe(value: Any) -> pd.DataFrame:
     """尽量把任意值转换成 DataFrame。"""
-
     if isinstance(value, ObservationPayload):
         return observation_to_long_frame(value)
     if isinstance(value, pd.DataFrame):
@@ -198,7 +202,6 @@ def to_dataframe(value: Any) -> pd.DataFrame:
 
 def to_serializable(value: Any) -> Any:
     """把复杂对象转换为 JSON 可序列化结构。"""
-
     if isinstance(value, ObservationPayload):
         return {
             "meta": to_serializable(value.meta),
@@ -236,23 +239,35 @@ def to_serializable(value: Any) -> Any:
     return value
 
 
-def render_observation_table(payload: ObservationPayload, options: OutputOptions) -> str:
+def render_observation_table(
+    payload: ObservationPayload, options: OutputOptions
+) -> str:
     """渲染单个 observation payload。"""
-
     sections: list[str] = []
-    sections.append(render_boxed_section("meta", render_mapping_lines(payload.meta)))
+    sections.append(
+        render_boxed_section("meta", render_mapping_lines(payload.meta))
+    )
     if payload.latest_quote:
-        sections.append(render_boxed_section("latest_quote", render_mapping_lines(payload.latest_quote)))
-    sections.append(render_boxed_section("current_metrics", render_mapping_lines(payload.current_metrics)))
+        sections.append(
+            render_boxed_section(
+                "latest_quote", render_mapping_lines(payload.latest_quote)
+            )
+        )
+    sections.append(
+        render_boxed_section(
+            "current_metrics", render_mapping_lines(payload.current_metrics)
+        )
+    )
     sections.extend(render_generic_sections_text(payload.sections, options))
     sections.extend(render_trace_groups_text(payload.trace_points))
     sections.append(render_events_text(payload.recent_events))
     return "\n\n".join(section for section in sections if section)
 
 
-def render_observation_mapping(value: dict[Any, Any], options: OutputOptions) -> str:
+def render_observation_mapping(
+    value: dict[Any, Any], options: OutputOptions
+) -> str:
     """渲染多个 observation payload。"""
-
     sections: list[str] = []
     for key, item in value.items():
         if isinstance(item, ObservationPayload):
@@ -264,9 +279,10 @@ def render_observation_mapping(value: dict[Any, Any], options: OutputOptions) ->
     return "\n\n".join(section for section in sections if section)
 
 
-def render_trace_groups_text(trace_groups: list[ObservationTraceGroup]) -> list[str]:
+def render_trace_groups_text(
+    trace_groups: list[ObservationTraceGroup]
+) -> list[str]:
     """渲染 trace group 列表。"""
-
     sections: list[str] = []
     for group in trace_groups:
         section_title = f"trace_points.{group.name}"
@@ -274,7 +290,9 @@ def render_trace_groups_text(trace_groups: list[ObservationTraceGroup]) -> list[
             sections.append(render_boxed_section(section_title, ["<empty>"]))
             continue
 
-        fields = [field for field in group.points[0].keys() if field != "bar_offset"]
+        fields = [
+            field for field in group.points[0].keys() if field != "bar_offset"
+        ]
         blocks = chunk_points(group.points, TRACE_BLOCK_BAR_COUNT)
         block_lines: list[str] = []
         for block_index, block in enumerate(blocks, start=1):
@@ -282,15 +300,20 @@ def render_trace_groups_text(trace_groups: list[ObservationTraceGroup]) -> list[
                 block_lines.append("")
             first_offset = block[0]["bar_offset"]
             last_offset = block[-1]["bar_offset"]
-            block_lines.append(f"[block {block_index}] bar_offset: {first_offset} -> {last_offset}")
+            block_lines.append(
+                f"[block {block_index}] bar_offset: "
+                f"{first_offset} -> {last_offset}"
+            )
             block_lines.append(
                 "bar_offset: "
                 + " | ".join(str(point["bar_offset"]) for point in block)
             )
             for field in fields:
                 block_lines.append(
-                    f"{field}: "
-                    + " | ".join(normalize_display_scalar(point.get(field)) for point in block)
+                    f"{field}: " + " | ".join(
+                        normalize_display_scalar(point.get(field))
+                        for point in block
+                    )
                 )
         sections.append(render_boxed_section(section_title, block_lines))
     return sections
@@ -301,17 +324,20 @@ def render_generic_sections_text(
     options: OutputOptions,
 ) -> list[str]:
     """把通用 observation sections 渲染为 table 文本。"""
-
     rendered: list[str] = []
     for section in sections:
         if section.render_hint == "kv":
-            lines = render_mapping_lines(section.rows[0] if section.rows else {})
+            lines = render_mapping_lines(
+                section.rows[0] if section.rows else {}
+            )
             rendered.append(render_boxed_section(section.name, lines))
             continue
         if section.render_hint == "records":
             rendered.extend(render_record_sections(section, options))
             continue
-        rendered.append(render_boxed_section(section.name, ["<unsupported render_hint>"]))
+        rendered.append(
+            render_boxed_section(section.name, ["<unsupported render_hint>"])
+        )
     return rendered
 
 
@@ -320,10 +346,9 @@ def render_record_sections(
     options: OutputOptions,
 ) -> list[str]:
     """把 observation section 渲染为逐记录纵向文本。"""
-
     rows = section.rows
     if options.limit is not None:
-        rows = rows[: options.limit]
+        rows = rows[:options.limit]
     if not rows:
         return [render_boxed_section(section.name, ["<empty>"])]
 
@@ -340,7 +365,6 @@ def render_record_sections(
 
 def render_events_text(events: list[ObservationEvent]) -> str:
     """把 recent events 渲染为单个总外框。"""
-
     if not events:
         return render_boxed_section("recent_events", ["<empty>"])
 
@@ -371,7 +395,6 @@ def render_events_text(events: list[ObservationEvent]) -> str:
 
 def build_event_metric_chunks(event_dict: dict[str, Any]) -> list[str]:
     """把事件中的前值/现值整理成可折行的文本块。"""
-
     metric_tokens: list[str] = []
     for key in ("prev_a", "prev_b", "curr_a", "curr_b"):
         value = event_dict.get(key)
@@ -385,7 +408,8 @@ def build_event_metric_chunks(event_dict: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     current_line = "    "
     for token in metric_tokens:
-        candidate = token if current_line.strip() == "" else f"{current_line}   {token}".rstrip()
+        candidate = token if current_line.strip(
+        ) == "" else f"{current_line}   {token}".rstrip()
         if len(candidate) <= BOX_MAX_CONTENT_WIDTH:
             current_line = candidate
             continue
@@ -399,15 +423,16 @@ def build_event_metric_chunks(event_dict: dict[str, Any]) -> list[str]:
 
 def render_mapping_lines(mapping: dict[str, Any]) -> list[str]:
     """把字典转换为纵向 key/value 行。"""
-
     if not mapping:
         return ["<empty>"]
-    return [f"{key}: {normalize_display_scalar(value)}" for key, value in mapping.items()]
+    return [
+        f"{key}: {normalize_display_scalar(value)}"
+        for key, value in mapping.items()
+    ]
 
 
 def render_boxed_section(title: str, lines: Iterable[str] | None) -> str:
     """把若干文本行渲染为规整的 ASCII 外框。"""
-
     prepared_lines = prepare_box_lines(lines) if lines is not None else []
     content_width = max(
         [len(title), *(len(line) for line in prepared_lines)],
@@ -425,9 +450,11 @@ def render_boxed_section(title: str, lines: Iterable[str] | None) -> str:
     return "\n".join(result)
 
 
-def prepare_box_lines(lines: Iterable[str], width_limit: int = BOX_MAX_CONTENT_WIDTH) -> list[str]:
+def prepare_box_lines(
+    lines: Iterable[str],
+    width_limit: int = BOX_MAX_CONTENT_WIDTH
+) -> list[str]:
     """先折行，再返回可安全绘制到外框中的内容行。"""
-
     prepared: list[str] = []
     for raw_line in lines:
         line = str(raw_line)
@@ -440,7 +467,6 @@ def prepare_box_lines(lines: Iterable[str], width_limit: int = BOX_MAX_CONTENT_W
 
 def wrap_box_line(line: str, width_limit: int) -> list[str]:
     """为单行文本执行稳定折行。"""
-
     if len(line) <= width_limit:
         return [line]
 
@@ -459,12 +485,12 @@ def wrap_box_line(line: str, width_limit: int) -> list[str]:
         replace_whitespace=False,
         drop_whitespace=False,
     )
-    return [item.rstrip() for item in wrapper.wrap(content)] or [prefix.rstrip()]
+    return [item.rstrip()
+            for item in wrapper.wrap(content)] or [prefix.rstrip()]
 
 
 def split_display_tokens(content: str) -> list[str]:
     """按空格与常见分隔符拆分折行 token。"""
-
     separators = {" ", "_", "-", ",", "/", ":", "|"}
     tokens: list[str] = []
     current = ""
@@ -483,9 +509,9 @@ def observation_to_long_frame(
     source: str | None = None,
 ) -> pd.DataFrame:
     """把 observation payload 展平成 long-form DataFrame。"""
-
     rows: list[dict[str, Any]] = []
-    source_value = source or payload.meta.get("code") or payload.meta.get("name")
+    source_value = source or payload.meta.get("code"
+                                              ) or payload.meta.get("name")
 
     for key, value in payload.meta.items():
         rows.append(
@@ -592,7 +618,6 @@ def build_long_row(
     bars_ago: int | None = None,
 ) -> dict[str, Any]:
     """构建一行 long-form observation 记录。"""
-
     return {
         "__source__": source,
         "section": section,
@@ -609,15 +634,16 @@ def build_long_row(
     }
 
 
-def chunk_points(points: list[dict[str, Any]], size: int) -> list[list[dict[str, Any]]]:
+def chunk_points(points: list[dict[str, Any]],
+                 size: int) -> list[list[dict[str, Any]]]:
     """按固定块大小切分 trace 点。"""
-
-    return [points[index : index + size] for index in range(0, len(points), size)]
+    return [
+        points[index:index + size] for index in range(0, len(points), size)
+    ]
 
 
 def normalize_display_scalar(value: Any) -> str:
     """把值标准化为适合终端展示的英文字符串。"""
-
     if value is None:
         return "null"
     if isinstance(value, bool):
@@ -630,7 +656,6 @@ def normalize_display_scalar(value: Any) -> str:
 
 def normalize_scalar_for_export(value: Any) -> Any:
     """把值标准化为适合 CSV/TSV 导出的基础类型。"""
-
     if value is None:
         return None
     if isinstance(value, float):

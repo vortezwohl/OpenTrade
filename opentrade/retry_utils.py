@@ -24,7 +24,6 @@ from urllib3.exceptions import HTTPError as Urllib3HTTPError
 from vortezwohl.func import Retry
 from vortezwohl.func.retry import MaxRetriesReachedError
 
-
 F = TypeVar("F", bound=Callable[..., Any])
 NETWORK_RETRY_WRAPPERS_ATTR = "__network_retry_wrappers__"
 
@@ -61,9 +60,9 @@ def with_network_retry(
     Returns:
         保留原始签名的包装函数。
     """
-
     normalized_retry_exceptions = (
-        NETWORK_RELATED_EXCEPTIONS if retry_exceptions is None else retry_exceptions
+        NETWORK_RELATED_EXCEPTIONS
+        if retry_exceptions is None else retry_exceptions
     )
     cache_key = (normalized_retry_exceptions, passthrough_exceptions)
     wrappers = getattr(function, NETWORK_RETRY_WRAPPERS_ATTR, None)
@@ -87,9 +86,9 @@ def with_network_retry(
             raise
 
     decorated = (
-        _NETWORK_RETRY.on_exceptions(*normalized_retry_exceptions)(tracked_call)
-        if normalized_retry_exceptions
-        else tracked_call
+        _NETWORK_RETRY.on_exceptions(
+            *normalized_retry_exceptions
+        )(tracked_call) if normalized_retry_exceptions else tracked_call
     )
 
     @wraps(function)
@@ -117,7 +116,6 @@ def call_with_network_retry(
     **kwargs: Any,
 ) -> Any:
     """立即以统一重试策略执行一次原子网络调用。"""
-
     return with_network_retry(
         function,
         retry_exceptions=retry_exceptions,

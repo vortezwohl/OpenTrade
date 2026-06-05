@@ -1,9 +1,7 @@
-"""
-回归脚本的失败分类与报告证据测试。
+"""回归脚本的失败分类与报告证据测试。
 
 该测试聚焦 `scripts/regression_reporting.py` 及其在两个真实回归
-执行器中的最小契约，确保四类失败分层、路由证据归一化与
-汇总字段不会被再次改回旧口径。
+执行器中的最小契约，确保四类失败分层、路由证据归一化与 汇总字段不会被再次改回旧口径。
 """
 
 from __future__ import annotations
@@ -15,11 +13,16 @@ from tests.regression_reporting import (
     detect_auto_fallback,
     normalize_backend_meta,
 )
-from tests.run_incremental_full_regression import build_summary as build_incremental_summary
-from tests.run_third_full_regression import summarize as build_third_summary
+from tests.run_incremental_full_regression import (
+    build_summary as build_incremental_summary,
+)
+from tests.run_third_full_regression import (
+    summarize as build_third_summary,
+)
 
 
 class RegressionReportingTest(unittest.TestCase):
+
     def test_classify_sample_mismatch_for_cli_argument_errors(self) -> None:
         failure_class, reason = classify_regression_failure(
             command_path="stock leaderboard daily",
@@ -35,12 +38,17 @@ class RegressionReportingTest(unittest.TestCase):
         self.assertEqual(failure_class, "sample_mismatch")
         self.assertIn("Error", reason or "")
 
-    def test_classify_adapter_gap_for_shared_provider_semantic_conflict(self) -> None:
+    def test_classify_adapter_gap_for_shared_provider_semantic_conflict(
+        self
+    ) -> None:
         failure_class, _ = classify_regression_failure(
             command_path="market price live",
             requested_backend="efinance",
             stdout="",
-            stderr="provider does not support shared market semantics for market=A_stock fs=m:0+t:6",
+            stderr=(
+                "provider does not support shared market semantics for "
+                "market=A_stock fs=m:0+t:6"
+            ),
             returncode=1,
             status="fail",
             backend_meta={},
@@ -49,7 +57,9 @@ class RegressionReportingTest(unittest.TestCase):
 
         self.assertEqual(failure_class, "adapter_gap")
 
-    def test_classify_upstream_instability_for_timeout_and_rate_limit(self) -> None:
+    def test_classify_upstream_instability_for_timeout_and_rate_limit(
+        self
+    ) -> None:
         timeout_class, _ = classify_regression_failure(
             command_path="quote price latest",
             requested_backend="auto",
@@ -79,7 +89,10 @@ class RegressionReportingTest(unittest.TestCase):
             command_path="stock profile",
             requested_backend="auto",
             stdout="",
-            stderr="ProviderContractError: yfinance stock.profile provider-contract-error at adapt: single symbol required",
+            stderr=(
+                "ProviderContractError: yfinance stock.profile "
+                "provider-contract-error at adapt: single symbol required"
+            ),
             returncode=1,
             status="fail",
             backend_meta={},
@@ -88,12 +101,18 @@ class RegressionReportingTest(unittest.TestCase):
 
         self.assertEqual(failure_class, "adapter_gap")
 
-    def test_classify_provider_execution_failure_as_provider_failure(self) -> None:
+    def test_classify_provider_execution_failure_as_provider_failure(
+        self
+    ) -> None:
         failure_class, reason = classify_regression_failure(
             command_path="fund profile",
             requested_backend="efinance",
             stdout="",
-            stderr="ProviderExecutionError: efinance fund.profile provider-execution-failure at execute: Invalid value '-1.13' for dtype 'str'.",
+            stderr=(
+                "ProviderExecutionError: efinance fund.profile "
+                "provider-execution-failure at execute: "
+                "Invalid value '-1.13' for dtype 'str'."
+            ),
             returncode=1,
             status="fail",
             backend_meta={},
@@ -103,12 +122,17 @@ class RegressionReportingTest(unittest.TestCase):
         self.assertEqual(failure_class, "provider_failure")
         self.assertIn("ProviderExecutionError", reason or "")
 
-    def test_classify_provider_response_failure_as_provider_failure(self) -> None:
+    def test_classify_provider_response_failure_as_provider_failure(
+        self
+    ) -> None:
         failure_class, reason = classify_regression_failure(
             command_path="bond flow today",
             requested_backend="efinance",
             stdout="",
-            stderr="ProviderResponseError: efinance bond.flow.today provider-response-failure at standardize: malformed payload",
+            stderr=(
+                "ProviderResponseError: efinance bond.flow.today "
+                "provider-response-failure at standardize: malformed payload"
+            ),
             returncode=1,
             status="fail",
             backend_meta={},
@@ -127,12 +151,16 @@ class RegressionReportingTest(unittest.TestCase):
             returncode=0,
             status="degraded",
             backend_meta={"final_backend": "efinance"},
-            artifact_reports=[{"exists": False}],
+            artifact_reports=[{
+                "exists": False
+            }],
         )
 
         self.assertEqual(failure_class, "product_defect")
 
-    def test_normalize_backend_meta_preserves_routing_and_limit_evidence(self) -> None:
+    def test_normalize_backend_meta_preserves_routing_and_limit_evidence(
+        self
+    ) -> None:
         metadata = normalize_backend_meta(
             {
                 "requested_backend": "auto",
@@ -147,7 +175,9 @@ class RegressionReportingTest(unittest.TestCase):
             }
         )
 
-        self.assertEqual(metadata["planned_candidates"], ["efinance", "yfinance"])
+        self.assertEqual(
+            metadata["planned_candidates"], ["efinance", "yfinance"]
+        )
         self.assertEqual(metadata["attempted_candidates"], ["efinance"])
         self.assertEqual(metadata["final_backend"], "yfinance")
         self.assertEqual(metadata["limit_strategy"], "provider-request")
@@ -193,7 +223,9 @@ class RegressionReportingTest(unittest.TestCase):
                     "duration_seconds": 0.2,
                     "requested_backend": "efinance",
                     "category": "stock",
-                    "backend_meta": {"final_backend": "efinance"},
+                    "backend_meta": {
+                        "final_backend": "efinance"
+                    },
                     "auto_fallback_used": False,
                     "failure_class": None,
                 },
@@ -202,7 +234,9 @@ class RegressionReportingTest(unittest.TestCase):
                     "duration_seconds": 0.5,
                     "requested_backend": "auto",
                     "category": "quote",
-                    "backend_meta": {"final_backend": None},
+                    "backend_meta": {
+                        "final_backend": None
+                    },
                     "auto_fallback_used": False,
                     "failure_class": "upstream_instability",
                 },
@@ -210,8 +244,12 @@ class RegressionReportingTest(unittest.TestCase):
             {"mode_tags": []},
         )
 
-        self.assertEqual(summary["failure_class_counter"], {"upstream_instability": 1})
-        self.assertEqual(summary["auto_stats"]["all_failed_without_final_backend"], 1)
+        self.assertEqual(
+            summary["failure_class_counter"], {"upstream_instability": 1}
+        )
+        self.assertEqual(
+            summary["auto_stats"]["all_failed_without_final_backend"], 1
+        )
 
 
 if __name__ == "__main__":

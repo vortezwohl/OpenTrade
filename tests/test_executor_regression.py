@@ -55,7 +55,9 @@ class ExecutorRegressionTest(unittest.TestCase):
                 allow_watch=True,
             ),
             kwargs={"stock_codes": ["000001"]},
-            output=OutputOptions(format_name="json", view_mode=view_mode, limit=limit),
+            output=OutputOptions(
+                format_name="json", view_mode=view_mode, limit=limit
+            ),
             watch=WatchOptions(enabled=False),
             command_definition=definition,
             backend_selection=BackendSelection(
@@ -70,15 +72,22 @@ class ExecutorRegressionTest(unittest.TestCase):
         request = self._build_request(view_mode="raw")
         raw_payload = {
             "contract_name": "history-bars",
-            "data": [{"symbol": "000001", "close": 10.5}],
-            "raw_payload": {"foo": "bar"},
+            "data": [{
+                "symbol": "000001",
+                "close": 10.5
+            }],
+            "raw_payload": {
+                "foo": "bar"
+            },
             "provider_fields": {},
             "metadata": {},
         }
 
-        with patch.object(executor, "_execute_shared_command", return_value=raw_payload):
+        with patch.object(executor, "_execute_shared_command",
+                          return_value=raw_payload):
             with patch("opentrade.executor.enrich_market_data") as mock_enrich:
-                with patch("opentrade.executor.build_observation_output") as mock_observation:
+                with patch("opentrade.executor.build_observation_output"
+                           ) as mock_observation:
                     result = executor.invoke(request)
 
         self.assertIsInstance(result, InvocationResult)
@@ -90,11 +99,13 @@ class ExecutorRegressionTest(unittest.TestCase):
         executor = CommandExecutor()
         request = self._build_request(view_mode="observation")
 
-        with patch.object(executor, "_execute_shared_command", return_value={"rows": []}):
-            with patch("opentrade.executor.enrich_market_data", return_value={"enriched": True}) as mock_enrich:
+        with patch.object(executor, "_execute_shared_command",
+                          return_value={"rows": []}):
+            with patch("opentrade.executor.enrich_market_data",
+                       return_value={"enriched": True}) as mock_enrich:
                 with patch(
-                    "opentrade.executor.build_observation_output",
-                    return_value={"observed": True},
+                        "opentrade.executor.build_observation_output",
+                        return_value={"observed": True},
                 ) as mock_observation:
                     result = executor.invoke(request)
 
@@ -128,18 +139,27 @@ class ExecutorRegressionTest(unittest.TestCase):
                 with patch("click.echo"):
                     executor._emit(request, result)
 
-            self.assertEqual(output_path.read_text(encoding="utf-8"), "bad:\ufffd")
+            self.assertEqual(
+                output_path.read_text(encoding="utf-8"), "bad:\ufffd"
+            )
 
     def test_raw_metadata_distinguishes_display_only_limit(self) -> None:
         executor = CommandExecutor()
-        request = self._build_request(view_mode="raw", command_key="stock.price.live", limit=3)
+        request = self._build_request(
+            view_mode="raw", command_key="stock.price.live", limit=3
+        )
         standard_result = StandardResult(
             contract_name="realtime-quotes",
-            data=[{"symbol": "000001", "close": 10.5}],
+            data=[{
+                "symbol": "000001",
+                "close": 10.5
+            }],
             metadata={"backend": "efinance"},
         )
 
-        payload = executor._materialize_standard_result(request, standard_result)
+        payload = executor._materialize_standard_result(
+            request, standard_result
+        )
         metadata = payload["metadata"]
 
         self.assertEqual(metadata["limit_strategy"], "display-only")
@@ -149,10 +169,15 @@ class ExecutorRegressionTest(unittest.TestCase):
 
     def test_raw_metadata_distinguishes_execution_aware_limit(self) -> None:
         executor = CommandExecutor()
-        request = self._build_request(view_mode="raw", command_key="quote.price.latest", limit=2)
+        request = self._build_request(
+            view_mode="raw", command_key="quote.price.latest", limit=2
+        )
         standard_result = StandardResult(
             contract_name="realtime-quotes",
-            data=[{"symbol": "AAPL", "close": 210.5}],
+            data=[{
+                "symbol": "AAPL",
+                "close": 210.5
+            }],
             metadata={
                 "backend": "yfinance",
                 "execution_limit_applied": True,
@@ -160,7 +185,9 @@ class ExecutorRegressionTest(unittest.TestCase):
             },
         )
 
-        payload = executor._materialize_standard_result(request, standard_result)
+        payload = executor._materialize_standard_result(
+            request, standard_result
+        )
         metadata = payload["metadata"]
 
         self.assertEqual(metadata["limit_strategy"], "provider-request")

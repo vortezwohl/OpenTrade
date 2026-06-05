@@ -1,12 +1,13 @@
 """网络抖动重试基准脚本。
 
-这个脚本用于对照 raw 调用与 retry 调用在真实 `efinance` 原子请求上的表现，
-输出可复跑的 JSON 报告，并支持从命令行调节轮数、抖动率和是否跳过 sleep。
+这个脚本用于对照 raw 调用与 retry 调用在真实 `efinance` 原子请求上的表现， 输出可复跑的 JSON
+报告，并支持从命令行调节轮数、抖动率和是否跳过 sleep。
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import random
 import statistics
@@ -25,8 +26,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from opentrade.retry_utils import with_network_retry
-
+with_network_retry = importlib.import_module(
+    "opentrade.retry_utils"
+).with_network_retry
 
 DEFAULT_ROUNDS = 30
 DEFAULT_FLAKE_RATE = 0.15
@@ -57,18 +59,17 @@ class AttemptResult:
 
 def build_cases() -> list[BenchmarkCase]:
     """构造可用于重复对照的真实 efinance 原子调用样本。"""
-
     return [
         BenchmarkCase(
             name="common.get_latest_quote(105.AAPL)",
             func=efinance.common.get_latest_quote,
-            args=("105.AAPL",),
+            args=("105.AAPL", ),
             kwargs={},
         ),
         BenchmarkCase(
             name="utils.search_quote(AAPL, US_stock)",
             func=efinance.utils.search_quote,
-            args=("AAPL",),
+            args=("AAPL", ),
             kwargs={
                 "market_type": MarketType.US_stock,
                 "count": 2,
@@ -78,7 +79,7 @@ def build_cases() -> list[BenchmarkCase]:
         BenchmarkCase(
             name="stock.get_quote_history(AAPL, US_stock)",
             func=efinance.stock.get_quote_history,
-            args=("AAPL",),
+            args=("AAPL", ),
             kwargs={
                 "market_type": MarketType.US_stock,
                 "beg": "20250501",
@@ -90,17 +91,20 @@ def build_cases() -> list[BenchmarkCase]:
 
 def percentile(values: list[float], ratio: float) -> float:
     """计算简单分位数。"""
-
     if not values:
         return 0.0
     ordered = sorted(values)
-    index = min(len(ordered) - 1, max(0, int(round((len(ordered) - 1) * ratio))))
+    index = min(
+        len(ordered) - 1, max(0, int(round((len(ordered) - 1) * ratio)))
+    )
     return ordered[index]
 
 
-def run_once(case: BenchmarkCase, mode: str, inject_flake: bool, disable_retry_sleep: bool) -> AttemptResult:
+def run_once(
+    case: BenchmarkCase, mode: str, inject_flake: bool,
+    disable_retry_sleep: bool
+) -> AttemptResult:
     """执行一次 raw/retry 对照调用。"""
-
     attempts = 0
     flaked = False
 
@@ -112,7 +116,9 @@ def run_once(case: BenchmarkCase, mode: str, inject_flake: bool, disable_retry_s
             raise ConnectionError("synthetic transient network jitter")
         return case.func(*case.args, **case.kwargs)
 
-    caller = counted_call if mode == "raw" else with_network_retry(counted_call)
+    caller = counted_call if mode == "raw" else with_network_retry(
+        counted_call
+    )
     started = time.perf_counter()
     try:
         if disable_retry_sleep and mode == "retry":
@@ -141,9 +147,9 @@ def run_once(case: BenchmarkCase, mode: str, inject_flake: bool, disable_retry_s
         )
 
 
-def summarize(case: BenchmarkCase, results: list[AttemptResult]) -> dict[str, Any]:
+def summarize(case: BenchmarkCase,
+              results: list[AttemptResult]) -> dict[str, Any]:
     """汇总单个用例的 raw/retry 对比结果。"""
-
     grouped = {
         "raw": [item for item in results if item.mode == "raw"],
         "retry": [item for item in results if item.mode == "retry"],
@@ -155,33 +161,53 @@ def summarize(case: BenchmarkCase, results: list[AttemptResult]) -> dict[str, An
         failures = [item for item in items if not item.success]
         recovered_successes = [item for item in successes if item.attempts > 1]
         attempt_histogram = Counter(item.attempts for item in items)
-        error_histogram = Counter(item.error_type for item in failures if item.error_type)
+        error_histogram = Counter(
+            item.error_type for item in failures if item.error_type
+        )
         summary[mode] = {
-            "rounds": len(items),
-            "successes": len(successes),
-            "failures": len(failures),
-            "success_rate": len(successes) / len(items) if items else 0.0,
-            "failure_rate": len(failures) / len(items) if items else 0.0,
-            "recovered_successes": len(recovered_successes),
-            "recovered_success_rate": len(recovered_successes) / len(items) if items else 0.0,
-            "avg_attempts": statistics.mean(item.attempts for item in items) if items else 0.0,
-            "max_attempts": max(item.attempts for item in items) if items else 0,
-            "attempt_histogram": dict(sorted(attempt_histogram.items())),
-            "error_histogram": dict(error_histogram),
-            "avg_duration_seconds": statistics.mean(durations) if durations else 0.0,
-            "median_duration_seconds": statistics.median(durations) if durations else 0.0,
-            "p95_duration_seconds": percentile(durations, 0.95) if durations else 0.0,
+            "rounds":
+            len(items),
+            "successes":
+            len(successes),
+            "failures":
+            len(failures),
+            "success_rate":
+            len(successes) / len(items) if items else 0.0,
+            "failure_rate":
+            len(failures) / len(items) if items else 0.0,
+            "recovered_successes":
+            len(recovered_successes),
+            "recovered_success_rate":
+            len(recovered_successes) / len(items) if items else 0.0,
+            "avg_attempts":
+            statistics.mean(item.attempts for item in items) if items else 0.0,
+            "max_attempts":
+            max(item.attempts for item in items) if items else 0,
+            "attempt_histogram":
+            dict(sorted(attempt_histogram.items())),
+            "error_histogram":
+            dict(error_histogram),
+            "avg_duration_seconds":
+            statistics.mean(durations) if durations else 0.0,
+            "median_duration_seconds":
+            statistics.median(durations) if durations else 0.0,
+            "p95_duration_seconds":
+            percentile(durations, 0.95) if durations else 0.0,
         }
 
     raw_failures = summary["raw"]["failures"]
     retry_failures = summary["retry"]["failures"]
     summary["comparison"] = {
-        "success_rate_delta": summary["retry"]["success_rate"] - summary["raw"]["success_rate"],
-        "failure_count_delta": retry_failures - raw_failures,
+        "success_rate_delta":
+        summary["retry"]["success_rate"] - summary["raw"]["success_rate"],
+        "failure_count_delta":
+        retry_failures - raw_failures,
         "failure_reduction_ratio": (
-            (raw_failures - retry_failures) / raw_failures if raw_failures else None
+            (raw_failures - retry_failures) /
+            raw_failures if raw_failures else None
         ),
-        "recovered_failures": raw_failures - retry_failures,
+        "recovered_failures":
+        raw_failures - retry_failures,
     }
     return summary
 
@@ -194,7 +220,6 @@ def benchmark_case(
     disable_retry_sleep: bool,
 ) -> tuple[list[AttemptResult], dict[str, Any]]:
     """对单个用例执行成对 raw/retry 基准。"""
-
     results: list[AttemptResult] = []
     for round_index in range(rounds):
         inject_flake = rng.random() < flake_rate
@@ -219,11 +244,21 @@ def benchmark_case(
 
 def build_parser() -> argparse.ArgumentParser:
     """构造 benchmark 脚本的命令行参数解析器。"""
-
-    parser = argparse.ArgumentParser(description="efinance 网络抖动 retry benchmark")
-    parser.add_argument("--rounds", type=int, default=DEFAULT_ROUNDS, help="每个模式执行的轮数")
-    parser.add_argument("--flake-rate", type=float, default=DEFAULT_FLAKE_RATE, help="注入瞬时抖动故障的概率")
-    parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="控制抖动注入的随机种子")
+    parser = argparse.ArgumentParser(
+        description="efinance 网络抖动 retry benchmark"
+    )
+    parser.add_argument(
+        "--rounds", type=int, default=DEFAULT_ROUNDS, help="每个模式执行的轮数"
+    )
+    parser.add_argument(
+        "--flake-rate",
+        type=float,
+        default=DEFAULT_FLAKE_RATE,
+        help="注入瞬时抖动故障的概率"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=DEFAULT_SEED, help="控制抖动注入的随机种子"
+    )
     parser.add_argument(
         "--disable-retry-sleep",
         action="store_true",
@@ -237,9 +272,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
+
 def main() -> None:
     """运行网络抖动 retry benchmark 并落盘 JSON 报告。"""
-
     args = build_parser().parse_args()
     rng = random.Random(args.seed)
     started_at = datetime.now().astimezone()
@@ -272,8 +307,11 @@ def main() -> None:
     }
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = args.output_dir / f"retry-benchmark-{started_at.strftime('%Y%m%d-%H%M%S')}.json"
-    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    output_path = args.output_dir / \
+        f"retry-benchmark-{started_at.strftime('%Y%m%d-%H%M%S')}.json"
+    output_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"\nREPORT_SAVED={output_path}")
 
 

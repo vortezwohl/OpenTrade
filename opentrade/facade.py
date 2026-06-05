@@ -37,10 +37,8 @@ class AutoBackendExecutionError(RuntimeError):
 def is_failover_eligible_error(exc: Exception) -> bool:
     """判断异常是否允许 auto 继续切换 backend。
 
-    只有已分类的 provider 失败和明确的远端故障才继续 failover；
-    本地契约错误和原始输入/参数错误会立即停止。
+    只有已分类的 provider 失败和明确的远端故障才继续 failover； 本地契约错误和原始输入/参数错误会立即停止。
     """
-
     if isinstance(exc, (click.ClickException, ProviderContractError)):
         return False
     if isinstance(exc, (ProviderFailure, BackendRateLimitError, OSError)):
@@ -62,7 +60,6 @@ class CommandFacade:
         execution_limit: int | None = None,
     ) -> StandardResult:
         """执行一次 capability 调用。"""
-
         provider_request = dict(request_data)
         if execution_limit is not None:
             provider_request[EXECUTION_LIMIT_REQUEST_KEY] = execution_limit
@@ -72,7 +69,9 @@ class CommandFacade:
         backend.fallback_used = False
         if backend.is_auto:
             return self._invoke_auto(definition, backend, provider_request)
-        return self._invoke_single_backend(definition, backend, provider_request)
+        return self._invoke_single_backend(
+            definition, backend, provider_request
+        )
 
     def _invoke_single_backend(
         self,
@@ -81,7 +80,6 @@ class CommandFacade:
         request_data: dict[str, object],
     ) -> StandardResult:
         """执行单个 concrete backend。"""
-
         provider = get_backend_provider(backend.resolved)
         result = provider.execute(definition, request_data)
         backend.final_backend = backend.resolved
@@ -94,7 +92,6 @@ class CommandFacade:
         request_data: dict[str, object],
     ) -> StandardResult:
         """按 auto 候选链依次尝试 backend。"""
-
         attempts: list[tuple[BackendName, Exception]] = []
         for index, candidate in enumerate(backend.candidate_chain):
             provider = get_backend_provider(candidate)

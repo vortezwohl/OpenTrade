@@ -1,8 +1,7 @@
 """CLI 回归测试的共享辅助工具。
 
-该文件集中处理命令树枚举、样例参数构造和测试统计，避免各个测试文件重复维护同一份
-命令目录理解逻辑。当前命令面已经收敛为 shared 命令与 provider-extension 命令，
-因此这里的样例构造也只围绕这套稳定命令树展开。
+该文件集中处理命令树枚举、样例参数构造和测试统计，避免各个测试文件重复维护同一份 命令目录理解逻辑。当前命令面已经收敛为 shared 命令与
+provider-extension 命令， 因此这里的样例构造也只围绕这套稳定命令树展开。
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ from typing import Iterator
 import click
 
 from opentrade.commands import create_root_command
-
 
 SearchRecord = namedtuple(
     "SearchRecord",
@@ -67,7 +65,9 @@ def build_cli() -> click.Group:
     return create_root_command()
 
 
-def collect_leaf_commands(cli: click.MultiCommand | None = None) -> list[LeafCommand]:
+def collect_leaf_commands(
+    cli: click.MultiCommand | None = None
+) -> list[LeafCommand]:
     """递归收集全部叶子命令。"""
     root = cli or build_cli()
     if isinstance(root, click.Group):
@@ -83,7 +83,7 @@ def _iter_leaf_commands(
     prefix: tuple[str, ...],
 ) -> Iterator[LeafCommand]:
     """递归遍历命令树。"""
-    current_path = prefix + ((command.name,) if command.name else ())
+    current_path = prefix + ((command.name, ) if command.name else ())
     if isinstance(command, click.Group):
         for child in command.commands.values():
             yield from _iter_leaf_commands(child, current_path)
@@ -91,7 +91,9 @@ def _iter_leaf_commands(
     yield LeafCommand(path=current_path, command=command)
 
 
-def count_all_parameters(leaf_commands: list[LeafCommand] | None = None) -> int:
+def count_all_parameters(
+    leaf_commands: list[LeafCommand] | None = None
+) -> int:
     """统计全部叶子命令参数数量。"""
     commands = leaf_commands or collect_leaf_commands()
     return sum(len(item.command.params) for item in commands)
@@ -103,7 +105,7 @@ def build_required_tokens(
 ) -> list[str]:
     """为一条命令构造最小必填参数。"""
     excluded = exclude_option_names or set()
-    if leaf.path == ("watch",):
+    if leaf.path == ("watch", ):
         return ["watch", "search", "--query", "AAPL"]
 
     tokens: list[str] = list(leaf.path)
@@ -111,16 +113,14 @@ def build_required_tokens(
         if isinstance(parameter, click.Argument):
             tokens.extend(_sample_argument_values(parameter))
             continue
-        if (
-            isinstance(parameter, click.Option)
-            and parameter.required
-            and parameter.name not in excluded
-        ):
+        if (isinstance(parameter, click.Option) and parameter.required
+                and parameter.name not in excluded):
             tokens.extend(_build_required_option_tokens(parameter))
     return tokens
 
 
-def build_option_cases(parameter: click.Option, base_dir: Path) -> list[tuple[list[str], object]]:
+def build_option_cases(parameter: click.Option,
+                       base_dir: Path) -> list[tuple[list[str], object]]:
     """为单个选项参数构造若干测试用例。"""
     option_tokens: list[tuple[list[str], object]] = []
     primary = list(parameter.opts)
@@ -135,7 +135,12 @@ def build_option_cases(parameter: click.Option, base_dir: Path) -> list[tuple[li
 
     sample_value = _sample_option_value(parameter, base_dir)
     if primary:
-        option_tokens.append(([primary[0], sample_value], _coerce_expected_value(parameter, sample_value)))
+        option_tokens.append(
+            (
+                [primary[0], sample_value],
+                _coerce_expected_value(parameter, sample_value)
+            )
+        )
     return option_tokens
 
 
@@ -147,9 +152,9 @@ def build_search_records() -> list[SearchRecord]:
     ]
 
 
-def build_all_optional_option_tokens(leaf: LeafCommand, base_dir: Path) -> list[str]:
+def build_all_optional_option_tokens(leaf: LeafCommand,
+                                     base_dir: Path) -> list[str]:
     """为单条命令构造“所有可选参数同时出现一次”的样例调用片段。"""
-
     tokens: list[str] = []
     for parameter in leaf.command.params:
         if not isinstance(parameter, click.Option):
@@ -222,7 +227,8 @@ def _sample_text_value(name: str) -> str:
         return "A_stock"
     if lowered == "market_number":
         return "1"
-    if lowered in {"stock_code", "fund_code", "bond_code", "index_code", "code"}:
+    if lowered in {"stock_code", "fund_code", "bond_code", "index_code",
+                   "code"}:
         return "000001"
     if lowered in {"stock_codes", "fund_codes", "bond_codes", "codes"}:
         return "000001"
@@ -239,7 +245,7 @@ def _coerce_expected_value(parameter: click.Option, raw_value: str) -> object:
     """把命令行字符串样例转换为断言用的 Python 值。"""
     param_type = parameter.type
     if parameter.multiple:
-        return (raw_value,)
+        return (raw_value, )
     if isinstance(param_type, click.Choice):
         return raw_value
     if isinstance(param_type, click.types.IntParamType):
@@ -251,15 +257,22 @@ def _coerce_expected_value(parameter: click.Option, raw_value: str) -> object:
 
 def print_observation(title: str, value: object) -> None:
     """打印测试过程中的实际输出，便于人工查看。"""
-    safe_title = str(title).encode("ascii", errors="backslashreplace").decode("ascii")
+    safe_title = str(title).encode(
+        "ascii", errors="backslashreplace"
+    ).decode("ascii")
     sys.stdout.write(f"\n===== {safe_title} =====\n")
     if isinstance(value, str):
-        safe_value = value.encode("ascii", errors="backslashreplace").decode("ascii")
+        safe_value = value.encode(
+            "ascii", errors="backslashreplace"
+        ).decode("ascii")
         sys.stdout.write(f"{safe_value if safe_value else '<empty>'}\n")
         return
-    safe_repr = pformat(value, sort_dicts=False).encode("ascii", errors="backslashreplace").decode("ascii")
+    safe_repr = pformat(
+        value, sort_dicts=False
+    ).encode(
+        "ascii", errors="backslashreplace"
+    ).decode("ascii")
     sys.stdout.write(f"{safe_repr}\n")
-
 
 
 def make_request_field(

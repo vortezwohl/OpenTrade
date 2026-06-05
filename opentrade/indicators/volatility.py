@@ -8,7 +8,12 @@ import numpy as np
 import pandas as pd
 
 from opentrade.indicators.base import ema, rma, true_range
-from opentrade.indicators.utils import rolling_std, safe_divide, to_series, validate_period
+from opentrade.indicators.utils import (
+    rolling_std,
+    safe_divide,
+    to_series,
+    validate_period,
+)
 
 
 def atr(
@@ -53,7 +58,10 @@ def chaikin_volatility(
     """Chaikin Volatility。"""
     hl_range = to_series(high) - to_series(low)
     ema_range = ema(hl_range, ema_period)
-    return safe_divide(ema_range - ema_range.shift(change_period), ema_range.shift(change_period)) * 100
+    return safe_divide(
+        ema_range - ema_range.shift(change_period),
+        ema_range.shift(change_period)
+    ) * 100
 
 
 def mass_index(

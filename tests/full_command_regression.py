@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import shutil
 import subprocess
@@ -27,19 +28,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import click
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from tests.cli_regression_support import build_all_optional_option_tokens
-from tests.cli_regression_support import build_cli
-from tests.cli_regression_support import build_required_tokens
-from tests.cli_regression_support import collect_leaf_commands
-from tests.cli_regression_support import LeafCommand
-
+_cli_support_module = importlib.import_module("tests.cli_regression_support")
+build_all_optional_option_tokens = (
+    _cli_support_module.build_all_optional_option_tokens
+)
+build_cli = _cli_support_module.build_cli
+build_required_tokens = _cli_support_module.build_required_tokens
+collect_leaf_commands = _cli_support_module.collect_leaf_commands
+LeafCommand = _cli_support_module.LeafCommand
 
 DOCS_DIR = PROJECT_ROOT / "docs"
 DRYRUN_JSON_PATH = DOCS_DIR / "20260602-opentrade-dryrun-results.json"
@@ -94,7 +95,6 @@ class CaseResult:
 
 def _truncate(text: str, limit: int = 6000) -> str:
     """限制落盘输出长度，避免 JSON 与 Markdown 膨胀失控。"""
-
     if len(text) <= limit:
         return text
     return f"{text[:limit]}\n\n... [截断，原始长度 {len(text)} 字符]"
@@ -102,7 +102,6 @@ def _truncate(text: str, limit: int = 6000) -> str:
 
 def _run_cli(argv: list[str], timeout_seconds: int) -> CaseResult:
     """执行一次 CLI 调用。"""
-
     start = time.perf_counter()
     try:
         proc = subprocess.run(
@@ -136,7 +135,9 @@ def _run_cli(argv: list[str], timeout_seconds: int) -> CaseResult:
             exit_code=-1,
             elapsed_ms=elapsed_ms,
             success=False,
-            stdout=_truncate((exc.stdout or "") if isinstance(exc.stdout, str) else ""),
+            stdout=_truncate(
+                (exc.stdout or "") if isinstance(exc.stdout, str) else ""
+            ),
             stderr=f"TIMEOUT after {timeout_seconds}s",
             note="超时",
         )
@@ -144,10 +145,12 @@ def _run_cli(argv: list[str], timeout_seconds: int) -> CaseResult:
 
 def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
     """为真实执行构造更贴近实际的最小合法参数。"""
-
     path = " ".join(leaf.path)
     if path == "watch":
-        return ["watch", "--count", "1", "--interval", "0.2", "search", "--query", "AAPL"]
+        return [
+            "watch", "--count", "1", "--interval", "0.2", "search", "--query",
+            "AAPL"
+        ]
     if path == "search local":
         return ["search", "local", "--query", "AAPL"]
     if path == "search":
@@ -176,9 +179,14 @@ def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
             str(temp_dir / "fund-pdf-output"),
         ]
     if path == "market price live":
-        return ["market", "price", "live", "--market", "m:105+t:3", "--limit", "3"]
+        return [
+            "market", "price", "live", "--market", "m:105+t:3", "--limit", "3"
+        ]
     if path == "quote price history":
-        return ["quote", "price", "history", "--quote-id", "1.000001", "--start-date", "20250501", "--end-date", "20250503"]
+        return [
+            "quote", "price", "history", "--quote-id", "1.000001",
+            "--start-date", "20250501", "--end-date", "20250503"
+        ]
     if path == "quote price latest":
         return ["quote", "price", "latest", "--quote-ids", "1.000001"]
     if path == "quote profile":
@@ -192,11 +200,16 @@ def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
     if path == "resolve quote-id":
         return ["resolve", "quote-id", "--symbol", "000001"]
     if path == "stock price history":
-        return ["stock", "price", "history", "--symbols", "000001", "--start-date", "20250501", "--end-date", "20250503"]
+        return [
+            "stock", "price", "history", "--symbols", "000001", "--start-date",
+            "20250501", "--end-date", "20250503"
+        ]
     if path == "stock price latest":
         return ["stock", "price", "latest", "--symbols", "000001"]
     if path == "stock price live":
-        return ["stock", "price", "live", "--market", "A_stock", "--limit", "3"]
+        return [
+            "stock", "price", "live", "--market", "A_stock", "--limit", "3"
+        ]
     if path == "stock price snapshot":
         return ["stock", "price", "snapshot", "--symbols", "000001"]
     if path == "stock profile":
@@ -212,7 +225,10 @@ def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
     if path == "stock ipo latest":
         return ["stock", "ipo", "latest"]
     if path == "stock leaderboard daily":
-        return ["stock", "leaderboard", "daily", "--start-date", "20250530", "--end-date", "20250530"]
+        return [
+            "stock", "leaderboard", "daily", "--start-date", "20250530",
+            "--end-date", "20250530"
+        ]
     if path == "stock performance quarterly":
         return ["stock", "performance", "quarterly"]
     if path == "stock holders top10":
@@ -228,7 +244,10 @@ def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
     if path == "fund nav history":
         return ["fund", "nav", "history", "--symbol", "161725"]
     if path == "fund nav history-batch":
-        return ["fund", "nav", "history-batch", "--symbols", "161725", "--symbols", "110022"]
+        return [
+            "fund", "nav", "history-batch", "--symbols", "161725", "--symbols",
+            "110022"
+        ]
     if path == "fund profile":
         return ["fund", "profile", "--symbols", "161725"]
     if path == "fund allocation industry":
@@ -254,7 +273,10 @@ def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
     if path == "bond flow today":
         return ["bond", "flow", "today", "--symbol", "019641"]
     if path == "bond price history":
-        return ["bond", "price", "history", "--symbols", "019641", "--start-date", "20250501", "--end-date", "20250503"]
+        return [
+            "bond", "price", "history", "--symbols", "019641", "--start-date",
+            "20250501", "--end-date", "20250503"
+        ]
     if path == "bond price live":
         return ["bond", "price", "live", "--limit", "3"]
     if path == "bond profile":
@@ -274,38 +296,72 @@ def _sample_required_tokens(leaf: LeafCommand, temp_dir: Path) -> list[str]:
     return build_required_tokens(leaf)
 
 
-def _runtime_coverage_cases(command_path: str, temp_dir: Path) -> list[tuple[str, list[str]]]:
+def _runtime_coverage_cases(command_path: str,
+                            temp_dir: Path) -> list[tuple[str, list[str]]]:
     """返回代表性命令的真实环境参数覆盖矩阵。"""
-
     if command_path == "watch":
-        return [("watch-search", ["--count", "1", "--interval", "0.2", "search", "--query", "AAPL"])]
+        return [
+            (
+                "watch-search", [
+                    "--count", "1", "--interval", "0.2", "search", "--query",
+                    "AAPL"
+                ]
+            )
+        ]
     if command_path == "search local":
         return [
             ("json", ["--format", "json"]),
-            ("watch", ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]),
+            (
+                "watch",
+                ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]
+            ),
         ]
     if command_path == "fund nav history":
         return [
             ("akshare-json", ["--backend", "akshare", "--format", "json"]),
-            ("raw-full", ["--view", "raw", "--indicator-level", "full", "--trace-window", "8"]),
+            (
+                "raw-full", [
+                    "--view", "raw", "--indicator-level", "full",
+                    "--trace-window", "8"
+                ]
+            ),
         ]
     if command_path == "fund reports download":
         return [
             (
                 "isolated-output",
-                ["--max-files", "1", "--output-dir", str(temp_dir / "fund-download-runtime")],
+                [
+                    "--max-files", "1", "--output-dir",
+                    str(temp_dir / "fund-download-runtime")
+                ],
             )
         ]
     if command_path == "quote price latest":
         return [
             ("json", ["--format", "json"]),
-            ("watch", ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]),
+            (
+                "watch",
+                ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]
+            ),
         ]
     if command_path == "stock price history":
         return [
-            ("csv", ["--format", "csv", "--output", str(temp_dir / "stock-history.csv")]),
-            ("raw-full", ["--view", "raw", "--indicator-level", "full", "--trace-window", "8"]),
-            ("watch", ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]),
+            (
+                "csv", [
+                    "--format", "csv", "--output",
+                    str(temp_dir / "stock-history.csv")
+                ]
+            ),
+            (
+                "raw-full", [
+                    "--view", "raw", "--indicator-level", "full",
+                    "--trace-window", "8"
+                ]
+            ),
+            (
+                "watch",
+                ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]
+            ),
         ]
     if command_path == "stock price live":
         return [
@@ -318,13 +374,19 @@ def _runtime_coverage_cases(command_path: str, temp_dir: Path) -> list[tuple[str
         return [
             (
                 "deduplicate-off",
-                ["--no-deduplicate", "--output", str(temp_dir / "market-add.txt")],
+                [
+                    "--no-deduplicate", "--output",
+                    str(temp_dir / "market-add.txt")
+                ],
             )
         ]
     if command_path == "market price live":
         return [
             ("json", ["--format", "json"]),
-            ("watch", ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]),
+            (
+                "watch",
+                ["--watch", "--count", "1", "--interval", "0.2", "--no-clear"]
+            ),
         ]
     if command_path == "resolve quote-id":
         return [
@@ -336,15 +398,14 @@ def _runtime_coverage_cases(command_path: str, temp_dir: Path) -> list[tuple[str
 
 def _real_timeout_for_command(command_path: str) -> int:
     """为真实环境命令设置更保守的超时，避免长尾阻塞整体回归。"""
-
     if command_path == "watch":
         return WATCH_TIMEOUT_SECONDS
     if command_path in {
-        "quote price latest",
-        "quote price history",
-        "stock price latest",
-        "stock price live",
-        "market price live",
+            "quote price latest",
+            "quote price history",
+            "stock price latest",
+            "stock price live",
+            "market price live",
     }:
         return 12
     return REAL_TIMEOUT_SECONDS
@@ -352,8 +413,9 @@ def _real_timeout_for_command(command_path: str) -> int:
 
 def _help_case(argv_tail: list[str], leaf: LeafCommand) -> CaseResult:
     """执行帮助信息用例。"""
-
-    result = _run_cli(CLI_ENTRY + argv_tail + ["--help"], DRYRUN_TIMEOUT_SECONDS)
+    result = _run_cli(
+        CLI_ENTRY + argv_tail + ["--help"], DRYRUN_TIMEOUT_SECONDS
+    )
     result.phase = "dryrun"
     result.command_path = " ".join(leaf.path)
     result.case_name = "help"
@@ -362,11 +424,11 @@ def _help_case(argv_tail: list[str], leaf: LeafCommand) -> CaseResult:
 
 def _dryrun_parse_case(argv_tail: list[str], leaf: LeafCommand) -> CaseResult:
     """通过 monkeypatch 执行“只解析不打后端”的 dryrun。"""
-
     python_code = """
 from click.testing import CliRunner
 from unittest.mock import patch
 from opentrade.commands import create_root_command
+import importlib
 import json
 
 captured = {}
@@ -400,7 +462,6 @@ print(json.dumps({
 
 def run_dryrun_suite() -> dict[str, Any]:
     """执行完整 dryrun 回归。"""
-
     dryrun_results: list[CaseResult] = []
     cli = build_cli()
     leaf_commands = collect_leaf_commands(cli)
@@ -409,11 +470,16 @@ def run_dryrun_suite() -> dict[str, Any]:
         for leaf in leaf_commands:
             if " ".join(leaf.path) == "watch":
                 help_args = ["watch"]
-                parse_args = ["watch", "--count", "1", "--interval", "0.2", "search", "--query", "AAPL"]
+                parse_args = [
+                    "watch", "--count", "1", "--interval", "0.2", "search",
+                    "--query", "AAPL"
+                ]
             else:
                 help_args = list(leaf.path)
                 parse_args = build_required_tokens(leaf)
-                optional_tokens = build_all_optional_option_tokens(leaf, temp_dir)
+                optional_tokens = build_all_optional_option_tokens(
+                    leaf, temp_dir
+                )
                 if optional_tokens:
                     parse_args = parse_args + optional_tokens
 
@@ -439,7 +505,6 @@ def run_dryrun_suite() -> dict[str, Any]:
 
 def run_real_suite() -> dict[str, Any]:
     """执行完整真实环境回归。"""
-
     results: list[CaseResult] = []
     leaf_commands = collect_leaf_commands()
     temp_dir = Path(tempfile.mkdtemp(prefix="opentrade-real-"))
@@ -456,8 +521,11 @@ def run_real_suite() -> dict[str, Any]:
             results.append(minimal)
 
             if command_path in RUNTIME_COVERAGE_COMMANDS:
-                for case_name, runtime_tokens in _runtime_coverage_cases(command_path, temp_dir):
-                    runtime = _run_cli(CLI_ENTRY + base_tokens + runtime_tokens, timeout)
+                for case_name, runtime_tokens in _runtime_coverage_cases(
+                        command_path, temp_dir):
+                    runtime = _run_cli(
+                        CLI_ENTRY + base_tokens + runtime_tokens, timeout
+                    )
                     runtime.phase = "real"
                     runtime.command_path = command_path
                     runtime.case_name = f"runtime-{case_name}"
@@ -482,7 +550,6 @@ def run_real_suite() -> dict[str, Any]:
 
 def _summarize_results(results: list[CaseResult]) -> dict[str, Any]:
     """汇总通过、失败与命令级覆盖情况。"""
-
     total = len(results)
     passed = sum(1 for item in results if item.success)
     failed = total - passed
@@ -490,7 +557,13 @@ def _summarize_results(results: list[CaseResult]) -> dict[str, Any]:
     failures: list[dict[str, Any]] = []
 
     for item in results:
-        bucket = by_command.setdefault(item.command_path, {"total": 0, "passed": 0, "failed": 0})
+        bucket = by_command.setdefault(
+            item.command_path, {
+                "total": 0,
+                "passed": 0,
+                "failed": 0
+            }
+        )
         bucket["total"] += 1
         if item.success:
             bucket["passed"] += 1
@@ -516,9 +589,10 @@ def _summarize_results(results: list[CaseResult]) -> dict[str, Any]:
     }
 
 
-def write_markdown_report(dryrun_payload: dict[str, Any], real_payload: dict[str, Any]) -> None:
+def write_markdown_report(
+    dryrun_payload: dict[str, Any], real_payload: dict[str, Any]
+) -> None:
     """把最终回归结论写入 Markdown 报告。"""
-
     lines: list[str] = []
     lines.append("# OpenTrade 全命令 dryrun / 真实环境回归报告")
     lines.append("")
@@ -528,10 +602,20 @@ def write_markdown_report(dryrun_payload: dict[str, Any], real_payload: dict[str
     lines.append("")
     lines.append("## 覆盖边界")
     lines.append("")
-    lines.append("- dryrun: 对每条叶子命令执行 `--help` 与“最小合法参数 + 可选参数单次覆盖”的解析回归，不触发真实后端。")
+    lines.append(
+        "- dryrun: 对每条叶子命令执行 `--help` 与“最小合法参数 + 可选参数单次覆盖”的解析回归，不触发真实后端。"
+    )
     lines.append("- 真实环境: 对每条叶子命令至少执行一次最小合法真实调用；对代表性命令追加关键参数覆盖调用。")
-    lines.append("- 关键运行时参数覆盖: 通过代表性命令矩阵覆盖 `--backend`、`--format`、`--view`、`--indicator-level`、`--trace-window`、`--watch`、`--output`、`--encoding`、布尔 flag。")
-    lines.append("- 带副作用命令: `fund reports download` 与 `market add` 使用临时目录或隔离参数执行，避免污染默认工作区。")
+    lines.append(
+        "- 关键运行时参数覆盖: 通过代表性命令矩阵覆盖 "
+        "`--backend`、`--format`、`--view`、`--indicator-level`、"
+        "`--trace-window`、`--watch`、`--output`、`--encoding`、"
+        "布尔 flag。"
+    )
+    lines.append(
+        "- 带副作用命令: `fund reports download` 与 `market add` "
+        "使用临时目录或隔离参数执行，避免污染默认工作区。"
+    )
     lines.append("")
     lines.append("## dryrun 结果")
     lines.append("")
@@ -548,7 +632,8 @@ def write_markdown_report(dryrun_payload: dict[str, Any], real_payload: dict[str
     lines.append(f"- 通过率: `{real_payload['summary']['pass_rate']}%`")
     lines.append("")
 
-    for section_name, payload in [("dryrun 失败项", dryrun_payload), ("真实环境失败项", real_payload)]:
+    for section_name, payload in [("dryrun 失败项", dryrun_payload),
+                                  ("真实环境失败项", real_payload)]:
         lines.append(f"## {section_name}")
         lines.append("")
         failures = payload["summary"]["failures"]
@@ -558,7 +643,9 @@ def write_markdown_report(dryrun_payload: dict[str, Any], real_payload: dict[str
             continue
         for failure in failures:
             lines.append(
-                f"- `{failure['command_path']}` / `{failure['case_name']}` / exit `{failure['exit_code']}`"
+                f"- `{failure['command_path']}` / "
+                f"`{failure['case_name']}` / exit "
+                f"`{failure['exit_code']}`"
             )
             if failure.get("note"):
                 lines.append(f"  说明: {failure['note']}")
@@ -578,7 +665,6 @@ def write_markdown_report(dryrun_payload: dict[str, Any], real_payload: dict[str
 
 def main() -> None:
     """顺序执行 dryrun、真实环境回归并写报告。"""
-
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
     dryrun_payload = run_dryrun_suite()
     real_payload = run_real_suite()
@@ -588,12 +674,14 @@ def main() -> None:
     print(f"Markdown 报告: {SUMMARY_MD_PATH}")
     print(
         "dryrun 通过率: "
-        f"{dryrun_payload['summary']['passed']}/{dryrun_payload['summary']['total']} "
+        f"{dryrun_payload['summary']['passed']}/"
+        f"{dryrun_payload['summary']['total']} "
         f"({dryrun_payload['summary']['pass_rate']}%)"
     )
     print(
         "real 通过率: "
-        f"{real_payload['summary']['passed']}/{real_payload['summary']['total']} "
+        f"{real_payload['summary']['passed']}/"
+        f"{real_payload['summary']['total']} "
         f"({real_payload['summary']['pass_rate']}%)"
     )
 

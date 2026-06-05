@@ -31,7 +31,18 @@ from opentrade.indicators.base import (
     wma,
     zlema,
 )
-from opentrade.indicators.chinese import asi, bbi, bias, brar, cr, dma, emv, mtm, psy, vr
+from opentrade.indicators.chinese import (
+    asi,
+    bbi,
+    bias,
+    brar,
+    cr,
+    dma,
+    emv,
+    mtm,
+    psy,
+    vr,
+)
 from opentrade.indicators.momentum import (
     cci,
     dpo,
@@ -46,7 +57,11 @@ from opentrade.indicators.momentum import (
     ultimate_oscillator,
     williams_r,
 )
-from opentrade.indicators.price import fibonacci_retracement, pivot_points, rolling_support_resistance
+from opentrade.indicators.price import (
+    fibonacci_retracement,
+    pivot_points,
+    rolling_support_resistance,
+)
 from opentrade.indicators.trend import (
     adx,
     aroon_indicator,
@@ -60,7 +75,13 @@ from opentrade.indicators.trend import (
     parabolic_sar,
     supertrend,
 )
-from opentrade.indicators.volatility import atr, chaikin_volatility, historical_volatility, mass_index, natr
+from opentrade.indicators.volatility import (
+    atr,
+    chaikin_volatility,
+    historical_volatility,
+    mass_index,
+    natr,
+)
 from opentrade.indicators.volume import (
     accumulation_distribution,
     chaikin_money_flow,

@@ -1,4 +1,8 @@
-"""Cross-backend provider helpers and shared standardizers."""
+"""多 backend provider 的共享辅助工具。
+
+该模块只保留跨 backend 共享的请求读取、契约标准化、payload materialize 与 通用结果整理逻辑，不承载任何单一
+provider 的专属适配语义。
+"""
 
 from __future__ import annotations
 
@@ -55,7 +59,6 @@ SCALAR_LIST_COMMAND_KEYS = {
 
 def _extract_execution_limit(request_data: Mapping[str, object]) -> int | None:
     """从 provider 请求中提取执行层 limit。"""
-
     value = request_data.get(EXECUTION_LIMIT_REQUEST_KEY)
     if value in (None, ""):
         return None
@@ -65,9 +68,10 @@ def _extract_execution_limit(request_data: Mapping[str, object]) -> int | None:
     return limit
 
 
-def _sanitize_provider_request(request_data: Mapping[str, object]) -> dict[str, object]:
+def _sanitize_provider_request(
+    request_data: Mapping[str, object]
+) -> dict[str, object]:
     """移除执行层内部控制字段，避免泄漏到第三方 callback kwargs。"""
-
     return {
         key: value
         for key, value in dict(request_data).items()
@@ -87,7 +91,9 @@ def _coerce_request_sequence(
     request_data: Mapping[str, object],
     *keys: str,
 ) -> list[str]:
-    return _coerce_symbol_list(_get_request_value(request_data, *keys, default=[]))
+    return _coerce_symbol_list(
+        _get_request_value(request_data, *keys, default=[])
+    )
 
 
 def _single_or_multi(values: list[str]) -> str | list[str]:
@@ -133,16 +139,22 @@ def _standardize_profile_payload(
     for key in key_candidates:
         if key not in ordered_keys:
             ordered_keys.append(key)
-    codes = _coerce_symbol_list(_get_request_value(request_data, *ordered_keys, default=[]))
+    codes = _coerce_symbol_list(
+        _get_request_value(request_data, *ordered_keys, default=[])
+    )
 
     if isinstance(result, pd.Series):
-        normalized = _normalize_profile_mapping(result.to_dict(), codes[0] if codes else None)
+        normalized = _normalize_profile_mapping(
+            result.to_dict(), codes[0] if codes else None
+        )
         return normalized
 
-    if isinstance(result, pd.DataFrame) and {"item", "value"}.issubset(result.columns):
+    if isinstance(result, pd.DataFrame) and {"item", "value"}.issubset(
+            result.columns):
         row = {
             str(item): _normalize_scalar(value)
-            for item, value in zip(result["item"], result["value"], strict=False)
+            for item, value in
+            zip(result["item"], result["value"], strict=False)
         }
         return _normalize_profile_mapping(row, codes[0] if codes else None)
 
@@ -150,16 +162,22 @@ def _standardize_profile_payload(
         rows: list[dict[str, object]] = []
         for index, (_, row) in enumerate(result.iterrows()):
             fallback_code = codes[index] if index < len(codes) else None
-            rows.append(_normalize_profile_mapping(row.to_dict(), fallback_code))
+            rows.append(
+                _normalize_profile_mapping(row.to_dict(), fallback_code)
+            )
         return rows
 
     if isinstance(result, dict):
         return _normalize_profile_mapping(result, codes[0] if codes else None)
 
-    raise StandardizationError(f"Unsupported profile payload type: {type(result).__name__}")
+    raise StandardizationError(
+        f"Unsupported profile payload type: {type(result).__name__}"
+    )
 
 
-def _normalize_profile_mapping(row: dict[str, object], fallback_code: str | None) -> dict[str, object]:
+def _normalize_profile_mapping(
+    row: dict[str, object], fallback_code: str | None
+) -> dict[str, object]:
     normalized = normalize_contract_mapping(row, PROFILE_INFO_CONTRACT)
     if "code" not in normalized and fallback_code:
         normalized["code"] = fallback_code
@@ -171,7 +189,11 @@ def _normalize_profile_mapping(row: dict[str, object], fallback_code: str | None
     return normalized
 
 
-def _get_request_value(request_data: Mapping[str, object], *keys: str, default: object = None) -> object:
+def _get_request_value(
+    request_data: Mapping[str, object],
+    *keys: str,
+    default: object = None
+) -> object:
     for key in keys:
         if key in request_data and request_data[key] not in (None, "", (), []):
             return request_data[key]
@@ -186,7 +208,9 @@ def _coerce_symbol_list(value: object) -> list[str]:
     return [str(value)]
 
 
-def _coerce_frame_mapping(result: object) -> pd.DataFrame | dict[str, pd.DataFrame]:
+def _coerce_frame_mapping(
+    result: object
+) -> pd.DataFrame | dict[str, pd.DataFrame]:
     if isinstance(result, pd.DataFrame):
         return result
     if isinstance(result, dict):
@@ -195,9 +219,13 @@ def _coerce_frame_mapping(result: object) -> pd.DataFrame | dict[str, pd.DataFra
             if isinstance(value, pd.DataFrame):
                 mapping[str(key)] = value
             else:
-                raise StandardizationError("History payload mapping values must be DataFrame")
+                raise StandardizationError(
+                    "History payload mapping values must be DataFrame"
+                )
         return mapping
-    raise StandardizationError(f"Unsupported history payload type: {type(result).__name__}")
+    raise StandardizationError(
+        f"Unsupported history payload type: {type(result).__name__}"
+    )
 
 
 def _materialize_provider_payload(value: object) -> object:
@@ -207,7 +235,8 @@ def _materialize_provider_payload(value: object) -> object:
         return _standardize_generic_payload(value)
     if isinstance(value, Mapping):
         return _standardize_generic_payload(dict(value))
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, Sequence) and not isinstance(value,
+                                                      (str, bytes, bytearray)):
         return _standardize_generic_payload(list(value))
     return _normalize_scalar(value)
 
@@ -221,7 +250,9 @@ def _coerce_history_frame(result: object) -> pd.DataFrame:
         only_value = next(iter(result.values()))
         if isinstance(only_value, pd.DataFrame):
             return only_value
-    raise StandardizationError(f"Unsupported history payload type: {type(result).__name__}")
+    raise StandardizationError(
+        f"Unsupported history payload type: {type(result).__name__}"
+    )
 
 
 def _standardize_history_frame(
@@ -236,20 +267,37 @@ def _standardize_history_frame(
     rows: list[dict[str, object]] = []
     for _, row in frame.iterrows():
         item = {
-            "date": _pick_first_present_value(row, ("date", "日期", "时间")),
-            "symbol": _pick_first_present_value(row, ("symbol", "股票代码", "债券代码", "期货代码", "代码")) or symbol,
-            "open": _pick_first_present_value(row, ("开盘", "open")),
-            "close": _pick_first_present_value(row, ("收盘", "最新价", "close")),
-            "high": _pick_first_present_value(row, ("最高", "high")),
-            "low": _pick_first_present_value(row, ("最低", "low")),
-            "volume": _pick_first_present_value(row, ("成交量", "volume")),
-            "turnover": _pick_first_present_value(row, ("成交额", "turnover")),
-            "amplitude": _pick_first_present_value(row, ("振幅", "amplitude")),
-            "change_pct": _pick_first_present_value(row, ("涨跌幅", "change_pct")),
-            "change_amount": _pick_first_present_value(row, ("涨跌额", "change_amount")),
-            "turnover_rate": _pick_first_present_value(row, ("换手率", "turnover_rate")),
+            "date":
+            _pick_first_present_value(row, ("date", "日期", "时间")),
+            "symbol":
+            _pick_first_present_value(
+                row, ("symbol", "股票代码", "债券代码", "期货代码", "代码")
+            ) or symbol,
+            "open":
+            _pick_first_present_value(row, ("开盘", "open")),
+            "close":
+            _pick_first_present_value(row, ("收盘", "最新价", "close")),
+            "high":
+            _pick_first_present_value(row, ("最高", "high")),
+            "low":
+            _pick_first_present_value(row, ("最低", "low")),
+            "volume":
+            _pick_first_present_value(row, ("成交量", "volume")),
+            "turnover":
+            _pick_first_present_value(row, ("成交额", "turnover")),
+            "amplitude":
+            _pick_first_present_value(row, ("振幅", "amplitude")),
+            "change_pct":
+            _pick_first_present_value(row, ("涨跌幅", "change_pct")),
+            "change_amount":
+            _pick_first_present_value(row, ("涨跌额", "change_amount")),
+            "turnover_rate":
+            _pick_first_present_value(row, ("换手率", "turnover_rate")),
         }
-        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
+        item = {
+            key: _normalize_scalar(value)
+            for key, value in item.items() if value is not None
+        }
         normalized = normalize_contract_mapping(item, HISTORY_BARS_CONTRACT)
         if "symbol" not in normalized:
             normalized["symbol"] = symbol
@@ -270,17 +318,29 @@ def _standardize_fund_nav_history_frame(
     rows: list[dict[str, object]] = []
     for _, row in frame.iterrows():
         item = {
-            "date": _pick_first_present_value(row, ("date", "日期", "净值日期", "时间")),
-            "symbol": _pick_first_present_value(row, ("symbol", "基金代码", "代码")) or symbol,
-            "unit_nav": _pick_first_present_value(row, ("unit_nav", "单位净值")),
-            "accumulated_nav": _pick_first_present_value(row, ("accumulated_nav", "累计净值")),
-            "change_pct": _pick_first_present_value(row, ("change_pct", "涨跌幅", "日增长率")),
+            "date":
+            _pick_first_present_value(row, ("date", "日期", "净值日期", "时间")),
+            "symbol":
+            _pick_first_present_value(row, ("symbol", "基金代码", "代码")) or symbol,
+            "unit_nav":
+            _pick_first_present_value(row, ("unit_nav", "单位净值")),
+            "accumulated_nav":
+            _pick_first_present_value(row, ("accumulated_nav", "累计净值")),
+            "change_pct":
+            _pick_first_present_value(row, ("change_pct", "涨跌幅", "日增长率")),
         }
-        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
-        normalized = normalize_contract_mapping(item, FUND_NAV_HISTORY_CONTRACT)
+        item = {
+            key: _normalize_scalar(value)
+            for key, value in item.items() if value is not None
+        }
+        normalized = normalize_contract_mapping(
+            item, FUND_NAV_HISTORY_CONTRACT
+        )
         if "symbol" not in normalized:
             normalized["symbol"] = symbol
-        ensure_mapping_has_required_fields(normalized, FUND_NAV_HISTORY_CONTRACT)
+        ensure_mapping_has_required_fields(
+            normalized, FUND_NAV_HISTORY_CONTRACT
+        )
         rows.append(normalized)
     return rows
 
@@ -297,38 +357,62 @@ def _standardize_realtime_quotes_frame(
     rows: list[dict[str, object]] = []
     for _, row in frame.iterrows():
         item = {
-            "symbol": _pick_first_present_value(
+            "symbol":
+            _pick_first_present_value(
                 row,
                 ("symbol", "代码", "股票代码", "债券代码", "期货代码", "证券代码"),
             ),
-            "name": _pick_first_present_value(
+            "name":
+            _pick_first_present_value(
                 row,
                 ("name", "名称", "股票名称", "债券名称", "期货名称", "证券简称"),
             ),
-            "close": _pick_first_present_value(row, ("close", "最新价", "收盘")),
-            "quote_id": _pick_first_present_value(
+            "close":
+            _pick_first_present_value(row, ("close", "最新价", "收盘")),
+            "quote_id":
+            _pick_first_present_value(
                 row,
-                ("quote_id", "行情ID", "symbol", "代码", "股票代码", "债券代码", "期货代码", "证券代码"),
+                (
+                    "quote_id", "行情ID", "symbol", "代码", "股票代码", "债券代码", "期货代码",
+                    "证券代码"
+                ),
             ),
-            "market": _pick_first_present_value(row, ("market", "市场", "市场类型")) or market_name,
-            "open": _pick_first_present_value(row, ("open", "今开", "开盘")),
-            "high": _pick_first_present_value(row, ("high", "最高")),
-            "low": _pick_first_present_value(row, ("low", "最低")),
-            "volume": _pick_first_present_value(row, ("volume", "成交量")),
-            "turnover": _pick_first_present_value(row, ("turnover", "成交额")),
-            "change_pct": _pick_first_present_value(row, ("change_pct", "涨跌幅")),
-            "change_amount": _pick_first_present_value(row, ("change_amount", "涨跌额")),
-            "turnover_rate": _pick_first_present_value(row, ("turnover_rate", "换手率")),
-            "amplitude": _pick_first_present_value(row, ("amplitude", "振幅")),
-            "date": _pick_first_present_value(row, ("date", "日期", "时间")),
+            "market":
+            _pick_first_present_value(row, ("market", "市场", "市场类型"))
+            or market_name,
+            "open":
+            _pick_first_present_value(row, ("open", "今开", "开盘")),
+            "high":
+            _pick_first_present_value(row, ("high", "最高")),
+            "low":
+            _pick_first_present_value(row, ("low", "最低")),
+            "volume":
+            _pick_first_present_value(row, ("volume", "成交量")),
+            "turnover":
+            _pick_first_present_value(row, ("turnover", "成交额")),
+            "change_pct":
+            _pick_first_present_value(row, ("change_pct", "涨跌幅")),
+            "change_amount":
+            _pick_first_present_value(row, ("change_amount", "涨跌额")),
+            "turnover_rate":
+            _pick_first_present_value(row, ("turnover_rate", "换手率")),
+            "amplitude":
+            _pick_first_present_value(row, ("amplitude", "振幅")),
+            "date":
+            _pick_first_present_value(row, ("date", "日期", "时间")),
         }
-        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
+        item = {
+            key: _normalize_scalar(value)
+            for key, value in item.items() if value is not None
+        }
         normalized = normalize_contract_mapping(item, REALTIME_QUOTES_CONTRACT)
         if "market" not in normalized:
             normalized["market"] = market_name
         if "quote_id" not in normalized and "symbol" in normalized:
             normalized["quote_id"] = normalized["symbol"]
-        ensure_mapping_has_required_fields(normalized, REALTIME_QUOTES_CONTRACT)
+        ensure_mapping_has_required_fields(
+            normalized, REALTIME_QUOTES_CONTRACT
+        )
         normalized["provider_name"] = provider_name
         rows.append(normalized)
     return rows
@@ -348,12 +432,20 @@ def _standardize_provider_records_frame(
             "name": _pick_first_present_value(row, ("name", "板块名称", "名称")),
             "code": _pick_first_present_value(row, ("code", "代码")),
             "latest": _pick_first_present_value(row, ("latest", "最新价")),
-            "change_pct": _pick_first_present_value(row, ("change_pct", "涨跌幅")),
+            "change_pct":
+            _pick_first_present_value(row, ("change_pct", "涨跌幅")),
             "provider_name": provider_name,
         }
-        item = {key: _normalize_scalar(value) for key, value in item.items() if value is not None}
-        normalized = normalize_contract_mapping(item, PROVIDER_RECORDS_CONTRACT)
-        ensure_mapping_has_required_fields(normalized, PROVIDER_RECORDS_CONTRACT)
+        item = {
+            key: _normalize_scalar(value)
+            for key, value in item.items() if value is not None
+        }
+        normalized = normalize_contract_mapping(
+            item, PROVIDER_RECORDS_CONTRACT
+        )
+        ensure_mapping_has_required_fields(
+            normalized, PROVIDER_RECORDS_CONTRACT
+        )
         rows.append(normalized)
     return rows
 
@@ -361,14 +453,24 @@ def _standardize_provider_records_frame(
 def _standardize_generic_payload(result: object) -> object:
     if isinstance(result, pd.DataFrame):
         return [
-            {str(key): _normalize_scalar(value) for key, value in row.items()}
-            for row in result.to_dict(orient="records")
+            {
+                str(key): _normalize_scalar(value)
+                for key, value in row.items()
+            } for row in result.to_dict(orient="records")
         ]
     if isinstance(result, pd.Series):
-        return {str(key): _normalize_scalar(value) for key, value in result.to_dict().items()}
+        return {
+            str(key): _normalize_scalar(value)
+            for key, value in result.to_dict().items()
+        }
     if isinstance(result, Mapping):
-        return {str(key): _standardize_generic_payload(value) for key, value in result.items()}
-    if isinstance(result, Sequence) and not isinstance(result, (str, bytes, bytearray)):
+        return {
+            str(key): _standardize_generic_payload(value)
+            for key, value in result.items()
+        }
+    if isinstance(result,
+                  Sequence) and not isinstance(result,
+                                               (str, bytes, bytearray)):
         payload: list[object] = []
         for item in result:
             if isinstance(item, (Mapping, pd.DataFrame, pd.Series)):
@@ -381,7 +483,9 @@ def _standardize_generic_payload(result: object) -> object:
     return _normalize_scalar(result)
 
 
-def _pick_first_present_value(row: pd.Series, candidates: tuple[str, ...]) -> object | None:
+def _pick_first_present_value(
+    row: pd.Series, candidates: tuple[str, ...]
+) -> object | None:
     for candidate in candidates:
         if candidate in row.index and pd.notna(row[candidate]):
             return row[candidate]
@@ -422,12 +526,15 @@ def _filter_search_rows(
             str(row.get("pinyin", "")),
             str(row.get("quote_id", "")),
         ]
-        if any(lowered in candidate.lower() for candidate in candidates if candidate and candidate != "None"):
+        if any(lowered in candidate.lower() for candidate in candidates
+               if candidate and candidate != "None"):
             filtered.append(row)
     return filtered
 
 
-def _deduplicate_search_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+def _deduplicate_search_rows(
+    rows: list[dict[str, object]]
+) -> list[dict[str, object]]:
     deduplicated: list[dict[str, object]] = []
     seen: set[tuple[str, str]] = set()
     for row in rows:
@@ -440,42 +547,42 @@ def _deduplicate_search_rows(rows: list[dict[str, object]]) -> list[dict[str, ob
 
 
 __all__ = [
-    'PRICE_HISTORY_COMMAND_KEYS',
-    'PROFILE_COMMAND_KEYS',
-    'REALTIME_COMMAND_KEYS',
-    'SIDE_EFFECT_COMMAND_KEYS',
-    'SCALAR_LIST_COMMAND_KEYS',
-    '_extract_execution_limit',
-    '_sanitize_provider_request',
-    '_extract_market_value',
-    '_coerce_request_sequence',
-    '_single_or_multi',
-    '_get_single_request_value',
-    '_standardize_profile_payload',
-    '_normalize_profile_mapping',
-    '_get_request_value',
-    '_coerce_symbol_list',
-    '_coerce_frame_mapping',
-    '_materialize_provider_payload',
-    '_coerce_history_frame',
-    '_standardize_history_frame',
-    '_standardize_fund_nav_history_frame',
-    '_standardize_realtime_quotes_frame',
-    '_standardize_provider_records_frame',
-    '_standardize_generic_payload',
-    '_pick_first_present_value',
-    '_normalize_scalar',
-    '_filter_search_rows',
-    '_deduplicate_search_rows',
-    'FUND_NAV_HISTORY_CONTRACT',
-    'HISTORY_BARS_CONTRACT',
-    'PROFILE_INFO_CONTRACT',
-    'PROVIDER_RECORDS_CONTRACT',
-    'REALTIME_QUOTES_CONTRACT',
-    'SEARCH_RESULTS_CONTRACT',
-    'StandardizationError',
-    'ensure_mapping_has_required_fields',
-    'normalize_contract_mapping',
-    'BackendName',
-    'EXECUTION_LIMIT_REQUEST_KEY',
+    "PRICE_HISTORY_COMMAND_KEYS",
+    "PROFILE_COMMAND_KEYS",
+    "REALTIME_COMMAND_KEYS",
+    "SIDE_EFFECT_COMMAND_KEYS",
+    "SCALAR_LIST_COMMAND_KEYS",
+    "_extract_execution_limit",
+    "_sanitize_provider_request",
+    "_extract_market_value",
+    "_coerce_request_sequence",
+    "_single_or_multi",
+    "_get_single_request_value",
+    "_standardize_profile_payload",
+    "_normalize_profile_mapping",
+    "_get_request_value",
+    "_coerce_symbol_list",
+    "_coerce_frame_mapping",
+    "_materialize_provider_payload",
+    "_coerce_history_frame",
+    "_standardize_history_frame",
+    "_standardize_fund_nav_history_frame",
+    "_standardize_realtime_quotes_frame",
+    "_standardize_provider_records_frame",
+    "_standardize_generic_payload",
+    "_pick_first_present_value",
+    "_normalize_scalar",
+    "_filter_search_rows",
+    "_deduplicate_search_rows",
+    "FUND_NAV_HISTORY_CONTRACT",
+    "HISTORY_BARS_CONTRACT",
+    "PROFILE_INFO_CONTRACT",
+    "PROVIDER_RECORDS_CONTRACT",
+    "REALTIME_QUOTES_CONTRACT",
+    "SEARCH_RESULTS_CONTRACT",
+    "StandardizationError",
+    "ensure_mapping_has_required_fields",
+    "normalize_contract_mapping",
+    "BackendName",
+    "EXECUTION_LIMIT_REQUEST_KEY",
 ]

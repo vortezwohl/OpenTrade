@@ -12,7 +12,9 @@ import numpy as np
 import pandas as pd
 
 
-def to_series(values: pd.Series | Iterable[float], name: str | None = None) -> pd.Series:
+def to_series(
+    values: pd.Series | Iterable[float], name: str | None = None
+) -> pd.Series:
     """把输入值规范化为浮点 `Series`。
 
     Args:
@@ -42,11 +44,20 @@ def safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
     return numerator / denominator
 
 
-def rolling_apply(series: pd.Series, window: int, func, min_periods: int | None = None) -> pd.Series:
+def rolling_apply(
+    series: pd.Series,
+    window: int,
+    func,
+    min_periods: int | None = None
+) -> pd.Series:
     """对滚动窗口应用自定义函数。"""
     if min_periods is None:
         min_periods = window
-    return series.rolling(window=window, min_periods=min_periods).apply(func, raw=False)
+    return series.rolling(
+        window=window, min_periods=min_periods
+    ).apply(
+        func, raw=False
+    )
 
 
 def validate_period(period: int, name: str = "period") -> int:
@@ -61,19 +72,38 @@ def shifted(series: pd.Series, periods: int = 1) -> pd.Series:
     return series.shift(periods)
 
 
-def rolling_sum(series: pd.Series, period: int, min_periods: int | None = None) -> pd.Series:
+def rolling_sum(
+    series: pd.Series,
+    period: int,
+    min_periods: int | None = None
+) -> pd.Series:
     """滚动求和。"""
     validate_period(period)
-    return series.rolling(window=period, min_periods=min_periods or period).sum()
+    return series.rolling(
+        window=period, min_periods=min_periods or period
+    ).sum()
 
 
-def rolling_mean(series: pd.Series, period: int, min_periods: int | None = None) -> pd.Series:
+def rolling_mean(
+    series: pd.Series,
+    period: int,
+    min_periods: int | None = None
+) -> pd.Series:
     """滚动均值。"""
     validate_period(period)
-    return series.rolling(window=period, min_periods=min_periods or period).mean()
+    return series.rolling(
+        window=period, min_periods=min_periods or period
+    ).mean()
 
 
-def rolling_std(series: pd.Series, period: int, min_periods: int | None = None, ddof: int = 0) -> pd.Series:
+def rolling_std(
+    series: pd.Series,
+    period: int,
+    min_periods: int | None = None,
+    ddof: int = 0
+) -> pd.Series:
     """滚动标准差。"""
     validate_period(period)
-    return series.rolling(window=period, min_periods=min_periods or period).std(ddof=ddof)
+    return series.rolling(
+        window=period, min_periods=min_periods or period
+    ).std(ddof=ddof)

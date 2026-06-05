@@ -7,14 +7,24 @@ from typing import Iterable
 import pandas as pd
 
 from opentrade.indicators.base import ema, typical_price
-from opentrade.indicators.utils import rolling_mean, safe_divide, to_series, validate_period
+from opentrade.indicators.utils import (
+    rolling_mean,
+    safe_divide,
+    to_series,
+    validate_period,
+)
 
 
-def obv(close: pd.Series | Iterable[float], volume: pd.Series | Iterable[float]) -> pd.Series:
+def obv(
+    close: pd.Series | Iterable[float],
+    volume: pd.Series | Iterable[float],
+) -> pd.Series:
     """能量潮 OBV。"""
     close_series = to_series(close)
     volume_series = to_series(volume)
-    direction = close_series.diff().fillna(0).apply(lambda value: 1 if value > 0 else (-1 if value < 0 else 0))
+    direction = close_series.diff().fillna(0).apply(
+        lambda value: 1 if value > 0 else (-1 if value < 0 else 0)
+    )
     return (direction * volume_series).cumsum()
 
 
@@ -45,7 +55,8 @@ def chaikin_money_flow(
 ) -> pd.Series:
     """Chaikin Money Flow。"""
     validate_period(period)
-    adl_component = accumulation_distribution(high, low, close, volume).diff().fillna(0)
+    adl_component = accumulation_distribution(high, low, close,
+                                              volume).diff().fillna(0)
     volume_series = to_series(volume)
     return safe_divide(
         adl_component.rolling(period, min_periods=period).sum(),
@@ -132,21 +143,28 @@ def ease_of_movement(
     low_series = to_series(low)
     volume_series = to_series(volume)
     midpoint_move = ((high_series + low_series) / 2).diff()
-    box_ratio = safe_divide(volume_series / 100000000, high_series - low_series)
+    box_ratio = safe_divide(
+        volume_series / 100000000, high_series - low_series
+    )
     emv_raw = safe_divide(midpoint_move, box_ratio)
     emv_ma = rolling_mean(emv_raw, period)
     return pd.concat({"emv": emv_raw, "emv_ma": emv_ma}, axis=1)
 
 
-def price_volume_trend(close: pd.Series | Iterable[float], volume: pd.Series | Iterable[float]) -> pd.Series:
+def price_volume_trend(
+    close: pd.Series | Iterable[float], volume: pd.Series | Iterable[float]
+) -> pd.Series:
     """价量趋势 PVT。"""
     close_series = to_series(close)
     volume_series = to_series(volume)
-    pct_change = safe_divide(close_series.diff(), close_series.shift(1)).fillna(0)
+    pct_change = safe_divide(close_series.diff(),
+                             close_series.shift(1)).fillna(0)
     return (pct_change * volume_series).cumsum()
 
 
-def volume_ratio(volume: pd.Series | Iterable[float], period: int = 5) -> pd.Series:
+def volume_ratio(
+    volume: pd.Series | Iterable[float], period: int = 5
+) -> pd.Series:
     """量比型算子，当前成交量相对过去均量。"""
     volume_series = to_series(volume)
     return safe_divide(volume_series, rolling_mean(volume_series, period))

@@ -1,7 +1,7 @@
 """动量类技术指标。
 
-动量指标更关注上涨或下跌速度、超买超卖状态以及拐点敏感度。中短线场景里，
-RSI、KDJ、CCI、ROC 一类算子通常是最常用的基础构件。
+动量指标更关注上涨或下跌速度、超买超卖状态以及拐点敏感度。
+中短线场景里，RSI、KDJ、CCI、ROC 一类算子通常是最常用的基础构件。
 """
 
 from __future__ import annotations
@@ -10,11 +10,25 @@ from typing import Iterable
 
 import pandas as pd
 
-from opentrade.indicators.base import ema, highest, lowest, rma, sma, typical_price
-from opentrade.indicators.utils import safe_divide, to_frame, to_series, validate_period
+from opentrade.indicators.base import (
+    ema,
+    highest,
+    lowest,
+    rma,
+    sma,
+    typical_price,
+)
+from opentrade.indicators.utils import (
+    safe_divide,
+    to_frame,
+    to_series,
+    validate_period,
+)
 
 
-def momentum(values: pd.Series | Iterable[float], period: int = 10) -> pd.Series:
+def momentum(
+    values: pd.Series | Iterable[float], period: int = 10
+) -> pd.Series:
     """动量值，等于当前值减去 N 周期前值。"""
     validate_period(period)
     series = to_series(values)
@@ -25,7 +39,9 @@ def roc(values: pd.Series | Iterable[float], period: int = 12) -> pd.Series:
     """变化率 ROC。"""
     validate_period(period)
     series = to_series(values)
-    return safe_divide(series - series.shift(period), series.shift(period)) * 100
+    return safe_divide(
+        series - series.shift(period), series.shift(period)
+    ) * 100
 
 
 def rsi(values: pd.Series | Iterable[float], period: int = 14) -> pd.Series:
@@ -56,7 +72,9 @@ def stochastic_oscillator(
     close_series = to_series(close)
     lowest_low = lowest(low_series, k_period)
     highest_high = highest(high_series, k_period)
-    raw_k = safe_divide(close_series - lowest_low, highest_high - lowest_low) * 100
+    raw_k = safe_divide(
+        close_series - lowest_low, highest_high - lowest_low
+    ) * 100
     k = sma(raw_k, smooth_period, min_periods=smooth_period)
     d = sma(k, d_period, min_periods=d_period)
     return to_frame({"k": k, "d": d})
@@ -94,7 +112,9 @@ def cci(
     """顺势指标 CCI。"""
     tp = typical_price(high, low, close)
     ma = sma(tp, period)
-    md = tp.rolling(window=period, min_periods=period).apply(
+    md = tp.rolling(
+        window=period, min_periods=period
+    ).apply(
         lambda window: (window - window.mean()).abs().mean(),
         raw=False,
     )
@@ -111,10 +131,16 @@ def williams_r(
     highest_high = highest(high, period)
     lowest_low = lowest(low, period)
     close_series = to_series(close)
-    return -safe_divide(highest_high - close_series, highest_high - lowest_low) * 100
+    return -safe_divide(
+        highest_high - close_series, highest_high - lowest_low
+    ) * 100
 
 
-def trix(values: pd.Series | Iterable[float], period: int = 12, signal_period: int = 9) -> pd.DataFrame:
+def trix(
+    values: pd.Series | Iterable[float],
+    period: int = 12,
+    signal_period: int = 9
+) -> pd.DataFrame:
     """TRIX 三重平滑动量指标。"""
     triple_ema = ema(ema(ema(values, period), period), period)
     trix_line = safe_divide(triple_ema.diff(), triple_ema.shift(1)) * 100
@@ -151,13 +177,23 @@ def ultimate_oscillator(
     low_series = to_series(low)
     close_series = to_series(close)
     previous_close = close_series.shift(1)
-    buying_pressure = close_series - pd.concat([low_series, previous_close], axis=1).min(axis=1)
+    buying_pressure = close_series - \
+        pd.concat([low_series, previous_close], axis=1).min(axis=1)
     true_low = pd.concat([low_series, previous_close], axis=1).min(axis=1)
     true_high = pd.concat([high_series, previous_close], axis=1).max(axis=1)
     tr = true_high - true_low
-    avg_short = safe_divide(buying_pressure.rolling(short_period).sum(), tr.rolling(short_period).sum())
-    avg_medium = safe_divide(buying_pressure.rolling(medium_period).sum(), tr.rolling(medium_period).sum())
-    avg_long = safe_divide(buying_pressure.rolling(long_period).sum(), tr.rolling(long_period).sum())
+    avg_short = safe_divide(
+        buying_pressure.rolling(short_period).sum(),
+        tr.rolling(short_period).sum()
+    )
+    avg_medium = safe_divide(
+        buying_pressure.rolling(medium_period).sum(),
+        tr.rolling(medium_period).sum()
+    )
+    avg_long = safe_divide(
+        buying_pressure.rolling(long_period).sum(),
+        tr.rolling(long_period).sum()
+    )
     return 100 * ((4 * avg_short) + (2 * avg_medium) + avg_long) / 7
 
 
@@ -181,4 +217,10 @@ def ppo(
     ppo_line = safe_divide(fast - slow, slow) * 100
     signal = ema(ppo_line, signal_period)
     histogram = ppo_line - signal
-    return to_frame({"ppo": ppo_line, "signal": signal, "histogram": histogram})
+    return to_frame(
+        {
+            "ppo": ppo_line,
+            "signal": signal,
+            "histogram": histogram
+        }
+    )

@@ -5,9 +5,17 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from opentrade.backends.base import BackendProvider, BackendRateLimitError, CapabilityHandler, ProviderExecutionError
+from opentrade.backends.base import (
+    BackendProvider,
+    BackendRateLimitError,
+    CapabilityHandler,
+    ProviderExecutionError,
+)
+from opentrade.backends.factory import (
+    get_backend_provider,
+    list_backend_providers,
+)
 from opentrade.backends.resolver import resolve_backend_selection
-from opentrade.backends.factory import get_backend_provider, list_backend_providers
 from opentrade.command_catalog import (
     SHARED_COMMANDS,
     get_capability_descriptor,
@@ -20,6 +28,7 @@ from opentrade.models import BackendName, BackendSelection, StandardResult
 
 
 class MultiBackendScaffoldTest(unittest.TestCase):
+
     def test_shared_catalog_only_contains_multi_backend_commands(self) -> None:
         self.assertTrue(SHARED_COMMANDS)
         for definition in SHARED_COMMANDS:
@@ -32,7 +41,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         for definition in definitions:
             self.assertEqual(definition.kind.value, "provider-extension")
             self.assertEqual(len(definition.supported_backends), 1)
-            self.assertEqual(definition.provider_name, definition.supported_backends[0])
+            self.assertEqual(
+                definition.provider_name, definition.supported_backends[0]
+            )
 
     def test_stock_capabilities_replace_equity_in_shared_catalog(self) -> None:
         history = get_shared_command_definition("stock.price.history")
@@ -50,20 +61,53 @@ class MultiBackendScaffoldTest(unittest.TestCase):
     def test_capability_descriptor_exposes_contracts(self) -> None:
         descriptor = get_capability_descriptor("stock.price.history")
         self.assertEqual(descriptor.result_contract, "history-bars")
-        self.assertEqual(get_capability_descriptor("fund.nav.history").result_contract, "fund-nav-history")
-        self.assertEqual(get_capability_descriptor("resolve.quote-id").result_contract, "scalar-value")
+        self.assertEqual(
+            get_capability_descriptor("fund.nav.history").result_contract,
+            "fund-nav-history"
+        )
+        self.assertEqual(
+            get_capability_descriptor("resolve.quote-id").result_contract,
+            "scalar-value"
+        )
 
     def test_provider_registry_exposes_full_command_surface(self) -> None:
         registry = list_backend_providers()
-        self.assertEqual(set(registry), {BackendName.EFINANCE, BackendName.AKSHARE, BackendName.YFINANCE})
-        self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("stock.price.live"))
-        self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("bond.catalog"))
-        self.assertTrue(get_backend_provider(BackendName.EFINANCE).supports("resolve.quote-id"))
-        self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("stock.price.history"))
-        self.assertTrue(get_backend_provider(BackendName.AKSHARE).supports("akshare.industry.boards"))
-        self.assertTrue(get_backend_provider(BackendName.YFINANCE).supports("stock.price.history"))
-        self.assertTrue(get_backend_provider(BackendName.YFINANCE).supports("quote.price.latest"))
-        self.assertTrue(get_backend_provider(BackendName.YFINANCE).supports("yfinance.quote.news"))
+        self.assertEqual(
+            set(registry),
+            {BackendName.EFINANCE, BackendName.AKSHARE, BackendName.YFINANCE}
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.EFINANCE
+                                 ).supports("stock.price.live")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.EFINANCE
+                                 ).supports("bond.catalog")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.EFINANCE
+                                 ).supports("resolve.quote-id")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.AKSHARE
+                                 ).supports("stock.price.history")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.AKSHARE
+                                 ).supports("akshare.industry.boards")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.YFINANCE
+                                 ).supports("stock.price.history")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.YFINANCE
+                                 ).supports("quote.price.latest")
+        )
+        self.assertTrue(
+            get_backend_provider(BackendName.YFINANCE
+                                 ).supports("yfinance.quote.news")
+        )
 
     def test_provider_support_matrix_matches_declared_backends(self) -> None:
         efinance_provider = get_backend_provider(BackendName.EFINANCE)
@@ -71,12 +115,12 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         yfinance_provider = get_backend_provider(BackendName.YFINANCE)
 
         for definition in (
-            get_shared_command_definition("stock.price.history"),
-            get_shared_command_definition("stock.price.live"),
-            get_shared_command_definition("stock.profile"),
-            get_shared_command_definition("fund.nav.history"),
-            get_command_definition("quote.price.latest"),
-            get_command_definition("quote.profile"),
+                get_shared_command_definition("stock.price.history"),
+                get_shared_command_definition("stock.price.live"),
+                get_shared_command_definition("stock.profile"),
+                get_shared_command_definition("fund.nav.history"),
+                get_command_definition("quote.price.latest"),
+                get_command_definition("quote.profile"),
         ):
             self.assertEqual(
                 efinance_provider.supports(definition.command_key),
@@ -105,7 +149,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 definition.provider_name == BackendName.YFINANCE,
             )
 
-    def test_resolve_backend_selection_defaults_shared_commands_to_auto(self) -> None:
+    def test_resolve_backend_selection_defaults_shared_commands_to_auto(
+        self
+    ) -> None:
         definition = get_shared_command_definition("stock.price.history")
         selection = resolve_backend_selection(definition, None)
         self.assertEqual(selection.resolved, BackendName.AUTO)
@@ -113,8 +159,11 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(selection.candidate_chain, ())
         self.assertIsNone(selection.final_backend)
 
-    def test_resolve_backend_selection_auto_adapts_provider_extension(self) -> None:
-        definition = get_backend_provider(BackendName.YFINANCE).extension_commands[0]
+    def test_resolve_backend_selection_auto_adapts_provider_extension(
+        self
+    ) -> None:
+        definition = get_backend_provider(BackendName.YFINANCE
+                                          ).extension_commands[0]
         selection = resolve_backend_selection(definition, BackendName.AUTO)
         self.assertEqual(selection.requested, BackendName.AUTO)
         self.assertEqual(selection.resolved, BackendName.YFINANCE)
@@ -128,24 +177,53 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             requested=BackendName.AUTO,
             resolved=BackendName.AUTO,
             source="default",
-            candidate_chain=(BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE),
+            candidate_chain=(
+                BackendName.AKSHARE, BackendName.YFINANCE, BackendName.EFINANCE
+            ),
         )
 
         class FailingHandler(CapabilityHandler):
-            def execute(self, request_data: dict[str, object]) -> StandardResult:
-                raise ProviderExecutionError(BackendName.AKSHARE, "stock.price.history", "execute", "temporary provider failure")
+
+            def execute(
+                self, request_data: dict[str, object]
+            ) -> StandardResult:
+                raise ProviderExecutionError(
+                    BackendName.AKSHARE, "stock.price.history", "execute",
+                    "temporary provider failure"
+                )
 
         class SuccessHandler(CapabilityHandler):
-            def execute(self, request_data: dict[str, object]) -> StandardResult:
-                return StandardResult(contract_name="history-bars", data=[{"symbol": "AAPL"}])
+
+            def execute(
+                self, request_data: dict[str, object]
+            ) -> StandardResult:
+                return StandardResult(
+                    contract_name="history-bars", data=[{
+                        "symbol": "AAPL"
+                    }]
+                )
 
         providers = {
-            BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": FailingHandler()}),
-            BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": SuccessHandler()}),
-            BackendName.EFINANCE: BackendProvider(BackendName.EFINANCE, {"stock.price.history": SuccessHandler()}),
+            BackendName.AKSHARE:
+            BackendProvider(
+                BackendName.AKSHARE, {"stock.price.history": FailingHandler()}
+            ),
+            BackendName.YFINANCE:
+            BackendProvider(
+                BackendName.YFINANCE,
+                {"stock.price.history": SuccessHandler()}
+            ),
+            BackendName.EFINANCE:
+            BackendProvider(
+                BackendName.EFINANCE,
+                {"stock.price.history": SuccessHandler()}
+            ),
         }
-        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
-            result = CommandFacade().invoke(definition, backend, {"stock_codes": ["AAPL"]})
+        with patch("opentrade.facade.get_backend_provider",
+                   side_effect=lambda name: providers[name]):
+            result = CommandFacade().invoke(
+                definition, backend, {"stock_codes": ["AAPL"]}
+            )
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(backend.final_backend, BackendName.YFINANCE)
 
@@ -159,19 +237,36 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
 
         class FailingHandler(CapabilityHandler):
+
             def __init__(self, message: str) -> None:
                 self.message = message
 
-            def execute(self, request_data: dict[str, object]) -> StandardResult:
-                raise ProviderExecutionError(BackendName.AKSHARE, "stock.price.history", "execute", self.message)
+            def execute(
+                self, request_data: dict[str, object]
+            ) -> StandardResult:
+                raise ProviderExecutionError(
+                    BackendName.AKSHARE, "stock.price.history", "execute",
+                    self.message
+                )
 
         providers = {
-            BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": FailingHandler("akshare failed")}),
-            BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": FailingHandler("yfinance failed")}),
+            BackendName.AKSHARE:
+            BackendProvider(
+                BackendName.AKSHARE,
+                {"stock.price.history": FailingHandler("akshare failed")}
+            ),
+            BackendName.YFINANCE:
+            BackendProvider(
+                BackendName.YFINANCE,
+                {"stock.price.history": FailingHandler("yfinance failed")}
+            ),
         }
-        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider",
+                   side_effect=lambda name: providers[name]):
             with self.assertRaises(AutoBackendExecutionError) as context:
-                CommandFacade().invoke(definition, backend, {"stock_codes": ["AAPL"]})
+                CommandFacade().invoke(
+                    definition, backend, {"stock_codes": ["AAPL"]}
+                )
         self.assertIn("akshare failed", str(context.exception))
         self.assertIn("yfinance failed", str(context.exception))
 
@@ -185,37 +280,81 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
 
         class InvalidRequestHandler(CapabilityHandler):
-            def execute(self, request_data: dict[str, object]) -> StandardResult:
+
+            def execute(
+                self, request_data: dict[str, object]
+            ) -> StandardResult:
                 raise ValueError("bad request")
 
         class SuccessHandler(CapabilityHandler):
-            def execute(self, request_data: dict[str, object]) -> StandardResult:
-                return StandardResult(contract_name="history-bars", data=[{"symbol": "AAPL"}])
+
+            def execute(
+                self, request_data: dict[str, object]
+            ) -> StandardResult:
+                return StandardResult(
+                    contract_name="history-bars", data=[{
+                        "symbol": "AAPL"
+                    }]
+                )
 
         providers = {
-            BackendName.AKSHARE: BackendProvider(BackendName.AKSHARE, {"stock.price.history": InvalidRequestHandler()}),
-            BackendName.YFINANCE: BackendProvider(BackendName.YFINANCE, {"stock.price.history": SuccessHandler()}),
+            BackendName.AKSHARE:
+            BackendProvider(
+                BackendName.AKSHARE,
+                {"stock.price.history": InvalidRequestHandler()}
+            ),
+            BackendName.YFINANCE:
+            BackendProvider(
+                BackendName.YFINANCE,
+                {"stock.price.history": SuccessHandler()}
+            ),
         }
-        with patch("opentrade.facade.get_backend_provider", side_effect=lambda name: providers[name]):
+        with patch("opentrade.facade.get_backend_provider",
+                   side_effect=lambda name: providers[name]):
             with self.assertRaisesRegex(ValueError, "bad request"):
-                CommandFacade().invoke(definition, backend, {"stock_codes": ["AAPL"]})
+                CommandFacade().invoke(
+                    definition, backend, {"stock_codes": ["AAPL"]}
+                )
         self.assertIsNone(backend.final_backend)
 
     def test_efinance_search_handler_returns_standard_result(self) -> None:
-        quote = type("Quote", (), {"_asdict": lambda self: {"code": "AAPL", "name": "苹果", "quote_id": "AAPL", "classify": "US_stock"}})()
+        quote = type(
+            "Quote", (), {
+                "_asdict": lambda self: {
+                    "code": "AAPL",
+                    "name": "苹果",
+                    "quote_id": "AAPL",
+                    "classify": "US_stock"
+                }
+            }
+        )()
         definition = get_shared_command_definition("instrument.search")
         facade = CommandFacade()
-        with patch("efinance.utils.search_quote", return_value=[quote]) as mock_search:
+        with patch("efinance.utils.search_quote",
+                   return_value=[quote]) as mock_search:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"keyword": "AAPL", "market": None, "result_count": 5, "use_local_cache": True},
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
+                {
+                    "keyword": "AAPL",
+                    "market": None,
+                    "result_count": 5,
+                    "use_local_cache": True
+                },
             )
-        mock_search.assert_called_once_with(keyword="AAPL", market_type=None, count=5, use_local=True)
+        mock_search.assert_called_once_with(
+            keyword="AAPL", market_type=None, count=5, use_local=True
+        )
         self.assertEqual(result.contract_name, "search-results")
         self.assertEqual(result.data[0]["code"], "AAPL")
 
-    def test_efinance_stock_history_handler_returns_standard_result(self) -> None:
+    def test_efinance_stock_history_handler_returns_standard_result(
+        self
+    ) -> None:
         frame = pd.DataFrame(
             [
                 {
@@ -231,10 +370,15 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_shared_command_definition("stock.price.history")
         facade = CommandFacade()
-        with patch("efinance.stock.get_quote_history", return_value=frame) as mock_history:
+        with patch("efinance.stock.get_quote_history",
+                   return_value=frame) as mock_history:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
                 {
                     "symbols": ["000001"],
                     "start_date": "19000101",
@@ -259,21 +403,36 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(result.data[0]["symbol"], "000001")
 
-    def test_efinance_stock_profile_handler_returns_standard_result(self) -> None:
-        profile = pd.Series({"code": "000001", "name": "平安银行", "industry": "银行"})
+    def test_efinance_stock_profile_handler_returns_standard_result(
+        self
+    ) -> None:
+        profile = pd.Series(
+            {
+                "code": "000001",
+                "name": "平安银行",
+                "industry": "银行"
+            }
+        )
         definition = get_shared_command_definition("stock.profile")
         facade = CommandFacade()
-        with patch("efinance.stock.get_base_info", return_value=profile) as mock_profile:
+        with patch("efinance.stock.get_base_info",
+                   return_value=profile) as mock_profile:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
                 {"symbol": "000001"},
             )
         mock_profile.assert_called_once_with(stock_codes="000001")
         self.assertEqual(result.contract_name, "profile-info")
         self.assertEqual(result.data["code"], "000001")
 
-    def test_efinance_fund_nav_history_handler_returns_standard_result(self) -> None:
+    def test_efinance_fund_nav_history_handler_returns_standard_result(
+        self
+    ) -> None:
         frame = pd.DataFrame(
             [
                 {
@@ -287,19 +446,30 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_shared_command_definition("fund.nav.history")
         facade = CommandFacade()
-        with patch("efinance.fund.get_quote_history", return_value=frame) as mock_history:
+        with patch("efinance.fund.get_quote_history",
+                   return_value=frame) as mock_history:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"symbol": "161725", "max_pages": 40000},
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
+                {
+                    "symbol": "161725",
+                    "max_pages": 40000
+                },
             )
         mock_history.assert_called_once_with(fund_code="161725", pz=40000)
         self.assertEqual(result.contract_name, "fund-nav-history")
         self.assertEqual(result.data[0]["symbol"], "161725")
 
-    def test_efinance_fund_nav_history_batch_handler_returns_standard_result(self) -> None:
+    def test_efinance_fund_nav_history_batch_handler_returns_standard_result(
+        self
+    ) -> None:
         payload = {
-            "161725": pd.DataFrame(
+            "161725":
+            pd.DataFrame(
                 [
                     {
                         "date": "2026-05-28",
@@ -309,7 +479,8 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                     }
                 ]
             ),
-            "110022": pd.DataFrame(
+            "110022":
+            pd.DataFrame(
                 [
                     {
                         "date": "2026-05-28",
@@ -322,17 +493,27 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         }
         definition = get_command_definition("fund.nav.history-batch")
         facade = CommandFacade()
-        with patch("efinance.fund.get_quote_history_multi", return_value=payload):
+        with patch("efinance.fund.get_quote_history_multi",
+                   return_value=payload):
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
-                {"fund_codes": ["161725", "110022"], "pz": 40000},
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
+                {
+                    "fund_codes": ["161725", "110022"],
+                    "pz": 40000
+                },
             )
         self.assertEqual(result.contract_name, "fund-nav-history")
         self.assertEqual(sorted(result.data), ["110022", "161725"])
         self.assertEqual(result.data["161725"][0]["symbol"], "161725")
 
-    def test_efinance_bond_history_handler_returns_standard_result(self) -> None:
+    def test_efinance_bond_history_handler_returns_standard_result(
+        self
+    ) -> None:
         frame = pd.DataFrame(
             [
                 {
@@ -350,7 +531,11 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         with patch("efinance.bond.get_quote_history", return_value=frame):
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
                 {
                     "bond_codes": ["113519"],
                     "beg": "19000101",
@@ -362,56 +547,97 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(result.data[0]["symbol"], "113519")
 
-    def test_efinance_quote_profile_handler_returns_standard_result(self) -> None:
-        profile = pd.Series({"quote_id": "1.000001", "name": "平安银行", "market": "A_stock"})
+    def test_efinance_quote_profile_handler_returns_standard_result(
+        self
+    ) -> None:
+        profile = pd.Series(
+            {
+                "quote_id": "1.000001",
+                "name": "平安银行",
+                "market": "A_stock"
+            }
+        )
         definition = get_command_definition("quote.profile")
         facade = CommandFacade()
         with patch("efinance.common.get_base_info", return_value=profile):
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
                 {"quote_id": "1.000001"},
             )
         self.assertEqual(result.contract_name, "profile-info")
         self.assertEqual(result.data["code"], "1.000001")
 
     def test_limit_strategy_metadata_matches_execution_design(self) -> None:
-        self.assertEqual(get_shared_command_definition("instrument.search").limit_strategy, "adapter-lightweight")
-        self.assertEqual(get_shared_command_definition("stock.price.live").limit_strategy, "display-only")
-        self.assertEqual(get_command_definition("quote.price.latest").limit_strategy, "provider-request")
-        self.assertEqual(get_command_definition("market.price.live").limit_strategy, "provider-request")
+        self.assertEqual(
+            get_shared_command_definition("instrument.search").limit_strategy,
+            "adapter-lightweight"
+        )
+        self.assertEqual(
+            get_shared_command_definition("stock.price.live").limit_strategy,
+            "display-only"
+        )
+        self.assertEqual(
+            get_command_definition("quote.price.latest").limit_strategy,
+            "provider-request"
+        )
+        self.assertEqual(
+            get_command_definition("market.price.live").limit_strategy,
+            "provider-request"
+        )
 
-    def test_quote_latest_execution_limit_is_forwarded_to_provider(self) -> None:
+    def test_quote_latest_execution_limit_is_forwarded_to_provider(
+        self
+    ) -> None:
         definition = get_command_definition("quote.price.latest")
         facade = CommandFacade()
-        with patch("efinance.common.get_latest_quote", return_value=pd.DataFrame([{"代码": "1.000001", "名称": "平安银行", "最新价": 10.5}])) as mock_quote:
+        with patch("efinance.common.get_latest_quote",
+                   return_value=pd.DataFrame([{"代码": "1.000001", "名称": "平安银行",
+                                               "最新价": 10.5}])) as mock_quote:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.EFINANCE, resolved=BackendName.EFINANCE, source="explicit"),
+                BackendSelection(
+                    requested=BackendName.EFINANCE,
+                    resolved=BackendName.EFINANCE,
+                    source="explicit"
+                ),
                 {"quote_ids": ["1.000001", "0.399001", "105.AAPL"]},
                 execution_limit=2,
             )
 
-        mock_quote.assert_called_once_with(quote_id_list=["1.000001", "0.399001"])
+        mock_quote.assert_called_once_with(
+            quote_id_list=["1.000001", "0.399001"]
+        )
         self.assertTrue(result.metadata["execution_limit_applied"])
-        self.assertEqual(result.metadata["execution_limit_mode"], "provider-request")
+        self.assertEqual(
+            result.metadata["execution_limit_mode"], "provider-request"
+        )
 
-    def test_efinance_quote_latest_handler_uses_quote_market_default(self) -> None:
+    def test_efinance_quote_latest_handler_uses_quote_market_default(
+        self
+    ) -> None:
         frame = pd.DataFrame(
-            [
-                {
-                    "代码": "1.000001",
-                    "名称": "平安银行",
-                    "最新价": 10.5,
-                }
-            ]
+            [{
+                "代码": "1.000001",
+                "名称": "平安银行",
+                "最新价": 10.5,
+            }]
         )
         definition = get_command_definition("quote.price.latest")
         facade = CommandFacade()
-        with patch("efinance.common.get_latest_quote", return_value=frame) as mock_quote:
+        with patch("efinance.common.get_latest_quote",
+                   return_value=frame) as mock_quote:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
                 {"quote_ids": ["1.000001"]},
             )
         mock_quote.assert_called_once_with(quote_id_list="1.000001")
@@ -436,10 +662,15 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         )
         definition = get_shared_command_definition("stock.price.live")
         facade = CommandFacade()
-        with patch("efinance.stock.get_realtime_quotes", return_value=frame) as mock_live:
+        with patch("efinance.stock.get_realtime_quotes",
+                   return_value=frame) as mock_live:
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                BackendSelection(
+                    requested=None,
+                    resolved=BackendName.EFINANCE,
+                    source="default"
+                ),
                 {"market": "A_stock"},
             )
         mock_live.assert_called_once()
@@ -467,15 +698,32 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         definition = get_shared_command_definition("instrument.search")
         facade = CommandFacade()
         payload = [
-            {"symbol": "AAPL", "shortname": "Apple Inc.", "quoteType": "EQUITY"},
-            {"symbol": "VTI", "shortname": "Vanguard Total Stock Market ETF", "quoteType": "ETF"},
+            {
+                "symbol": "AAPL",
+                "shortname": "Apple Inc.",
+                "quoteType": "EQUITY"
+            },
+            {
+                "symbol": "VTI",
+                "shortname": "Vanguard Total Stock Market ETF",
+                "quoteType": "ETF"
+            },
         ]
         with patch("yfinance.Search") as mock_search:
             mock_search.return_value.quotes = payload
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                {"keyword": "AAPL", "market": None, "result_count": 5, "use_local_cache": True},
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
+                {
+                    "keyword": "AAPL",
+                    "market": None,
+                    "result_count": 5,
+                    "use_local_cache": True
+                },
             )
         mock_search.assert_called_once_with(
             "AAPL",
@@ -489,7 +737,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "search-results")
         self.assertEqual(result.data[0]["code"], "AAPL")
 
-    def test_yfinance_stock_history_handler_returns_standard_result(self) -> None:
+    def test_yfinance_stock_history_handler_returns_standard_result(
+        self
+    ) -> None:
         frame = pd.DataFrame(
             [
                 {
@@ -508,7 +758,11 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             mock_ticker.return_value.history.return_value = frame
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
                 {
                     "symbols": ["AAPL"],
                     "start_date": "19000101",
@@ -531,7 +785,9 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.contract_name, "history-bars")
         self.assertEqual(result.data[0]["symbol"], "AAPL")
 
-    def test_yfinance_quote_latest_handler_returns_standard_result(self) -> None:
+    def test_yfinance_quote_latest_handler_returns_standard_result(
+        self
+    ) -> None:
         definition = get_command_definition("quote.price.latest")
         facade = CommandFacade()
         with patch("yfinance.Ticker") as mock_ticker:
@@ -551,18 +807,27 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 "lastVolume": 123456,
                 "marketCap": 100,
             }.get(key)
-            mock_ticker.return_value.info = {"shortName": "Apple Inc.", "market": "US_stock"}
+            mock_ticker.return_value.info = {
+                "shortName": "Apple Inc.",
+                "market": "US_stock"
+            }
             mock_ticker.return_value.history_metadata = {}
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
                 {"quote_ids": ["AAPL"]},
             )
         mock_ticker.assert_called_once_with("AAPL")
         self.assertEqual(result.contract_name, "realtime-quotes")
         self.assertEqual(result.data[0]["symbol"], "AAPL")
 
-    def test_yfinance_quote_history_handler_returns_standard_result(self) -> None:
+    def test_yfinance_quote_history_handler_returns_standard_result(
+        self
+    ) -> None:
         frame = pd.DataFrame(
             [
                 {
@@ -581,7 +846,11 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             mock_ticker.return_value.history.return_value = frame
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
                 {
                     "symbols": ["AAPL"],
                     "start_date": "19000101",
@@ -621,7 +890,11 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             mock_ticker.return_value.fast_info.get.return_value = None
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
                 {"symbol": "AAPL"},
             )
         mock_ticker.assert_called_once_with("AAPL")
@@ -635,13 +908,18 @@ class MultiBackendScaffoldTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, r"stock\.profile"):
                 facade.invoke(
                     definition,
-                    BackendSelection(requested=None, resolved=BackendName.EFINANCE, source="default"),
+                    BackendSelection(
+                        requested=None,
+                        resolved=BackendName.EFINANCE,
+                        source="default"
+                    ),
                     {"symbols": ["000001", "000002"]},
                 )
         mock_profile.assert_not_called()
 
-
-    def test_yfinance_fund_profile_handler_preserves_provider_fields(self) -> None:
+    def test_yfinance_fund_profile_handler_preserves_provider_fields(
+        self
+    ) -> None:
         definition = get_command_definition("fund.profile")
         facade = CommandFacade()
         with patch("yfinance.Ticker") as mock_ticker:
@@ -649,23 +927,48 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 "shortName": "Vanguard Total Stock Market ETF",
                 "market": "fund",
             }
-            mock_ticker.return_value.history_metadata = {"instrumentType": "ETF"}
+            mock_ticker.return_value.history_metadata = {
+                "instrumentType": "ETF"
+            }
             mock_ticker.return_value.funds_data = type(
                 "FundsData",
                 (),
                 {
-                    "description": "Fund description",
-                    "fund_overview": {"family": "Vanguard"},
-                    "fund_operations": pd.DataFrame([{"categoryName": "expenseRatio", "value": 0.03}]),
-                    "asset_classes": {"equity": 0.99},
-                    "top_holdings": pd.DataFrame([{"symbol": "AAPL", "holdingPercent": 0.05}]),
-                    "bond_ratings": {"AAA": 0.1},
-                    "sector_weightings": {"technology": 0.3},
+                    "description":
+                    "Fund description",
+                    "fund_overview": {
+                        "family": "Vanguard"
+                    },
+                    "fund_operations":
+                    pd.DataFrame(
+                        [{
+                            "categoryName": "expenseRatio",
+                            "value": 0.03
+                        }]
+                    ),
+                    "asset_classes": {
+                        "equity": 0.99
+                    },
+                    "top_holdings":
+                    pd.DataFrame([{
+                        "symbol": "AAPL",
+                        "holdingPercent": 0.05
+                    }]),
+                    "bond_ratings": {
+                        "AAA": 0.1
+                    },
+                    "sector_weightings": {
+                        "technology": 0.3
+                    },
                 },
             )()
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
                 {"symbols": ["VTI"]},
             )
         mock_ticker.assert_called_once_with("VTI")
@@ -673,17 +976,30 @@ class MultiBackendScaffoldTest(unittest.TestCase):
         self.assertEqual(result.data["code"], "VTI")
         self.assertIn("funds_data", result.provider_fields)
 
-    def test_yfinance_quote_news_extension_returns_provider_records(self) -> None:
-        definition = get_backend_provider(BackendName.YFINANCE).extension_commands[0]
+    def test_yfinance_quote_news_extension_returns_provider_records(
+        self
+    ) -> None:
+        definition = get_backend_provider(BackendName.YFINANCE
+                                          ).extension_commands[0]
         facade = CommandFacade()
         with patch("yfinance.Ticker") as mock_ticker:
             mock_ticker.return_value.news = [
-                {"title": "Apple launches new product", "publisher": "Yahoo Finance"},
+                {
+                    "title": "Apple launches new product",
+                    "publisher": "Yahoo Finance"
+                },
             ]
             result = facade.invoke(
                 definition,
-                BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                {"quote_id": "AAPL", "result_count": 5},
+                BackendSelection(
+                    requested=BackendName.YFINANCE,
+                    resolved=BackendName.YFINANCE,
+                    source="explicit"
+                ),
+                {
+                    "quote_id": "AAPL",
+                    "result_count": 5
+                },
             )
         self.assertEqual(result.contract_name, "provider-records")
         self.assertEqual(result.data[0]["name"], "Apple launches new product")
@@ -700,26 +1016,46 @@ class MultiBackendScaffoldTest(unittest.TestCase):
                 return real_import(name, *args, **kwargs)
 
             mock_import.side_effect = side_effect
-            with self.assertRaisesRegex(RuntimeError, "yfinance backend is unavailable"):
+            with self.assertRaisesRegex(RuntimeError,
+                                        "yfinance backend is unavailable"):
                 facade.invoke(
                     definition,
-                    BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
-                    {"keyword": "AAPL", "market": None, "result_count": 5, "use_local_cache": True},
+                    BackendSelection(
+                        requested=BackendName.YFINANCE,
+                        resolved=BackendName.YFINANCE,
+                        source="explicit"
+                    ),
+                    {
+                        "keyword": "AAPL",
+                        "market": None,
+                        "result_count": 5,
+                        "use_local_cache": True
+                    },
                 )
 
     def test_yfinance_rate_limit_error_is_exposed_readably(self) -> None:
         definition = get_shared_command_definition("stock.profile")
         facade = CommandFacade()
-        with patch("opentrade.backends.provider_yfinance._build_yfinance_ticker", return_value=object()):
+        with patch(
+                "opentrade.backends.yfinance_provider._build_yfinance_ticker",
+                return_value=object()):
             with patch(
-                "opentrade.backends.provider_yfinance._extract_yfinance_quote_info",
-                side_effect=BackendRateLimitError("Yahoo rate limited the request. Please retry later."),
+                    "opentrade.backends.yfinance_provider."
+                    "_extract_yfinance_quote_info",
+                    side_effect=BackendRateLimitError(
+                        "Yahoo rate limited the request. Please retry later."
+                    ),
             ):
                 with patch("vortezwohl.func.retry.sleep", return_value=None):
-                    with self.assertRaisesRegex(RuntimeError, "Yahoo rate limited"):
+                    with self.assertRaisesRegex(RuntimeError,
+                                                "Yahoo rate limited"):
                         facade.invoke(
                             definition,
-                            BackendSelection(requested=BackendName.YFINANCE, resolved=BackendName.YFINANCE, source="explicit"),
+                            BackendSelection(
+                                requested=BackendName.YFINANCE,
+                                resolved=BackendName.YFINANCE,
+                                source="explicit"
+                            ),
                             {"symbol": "AAPL"},
                         )
 

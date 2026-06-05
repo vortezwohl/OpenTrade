@@ -6,109 +6,67 @@
   <title>20260604-2002 任务结论</title>
   <style>
     :root {
-      --bg: #f3efe6;
-      --paper: #fffaf0;
-      --ink: #1f2933;
-      --muted: #5b6b79;
-      --line: #d5c7ad;
-      --accent: #8f3b2f;
-      --accent-soft: #ead6c8;
-      --ok: #2f6b4f;
-      --warn: #8a5a17;
-      --shadow: 0 22px 60px rgba(61, 42, 24, 0.12);
+      --bg: #f2ede4;
+      --paper: rgba(255, 250, 242, 0.94);
+      --ink: #1d2a33;
+      --muted: #596977;
+      --line: rgba(111, 88, 59, 0.18);
+      --accent: #8b3f2f;
+      --accent-soft: rgba(139, 63, 47, 0.12);
+      --ok: #2d6b4d;
+      --warn: #8a611c;
+      --shadow: 0 24px 72px rgba(53, 38, 26, 0.12);
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
-      font-family: "Georgia", "Times New Roman", "Noto Serif SC", serif;
       color: var(--ink);
+      font-family: "Georgia", "Times New Roman", "Noto Serif SC", serif;
+      line-height: 1.78;
       background:
-        radial-gradient(circle at top left, rgba(143, 59, 47, 0.10), transparent 28%),
-        radial-gradient(circle at top right, rgba(47, 107, 79, 0.08), transparent 24%),
-        linear-gradient(180deg, #f8f4ec 0%, var(--bg) 100%);
-      line-height: 1.75;
+        radial-gradient(circle at top left, rgba(139, 63, 47, 0.10), transparent 28%),
+        radial-gradient(circle at top right, rgba(45, 107, 77, 0.08), transparent 24%),
+        linear-gradient(180deg, #f8f3eb 0%, var(--bg) 100%);
     }
-
-    .hero {
-      padding: 72px 24px 40px;
-      position: relative;
-      overflow: hidden;
-    }
-
+    .hero { padding: 72px 24px 42px; position: relative; overflow: hidden; }
     .hero::after {
       content: "";
       position: absolute;
-      inset: 24px 24px auto auto;
-      width: 180px;
-      height: 180px;
+      right: 36px;
+      top: 28px;
+      width: 220px;
+      height: 220px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(143, 59, 47, 0.16), rgba(143, 59, 47, 0));
+      background: radial-gradient(circle, rgba(139, 63, 47, 0.15), rgba(139, 63, 47, 0));
       pointer-events: none;
     }
-
-    .wrap {
-      width: min(1080px, calc(100vw - 32px));
-      margin: 0 auto;
-    }
-
+    .wrap { width: min(1100px, calc(100vw - 32px)); margin: 0 auto; }
     .eyebrow {
       display: inline-block;
-      letter-spacing: 0.18em;
+      margin-bottom: 14px;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       font-size: 12px;
       color: var(--accent);
-      margin-bottom: 16px;
     }
-
     h1 {
       margin: 0;
+      max-width: 12ch;
       font-size: clamp(34px, 5vw, 62px);
       line-height: 1.06;
-      max-width: 11ch;
     }
-
     .lead {
       max-width: 760px;
-      margin-top: 20px;
+      margin-top: 18px;
       font-size: 18px;
       color: var(--muted);
     }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 20px;
-      padding: 0 24px 72px;
-    }
-
-    .card {
-      background: rgba(255, 250, 240, 0.92);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      border-radius: 24px;
-      padding: 28px;
-      backdrop-filter: blur(6px);
-    }
-
-    .card h2 {
-      margin: 0 0 18px;
-      font-size: 24px;
-    }
-
-    .span-12 { grid-column: span 12; }
-    .span-7 { grid-column: span 7; }
-    .span-5 { grid-column: span 5; }
-    .span-6 { grid-column: span 6; }
-
     .chips {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: 18px;
+      margin-top: 20px;
     }
-
     .chip {
       padding: 8px 12px;
       border-radius: 999px;
@@ -116,60 +74,49 @@
       color: var(--accent);
       font-size: 13px;
     }
-
-    .stat-list,
-    .plain-list {
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    .plain-list li,
-    .stat-list li {
-      margin: 10px 0;
-    }
-
-    .timeline {
+    .grid {
       display: grid;
-      gap: 16px;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 20px;
+      padding: 0 24px 72px;
     }
-
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+      backdrop-filter: blur(8px);
+    }
+    .card h2 { margin: 0 0 16px; font-size: 24px; }
+    .span-12 { grid-column: span 12; }
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    ul { margin: 0; padding-left: 20px; }
+    li { margin: 10px 0; }
+    .timeline { display: grid; gap: 16px; }
     .timeline-item {
       padding: 18px 20px;
       border-left: 4px solid var(--accent);
-      background: rgba(234, 214, 200, 0.28);
-      border-radius: 12px;
+      border-radius: 14px;
+      background: rgba(139, 63, 47, 0.06);
     }
-
     .timeline-item strong {
       display: block;
       margin-bottom: 8px;
       font-size: 17px;
     }
-
-    .status-ok {
-      color: var(--ok);
-      font-weight: 700;
-    }
-
-    .status-warn {
-      color: var(--warn);
-      font-weight: 700;
-    }
-
+    .status-ok { color: var(--ok); font-weight: 700; }
+    .status-warn { color: var(--warn); font-weight: 700; }
     code {
       font-family: "Cascadia Code", "Consolas", monospace;
       font-size: 0.95em;
-      background: rgba(31, 41, 51, 0.06);
+      background: rgba(29, 42, 51, 0.06);
       padding: 2px 6px;
       border-radius: 6px;
     }
-
-    .footer {
-      padding: 0 24px 56px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
+    .footer { padding: 0 24px 56px; color: var(--muted); font-size: 14px; }
     @media (max-width: 900px) {
       .span-7, .span-5, .span-6 { grid-column: span 12; }
       .card { padding: 22px; }
@@ -183,101 +130,84 @@
       <div class="eyebrow">OpenSpec Apply Change</div>
       <h1>refactor-provider-adapters-and-contracts 已完成</h1>
       <p class="lead">
-        本次任务完成了 provider 模块拆分、shared contract 收紧、请求适配边界收敛、A 股到 Yahoo ticker 的显式翻译、
-        以及基于真实能力边界的 auto routing 调整。所有 <code>tasks.md</code> 任务项已完成并勾选。
+        本次任务已按当前仓库进度收口完成。除 OpenSpec 变更本身之外，本轮还补齐了用户追加要求：
+        provider 模块统一改为 <code>yfinance_provider</code> 这类命名、修复回归脚本中的真实中文乱码与坏掉字符串、
+        并将相关测试脚本整理到可编译且符合 PEP 8 的状态。
       </p>
       <div class="chips">
         <span class="chip">21 / 21 任务完成</span>
-        <span class="chip">UTF-8 无 BOM 输出</span>
+        <span class="chip">UTF-8 without BOM</span>
         <span class="chip">仅使用项目 .venv</span>
-        <span class="chip">provider modularization</span>
-        <span class="chip">contract tightening</span>
+        <span class="chip">provider rename completed</span>
+        <span class="chip">tests pycodestyle passed</span>
       </div>
     </div>
   </section>
-
   <main class="grid wrap">
     <section class="card span-7">
       <h2>总任务结论</h2>
-      <ul class="plain-list">
-        <li><span class="status-ok">已完成</span> `opentrade/backends/providers.py` 巨型实现拆分为 `provider_efinance.py`、`provider_akshare.py`、`provider_yfinance.py` 与 `providers_common.py`。</li>
-        <li><span class="status-ok">已完成</span> `factory.py` 直接转向新模块构建 provider，上层仍通过稳定 factory 接口取 provider。</li>
-        <li><span class="status-ok">已完成</span> shared `quote.*` 命令从模糊的 “东财 quote_id 或 Yahoo ticker 混用” 收紧为“共享行情标识”语义，并在 shared 边界显式拒绝东财原生 `1.000001` 这类 provider-native ID。</li>
-        <li><span class="status-ok">已完成</span> yfinance adapter 为 A 股 6 位代码增加了显式 `.SS/.SZ` 翻译，不再依赖调用方预先知道 Yahoo ticker 形式。</li>
-        <li><span class="status-ok">已完成</span> efinance adapter 把 shared `symbol/symbols` 显式解析为东财 `quote_id`，避免上层把 shared request 直接当 provider-native kwargs 透传。</li>
-        <li><span class="status-ok">已完成</span> `auto_planner.py` 增加按真实能力边界过滤 backend 候选的逻辑，避免旧的模糊契约继续污染 auto routing。</li>
-        <li><span class="status-ok">已完成</span> `fund.profile` 从伪多值 shared schema 收紧为单值真实契约，并保留 CLI 兼容 alias。</li>
+      <ul>
+        <li><span class="status-ok">已完成</span> provider 文件命名从 <code>provider_yfinance.py</code>、<code>provider_efinance.py</code>、<code>provider_akshare.py</code> 统一调整为 <code>yfinance_provider.py</code>、<code>efinance_provider.py</code>、<code>akshare_provider.py</code>，并同步修正引用。</li>
+        <li><span class="status-ok">已完成</span> provider adapter 与 shared contract 的拆分、工厂接线、auto planner 能力边界约束、共享 schema 收紧等 OpenSpec 要求已全部落地。</li>
+        <li><span class="status-ok">已完成</span> <code>tests/run_incremental_full_regression.py</code> 与 <code>tests/run_third_full_regression.py</code> 中的损坏 HTML 片段、中文占位符、字符串拼接错误与格式问题已修复。</li>
+        <li><span class="status-ok">已完成</span> 相关 Python 文件按当前检查基线通过 PEP 8，文件末尾保留正常终止换行，没有额外空白尾行。</li>
+        <li><span class="status-ok">已完成</span> 所有本轮写回文件均按 <code>UTF-8</code> 编码和 <code>\n</code> 换行写入，避免 PowerShell 终端编码把中文再次写坏。</li>
       </ul>
     </section>
-
     <section class="card span-5">
       <h2>关键验证</h2>
-      <ul class="stat-list">
-        <li><code>tests/test_provider_handlers_extended.py</code> <span class="status-ok">18 passed</span></li>
-        <li><code>tests/test_schema_and_resolver.py</code> <span class="status-ok">17 passed</span></li>
-        <li><code>tests/test_multi_backend_scaffold.py</code> <span class="status-ok">34 passed</span></li>
-        <li><code>tests/test_cli_full_regression.py</code> <span class="status-ok">15 passed</span></li>
-        <li><code>tests/test_facade_unit.py</code> <span class="status-ok">14 passed</span></li>
-        <li><code>tests/test_observation_smoke.py</code> <span class="status-ok">14 passed</span></li>
-        <li><code>tests/test_executor_regression.py</code> <span class="status-ok">6 passed</span></li>
-        <li>组合切片 <code>118 passed</code>，补充回归 <code>39 passed</code>。</li>
+      <ul>
+        <li><code>python -m py_compile tests/run_20260604_full_regression.py tests/run_third_full_regression.py tests/run_incremental_full_regression.py</code> <span class="status-ok">通过</span></li>
+        <li><code>python -m pycodestyle tests</code> <span class="status-ok">通过</span></li>
+        <li><code>pytest tests/test_provider_handlers_extended.py tests/test_multi_backend_scaffold.py tests/test_schema_and_resolver.py tests/test_cli_full_regression.py tests/test_regression_reporting.py -q</code> <span class="status-ok">94 passed</span></li>
+        <li><code>tests/run_incremental_full_regression.py</code> 单文件 <code>py_compile</code> / <code>pycodestyle</code> <span class="status-ok">通过</span></li>
+        <li><code>tests/run_third_full_regression.py</code> 单文件 <code>py_compile</code> / <code>pycodestyle</code> <span class="status-ok">通过</span></li>
       </ul>
     </section>
-
     <section class="card span-12">
       <h2>实施过程中的主要问题与处理</h2>
       <div class="timeline">
         <div class="timeline-item">
-          <strong>1. 结构拆分后旧测试 patch 目标失效</strong>
-          原测试仍 patch <code>opentrade.backends.providers.*</code>，而真实执行路径已经转到拆分后的 backend 模块，导致测试触发真实网络访问。
-          处理方式是把测试 patch 目标切换到 <code>provider_akshare</code>、<code>provider_efinance</code>、<code>provider_yfinance</code> 的真实实现点。
+          <strong>1. PowerShell 中文编码污染导致源码中的中文被实际写成问号</strong>
+          这不是终端显示问题，而是部分字符串与注释在文件内容里真的变成了 <code>??</code> / <code>???</code>。
+          处理方式是改用项目虚拟环境执行短 Python 脚本，强制按 <code>encoding="utf-8"</code> 与 <code>newline="\n"</code> 回写，必要时使用 <code>\uXXXX</code> 形式避开终端编码链路。
         </div>
         <div class="timeline-item">
-          <strong>2. `provider_akshare.py` 存在机械拆分遗留缺失导入</strong>
-          `_build_akshare_retry_policy()` 使用了 <code>ProviderContractError</code>，但模块初始未导入。
-          该问题已补齐，并通过相关结构测试验证。
+          <strong>2. <code>tests/run_incremental_full_regression.py</code> 曾被局部错误替换破坏语法</strong>
+          问题集中在 HTML 报告函数和副作用产物渲染函数，出现了少逗号、少闭合、字符串拼接错位等情况。
+          处理方式是按局部函数块重建，再用 <code>py_compile</code> 与 <code>pycodestyle</code> 做小步闭环，直到单文件完全通过。
         </div>
         <div class="timeline-item">
-          <strong>3. shared `quote.*` 语义原本不真实</strong>
-          东财 <code>quote_id</code> 与 Yahoo ticker 原本被混放在同一 shared 字段中，既不统一也不可静态验证。
-          本次改为共享行情标识语义，并把 provider-native ID 留在 adapter 内部翻译或明确拒绝。
+          <strong>3. <code>tests/run_third_full_regression.py</code> 主要问题是文案层面的乱码，不是逻辑层面的坏结构</strong>
+          该文件在语法和格式上原本可通过，但大量中文说明、标题和表头已经被污染，影响可读性与报告输出质量。
+          处理方式是保留结构，按行号精确替换为正常中文文案，避免大面积重写引入新风险。
         </div>
         <div class="timeline-item">
-          <strong>4. PowerShell 编辑时需特别注意中文和换行</strong>
-          过程中曾出现一次把字面量 <code>`r`n</code> 误写进 Python 文件的情况，立即回查并修复。
-          最终所有写回均使用 UTF-8 无 BOM，且已通过 Python 编译与测试验证。
+          <strong>4. PEP 8 问题主要集中在超长 HTML 模板字符串</strong>
+          处理方式不是整体格式化全仓，而是拆分当前任务相关长行，控制变更半径，保证风格达标同时不误伤逻辑。
         </div>
       </div>
     </section>
-
     <section class="card span-6">
-      <h2>本次改动覆盖范围</h2>
-      <ul class="plain-list">
-        <li><code>opentrade/backends/provider_efinance.py</code></li>
-        <li><code>opentrade/backends/provider_akshare.py</code></li>
-        <li><code>opentrade/backends/provider_yfinance.py</code></li>
-        <li><code>opentrade/backends/providers_common.py</code></li>
-        <li><code>opentrade/backends/providers.py</code></li>
-        <li><code>opentrade/backends/factory.py</code></li>
-        <li><code>opentrade/backends/auto_planner.py</code></li>
-        <li><code>opentrade/command_catalog.py</code></li>
-        <li><code>opentrade/request_schema.py</code></li>
-        <li>若干 provider / schema / regression 测试文件</li>
+      <h2>本轮实际改动重点</h2>
+      <ul>
+        <li>保留并确认新的 provider 文件：<code>opentrade/backends/akshare_provider.py</code>、<code>efinance_provider.py</code>、<code>yfinance_provider.py</code>。</li>
+        <li>确认旧命名 <code>provider_*.py</code> 已删除，相关导入路径已迁移到新的直觉化命名。</li>
+        <li>修复回归报告脚本中的中文标题、表头、说明文案、失败分类标签、stdout/stderr 描述与空状态说明。</li>
+        <li>补齐 <code>tests/run_incremental_full_regression.py</code> 中缺失的 <code>importlib</code> 导入与损坏片段。</li>
       </ul>
     </section>
-
     <section class="card span-6">
-      <h2>剩余风险与说明</h2>
-      <ul class="plain-list">
-        <li><span class="status-warn">需知晓</span> 本次重点是结构边界与 shared contract 真相收敛，不包含“所有上游真实 API 波动”的全面治理。</li>
-        <li><span class="status-warn">需知晓</span> `quote.*` 现在对 shared 输入更严格，旧的东财原生 `quote_id` 直传路径会在 shared 边界更早失败，这是预期的契约修正，不是回归。</li>
-        <li><span class="status-warn">需知晓</span> `providers.py` 仍保留兼容导出层，主要用于旧导入路径和旧测试习惯；工厂本身已不再依赖它。</li>
+      <h2>残余说明</h2>
+      <ul>
+        <li><span class="status-warn">未纳入提交</span> <code>docs/__tmp_auto_stock_price_latest.json</code>，按用户要求应排除。</li>
+        <li>本轮验证聚焦在任务相关测试与脚本，没有额外跑与当前变更无关的大范围真实网络回归。</li>
+        <li>工作区本身较脏，但本次只在任务相关文件内继续推进，没有回滚用户已有差异。</li>
       </ul>
     </section>
   </main>
-
   <div class="footer wrap">
-    生成时间：2026-06-04 任务收口阶段。文档内容基于本地代码、OpenSpec 任务项与已执行测试结果整理。
+    文档生成时间：2026-06-05。当前结论对应本地工作区状态与项目虚拟环境 <code>D:\github-project\efinance-cli\.venv</code> 的实际校验结果。
   </div>
 </body>
 </html>

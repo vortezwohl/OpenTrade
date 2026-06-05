@@ -15,9 +15,14 @@ class IndicatorLevelConfig:
 
 
 LEVELS: dict[str, IndicatorLevelConfig] = {
-    "basic": IndicatorLevelConfig(name="basic", history_window=60, realtime_limit=50),
-    "advanced": IndicatorLevelConfig(name="advanced", history_window=120, realtime_limit=80),
-    "full": IndicatorLevelConfig(name="full", history_window=200, realtime_limit=120),
+    "basic":
+    IndicatorLevelConfig(name="basic", history_window=60, realtime_limit=50),
+    "advanced":
+    IndicatorLevelConfig(
+        name="advanced", history_window=120, realtime_limit=80
+    ),
+    "full":
+    IndicatorLevelConfig(name="full", history_window=200, realtime_limit=120),
 }
 
 LEVEL_ALIASES: dict[str, str] = {

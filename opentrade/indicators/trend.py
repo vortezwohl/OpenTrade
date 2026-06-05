@@ -1,7 +1,8 @@
 """趋势类技术指标。
 
-本模块聚焦于趋势方向、趋势强度和趋势通道类指标，覆盖中短线分析中最常见的趋势
-判断工具。返回值以 `Series` 或 `DataFrame` 为主，方便直接与行情数据拼接。
+本模块聚焦于趋势方向、趋势强度和趋势通道类指标，
+覆盖中短线分析中最常见的趋势判断工具。返回值以 `Series`
+或 `DataFrame` 为主，方便直接与行情数据拼接。
 """
 
 from __future__ import annotations
@@ -11,8 +12,22 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-from opentrade.indicators.base import ema, highest, lowest, rma, sma, true_range, typical_price
-from opentrade.indicators.utils import rolling_std, safe_divide, to_frame, to_series, validate_period
+from opentrade.indicators.base import (
+    ema,
+    highest,
+    lowest,
+    rma,
+    sma,
+    true_range,
+    typical_price,
+)
+from opentrade.indicators.utils import (
+    rolling_std,
+    safe_divide,
+    to_frame,
+    to_series,
+    validate_period,
+)
 
 
 def macd(
@@ -103,16 +118,32 @@ def aroon_indicator(
     high_series = to_series(high)
     low_series = to_series(low)
 
-    aroon_up = high_series.rolling(window=period, min_periods=period).apply(
-        lambda window: ((period - 1 - (period - 1 - np.argmax(window.values))) / (period - 1)) * 100,
+    aroon_up = high_series.rolling(
+        window=period, min_periods=period
+    ).apply(
+        lambda window: (
+            (period - 1 - (period - 1 - np.argmax(window.values))) /
+            (period - 1)
+        ) * 100,
         raw=False,
     )
-    aroon_down = low_series.rolling(window=period, min_periods=period).apply(
-        lambda window: ((period - 1 - (period - 1 - np.argmin(window.values))) / (period - 1)) * 100,
+    aroon_down = low_series.rolling(
+        window=period, min_periods=period
+    ).apply(
+        lambda window: (
+            (period - 1 - (period - 1 - np.argmin(window.values))) /
+            (period - 1)
+        ) * 100,
         raw=False,
     )
     oscillator = aroon_up - aroon_down
-    return to_frame({"aroon_up": aroon_up, "aroon_down": aroon_down, "oscillator": oscillator})
+    return to_frame(
+        {
+            "aroon_up": aroon_up,
+            "aroon_down": aroon_down,
+            "oscillator": oscillator
+        }
+    )
 
 
 def dmi(
@@ -184,13 +215,15 @@ def supertrend(
 
     for i in range(1, len(close_series)):
         final_upper.iloc[i] = (
-            basic_upper.iloc[i]
-            if close_series.iloc[i - 1] > final_upper.iloc[i - 1]
+            basic_upper.iloc[i] if close_series.iloc[i -
+                                                     1] > final_upper.iloc[i -
+                                                                           1]
             else min(basic_upper.iloc[i], final_upper.iloc[i - 1])
         )
         final_lower.iloc[i] = (
-            basic_lower.iloc[i]
-            if close_series.iloc[i - 1] < final_lower.iloc[i - 1]
+            basic_lower.iloc[i] if close_series.iloc[i -
+                                                     1] < final_lower.iloc[i -
+                                                                           1]
             else max(basic_lower.iloc[i], final_lower.iloc[i - 1])
         )
 
@@ -231,7 +264,9 @@ def parabolic_sar(
         sar.iloc[i] = prev_sar + af * (ep - prev_sar)
 
         if long:
-            sar.iloc[i] = min(sar.iloc[i], low_series.iloc[i - 1], low_series.iloc[i])
+            sar.iloc[i] = min(
+                sar.iloc[i], low_series.iloc[i - 1], low_series.iloc[i]
+            )
             if low_series.iloc[i] < sar.iloc[i]:
                 long = False
                 sar.iloc[i] = ep
@@ -242,7 +277,9 @@ def parabolic_sar(
                     ep = high_series.iloc[i]
                     af = min(af + step, max_step)
         else:
-            sar.iloc[i] = max(sar.iloc[i], high_series.iloc[i - 1], high_series.iloc[i])
+            sar.iloc[i] = max(
+                sar.iloc[i], high_series.iloc[i - 1], high_series.iloc[i]
+            )
             if high_series.iloc[i] > sar.iloc[i]:
                 long = True
                 sar.iloc[i] = ep
@@ -269,10 +306,20 @@ def ichimoku_cloud(
     low_series = to_series(low)
     close_series = to_series(close)
 
-    tenkan = (highest(high_series, tenkan_period) + lowest(low_series, tenkan_period)) / 2
-    kijun = (highest(high_series, kijun_period) + lowest(low_series, kijun_period)) / 2
+    tenkan = (
+        highest(high_series, tenkan_period) +
+        lowest(low_series, tenkan_period)
+    ) / 2
+    kijun = (
+        highest(high_series, kijun_period) + lowest(low_series, kijun_period)
+    ) / 2
     senkou_a = ((tenkan + kijun) / 2).shift(displacement)
-    senkou_b = ((highest(high_series, senkou_b_period) + lowest(low_series, senkou_b_period)) / 2).shift(displacement)
+    senkou_b = (
+        (
+            highest(high_series, senkou_b_period) +
+            lowest(low_series, senkou_b_period)
+        ) / 2
+    ).shift(displacement)
     chikou = close_series.shift(-displacement)
     return to_frame(
         {

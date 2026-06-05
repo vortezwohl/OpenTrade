@@ -1,4 +1,8 @@
-"""Efinance backend provider implementation."""
+"""Efinance provider 实现。
+
+该模块集中封装 efinance backend 的共享命令适配、动态 handler 与 provider 构建。 所有跨 backend
+共享的契约标准化逻辑统一放在 `providers_common.py`，避免 provider 语义继续泄漏。
+"""
 
 from __future__ import annotations
 
@@ -18,7 +22,11 @@ from opentrade.backends.base import (
     ProviderResponseError,
     ProviderRetryPolicy,
 )
-from opentrade.command_catalog import SHARED_COMMANDS, get_command_binding, get_single_backend_command_definitions
+from opentrade.command_catalog import (
+    SHARED_COMMANDS,
+    get_command_binding,
+    get_single_backend_command_definitions,
+)
 from opentrade.contracts import (
     SCALAR_LIST_CONTRACT,
     SCALAR_VALUE_CONTRACT,
@@ -26,7 +34,39 @@ from opentrade.contracts import (
     build_standard_result,
 )
 from opentrade.retry_utils import NETWORK_RELATED_EXCEPTIONS
-from opentrade.backends.providers_common import *  # noqa: F401,F403
+from opentrade.backends.providers_common import (
+    BackendName,
+    FUND_NAV_HISTORY_CONTRACT,
+    HISTORY_BARS_CONTRACT,
+    PRICE_HISTORY_COMMAND_KEYS,
+    PROFILE_COMMAND_KEYS,
+    PROFILE_INFO_CONTRACT,
+    PROVIDER_RECORDS_CONTRACT,
+    REALTIME_COMMAND_KEYS,
+    REALTIME_QUOTES_CONTRACT,
+    SCALAR_LIST_COMMAND_KEYS,
+    SEARCH_RESULTS_CONTRACT,
+    SIDE_EFFECT_COMMAND_KEYS,
+    StandardizationError,
+    _coerce_frame_mapping,
+    _coerce_history_frame,
+    _coerce_request_sequence,
+    _coerce_symbol_list,
+    _extract_execution_limit,
+    _extract_market_value,
+    _get_request_value,
+    _get_single_request_value,
+    _normalize_scalar,
+    _sanitize_provider_request,
+    _single_or_multi,
+    _standardize_fund_nav_history_frame,
+    _standardize_generic_payload,
+    _standardize_history_frame,
+    _standardize_profile_payload,
+    _standardize_realtime_quotes_frame,
+    ensure_mapping_has_required_fields,
+    normalize_contract_mapping,
+)
 
 
 class EfinanceSearchHandler(CapabilityHandler):
@@ -54,10 +94,9 @@ class EfinanceGenericHandler(CapabilityHandler):
             raise RuntimeError(f"命令 {self.capability_name} 缺少上游绑定")
 
         execution_limit = _extract_execution_limit(request_data)
-        if (
-            execution_limit is not None
-            and self.capability_name in {"market.price.live", "bond.price.live", "futures.price.live"}
-        ):
+        if (execution_limit is not None and self.capability_name in {
+                "market.price.live", "bond.price.live", "futures.price.live"
+        }):
             try:
                 if self.capability_name == "market.price.live":
                     fs = _resolve_efinance_market_fs(
@@ -76,7 +115,9 @@ class EfinanceGenericHandler(CapabilityHandler):
                 ) from exc
 
             try:
-                result = _build_limited_efinance_live_frame(fs, execution_limit)
+                result = _build_limited_efinance_live_frame(
+                    fs, execution_limit
+                )
             except Exception as exc:  # noqa: BLE001
                 raise ProviderExecutionError(
                     BackendName.EFINANCE,
@@ -101,7 +142,9 @@ class EfinanceGenericHandler(CapabilityHandler):
 
         callback = getattr(getattr(efinance, module_name), function_name)
         try:
-            adapted_request = _adapt_efinance_request(self.capability_name, request_data)
+            adapted_request = _adapt_efinance_request(
+                self.capability_name, request_data
+            )
         except Exception as exc:  # noqa: BLE001
             raise ProviderContractError(
                 BackendName.EFINANCE,
@@ -121,7 +164,9 @@ class EfinanceGenericHandler(CapabilityHandler):
             ) from exc
 
         try:
-            return _standardize_efinance_result(self.capability_name, request_data, result)
+            return _standardize_efinance_result(
+                self.capability_name, request_data, result
+            )
         except StandardizationError as exc:
             raise ProviderResponseError(
                 BackendName.EFINANCE,
@@ -131,15 +176,28 @@ class EfinanceGenericHandler(CapabilityHandler):
             ) from exc
 
 
-def _adapt_efinance_search_request(request_data: Mapping[str, object]) -> dict[str, object]:
+def _adapt_efinance_search_request(
+    request_data: Mapping[str, object]
+) -> dict[str, object]:
     """把 shared 搜索请求翻译为 `efinance.utils.search_quote` 参数。"""
-
     market = _get_request_value(request_data, "market", "market_type")
     return {
-        "keyword": str(_get_request_value(request_data, "keyword", "query")).strip(),
-        "market_type": _resolve_efinance_market_type(market),
-        "count": int(_get_request_value(request_data, "result_count", "count", default=5)),
-        "use_local": bool(_get_request_value(request_data, "use_local_cache", "use_local", default=True)),
+        "keyword":
+        str(_get_request_value(request_data, "keyword", "query")).strip(),
+        "market_type":
+        _resolve_efinance_market_type(market),
+        "count":
+        int(
+            _get_request_value(
+                request_data, "result_count", "count", default=5
+            )
+        ),
+        "use_local":
+        bool(
+            _get_request_value(
+                request_data, "use_local_cache", "use_local", default=True
+            )
+        ),
     }
 
 
@@ -148,7 +206,6 @@ def _adapt_efinance_request(
     request_data: Mapping[str, object],
 ) -> dict[str, object]:
     """把 efinance 的 shared 与 extension 请求统一适配为上游 kwargs。"""
-
     return _adapt_efinance_shared_request(command_key, request_data)
 
 
@@ -157,26 +214,34 @@ def _adapt_efinance_shared_request(
     request_data: Mapping[str, object],
 ) -> dict[str, object]:
     """把 shared normalized request 翻译为 efinance 上游 kwargs。"""
-
     execution_limit = _extract_execution_limit(request_data)
 
     if command_key == "stock.price.history":
-        return _adapt_efinance_history_request(request_data, code_field_name="stock_codes")
+        return _adapt_efinance_history_request(
+            request_data, code_field_name="stock_codes"
+        )
     if command_key == "stock.price.latest":
         return {
-            "stock_codes": _single_or_multi(
-                _coerce_request_sequence(request_data, "symbols", "stock_codes", "symbol"),
+            "stock_codes":
+            _single_or_multi(
+                _coerce_request_sequence(
+                    request_data, "symbols", "stock_codes", "symbol"
+                ),
             ),
         }
     if command_key == "stock.price.live":
         return {
-            "fs": _resolve_efinance_live_fs(
-                _get_request_value(request_data, "market", "market_type", "fs"),
+            "fs":
+            _resolve_efinance_live_fs(
+                _get_request_value(
+                    request_data, "market", "market_type", "fs"
+                ),
             ),
         }
     if command_key == "stock.price.snapshot":
         return {
-            "stock_code": _get_single_request_value(
+            "stock_code":
+            _get_single_request_value(
                 request_data,
                 command_key,
                 "symbol",
@@ -186,7 +251,8 @@ def _adapt_efinance_shared_request(
         }
     if command_key == "stock.profile":
         return {
-            "stock_codes": _get_single_request_value(
+            "stock_codes":
+            _get_single_request_value(
                 request_data,
                 command_key,
                 "symbol",
@@ -196,22 +262,33 @@ def _adapt_efinance_shared_request(
         }
     if command_key == "fund.nav.history":
         return {
-            "fund_code": _get_single_request_value(
+            "fund_code":
+            _get_single_request_value(
                 request_data,
                 command_key,
                 "symbol",
                 "fund_code",
             ),
-            "pz": int(_get_request_value(request_data, "max_pages", "pz", default=40000)),
+            "pz":
+            int(
+                _get_request_value(
+                    request_data, "max_pages", "pz", default=40000
+                )
+            ),
         }
     if command_key == "fund.profile":
         return {
-            "fund_codes": _single_or_multi(
-                _coerce_request_sequence(request_data, "symbols", "fund_codes", "symbol"),
+            "fund_codes":
+            _single_or_multi(
+                _coerce_request_sequence(
+                    request_data, "symbols", "fund_codes", "symbol"
+                ),
             ),
         }
     if command_key == "quote.price.history":
-        return _adapt_efinance_history_request(request_data, code_field_name="codes")
+        return _adapt_efinance_history_request(
+            request_data, code_field_name="codes"
+        )
     if command_key == "quote.price.latest":
         quote_ids = _coerce_request_sequence(
             request_data,
@@ -226,7 +303,8 @@ def _adapt_efinance_shared_request(
         }
     if command_key == "quote.profile":
         return {
-            "quote_id": _get_single_request_value(
+            "quote_id":
+            _get_single_request_value(
                 request_data,
                 command_key,
                 "quote_id",
@@ -236,7 +314,8 @@ def _adapt_efinance_shared_request(
         }
     if command_key == "stock.holders.latest-count":
         return {
-            "date": _normalize_efinance_date(
+            "date":
+            _normalize_efinance_date(
                 _get_request_value(request_data, "date"),
                 field_name="date",
                 command_key=command_key,
@@ -244,12 +323,14 @@ def _adapt_efinance_shared_request(
         }
     if command_key == "stock.leaderboard.daily":
         return {
-            "start_date": _normalize_efinance_date(
+            "start_date":
+            _normalize_efinance_date(
                 _get_request_value(request_data, "start_date"),
                 field_name="start_date",
                 command_key=command_key,
             ),
-            "end_date": _normalize_efinance_date(
+            "end_date":
+            _normalize_efinance_date(
                 _get_request_value(request_data, "end_date"),
                 field_name="end_date",
                 command_key=command_key,
@@ -257,7 +338,8 @@ def _adapt_efinance_shared_request(
         }
     if command_key == "stock.performance.quarterly":
         return {
-            "date": _normalize_efinance_date(
+            "date":
+            _normalize_efinance_date(
                 _get_request_value(request_data, "date"),
                 field_name="date",
                 command_key=command_key,
@@ -271,7 +353,6 @@ def _resolve_efinance_quote_ids(
     command_key: str,
 ) -> list[str]:
     """把共享行情标识解析为东财 quote_id 列表。"""
-
     symbols = _coerce_request_sequence(
         request_data,
         "symbols",
@@ -279,10 +360,7 @@ def _resolve_efinance_quote_ids(
         "quote_id_list",
         "symbol",
     )
-    return [
-        efinance.utils.get_quote_id(symbol)
-        for symbol in symbols
-    ]
+    return [efinance.utils.get_quote_id(symbol) for symbol in symbols]
 
 
 def _resolve_efinance_quote_id(
@@ -290,7 +368,6 @@ def _resolve_efinance_quote_id(
     command_key: str,
 ) -> str:
     """把单个共享行情标识解析为东财 quote_id。"""
-
     symbol = _get_single_request_value(
         request_data,
         command_key,
@@ -309,7 +386,6 @@ def _normalize_efinance_date(
     command_key: str,
 ) -> str:
     """把 shared 日期输入归一化为 efinance 上游要求的 `%Y-%m-%d`。"""
-
     text = str(value or "").strip()
     if not text:
         raise ValueError(f"{command_key} 缺少日期字段 {field_name}")
@@ -323,7 +399,6 @@ def _normalize_efinance_date(
 
 def _resolve_efinance_market_fs(market_name: object) -> str:
     """把 shared market 解析为可直接请求的 efinance `fs` 表达式。"""
-
     market = _extract_market_value(market_name)
     if market in (None, ""):
         raise ValueError("market.price.live 需要明确的 market 参数")
@@ -344,7 +419,6 @@ def _resolve_efinance_market_fs(market_name: object) -> str:
 
 def _build_limited_efinance_live_frame(fs: str, limit: int) -> pd.DataFrame:
     """按 limit 只抓取东财实时列表的必要页数。"""
-
     config_module = importlib.import_module("efinance.common.config")
     getter_module = importlib.import_module("efinance.common.getter")
     columns = dict(config_module.EASTMONEY_QUOTE_FIELDS)
@@ -374,21 +448,30 @@ def _build_limited_efinance_live_frame(fs: str, limit: int) -> pd.DataFrame:
         if not diff:
             continue
         page_frame = pd.DataFrame(diff)
-        available_columns = [item for item in columns.keys() if item in page_frame.columns]
+        available_columns = [
+            item for item in columns.keys() if item in page_frame.columns
+        ]
         frames.append(page_frame[available_columns])
 
     if not frames:
-        return pd.DataFrame(columns=list(columns.values()) + ["行情ID", "市场类型", "更新时间"])
+        return pd.DataFrame(
+            columns=list(columns.values()) + ["行情ID", "市场类型", "更新时间"]
+        )
 
     frame = pd.concat(frames, axis=0, ignore_index=True)
-    available_columns = [item for item in columns.keys() if item in frame.columns]
+    available_columns = [
+        item for item in columns.keys() if item in frame.columns
+    ]
     frame = frame[available_columns].rename(columns=columns)
-    ordered_columns = [item for item in columns.values() if item in frame.columns]
+    ordered_columns = [
+        item for item in columns.values() if item in frame.columns
+    ]
     frame = frame[ordered_columns]
     if "涨跌幅" in frame.columns:
         frame = frame.sort_values(by="涨跌幅", ascending=False, ignore_index=True)
     if "市场编号" in frame.columns and "代码" in frame.columns:
-        frame["行情ID"] = frame["市场编号"].astype(str) + "." + frame["代码"].astype(str)
+        frame["行情ID"] = frame["市场编号"].astype(str
+                                             ) + "." + frame["代码"].astype(str)
         frame["市场类型"] = frame["市场编号"].astype(str).apply(
             lambda item: config_module.MARKET_NUMBER_DICT.get(item),
         )
@@ -413,29 +496,56 @@ def _adapt_efinance_history_request(
     code_field_name: str,
 ) -> dict[str, object]:
     request_keys = (
-        ("symbols", "stock_codes", "symbol")
-        if code_field_name == "stock_codes"
-        else ("symbols", "codes", "symbol")
+        ("symbols", "stock_codes",
+         "symbol") if code_field_name == "stock_codes" else
+        ("symbols", "codes", "symbol")
     )
     return {
-        code_field_name: _single_or_multi(_coerce_request_sequence(request_data, *request_keys)),
-        "beg": str(_get_request_value(request_data, "start_date", "beg", default="19000101")),
-        "end": str(_get_request_value(request_data, "end_date", "end", default="20500101")),
-        "klt": int(_get_request_value(request_data, "timeframe", "klt", "period", default=101)),
-        "fqt": int(_get_request_value(request_data, "adjustment", "fqt", "adjust", default=1)),
-        "market_type": _resolve_efinance_market_type(
+        code_field_name:
+        _single_or_multi(
+            _coerce_request_sequence(request_data, *request_keys)
+        ),
+        "beg":
+        str(
+            _get_request_value(
+                request_data, "start_date", "beg", default="19000101"
+            )
+        ),
+        "end":
+        str(
+            _get_request_value(
+                request_data, "end_date", "end", default="20500101"
+            )
+        ),
+        "klt":
+        int(
+            _get_request_value(
+                request_data, "timeframe", "klt", "period", default=101
+            )
+        ),
+        "fqt":
+        int(
+            _get_request_value(
+                request_data, "adjustment", "fqt", "adjust", default=1
+            )
+        ),
+        "market_type":
+        _resolve_efinance_market_type(
             _get_request_value(request_data, "market", "market_type"),
         ),
-        "suppress_error": bool(
-            _get_request_value(request_data, "ignore_errors", "suppress_error", default=False),
+        "suppress_error":
+        bool(
+            _get_request_value(
+                request_data, "ignore_errors", "suppress_error", default=False
+            ),
         ),
-        "use_id_cache": bool(_get_request_value(request_data, "use_id_cache", default=True)),
+        "use_id_cache":
+        bool(_get_request_value(request_data, "use_id_cache", default=True)),
     }
 
 
 def _resolve_efinance_live_fs(market_name: object) -> str | None:
     """把 stock shared market 翻译为 efinance 支持的实时列表过滤。"""
-
     market = _extract_market_value(market_name)
     if market in (None, ""):
         return None
@@ -447,7 +557,9 @@ def _resolve_efinance_live_fs(market_name: object) -> str | None:
     }
     resolved = mapping.get(str(market))
     if resolved is None:
-        raise ValueError(f"Efinance stock.price.live 不支持 shared market: {market}")
+        raise ValueError(
+            f"Efinance stock.price.live 不支持 shared market: {market}"
+        )
     return resolved
 
 
@@ -456,21 +568,26 @@ def _standardize_efinance_result(
     request_data: dict[str, object],
     result: object,
 ):
-    if command_key in {"fund.profile", "bond.flow.today"} and _looks_like_known_bad_payload(result):
+    if command_key in {"fund.profile", "bond.flow.today"
+                       } and _looks_like_known_bad_payload(result):
         raise StandardizationError(
             f"{command_key} 命中了已知上游坏返回路径: {type(result).__name__}"
         )
     if command_key == "search.local":
         return _build_search_standard_result(result)
     if command_key in PRICE_HISTORY_COMMAND_KEYS:
-        return _build_history_standard_result(command_key, request_data, result)
+        return _build_history_standard_result(
+            command_key, request_data, result
+        )
     if command_key == "fund.nav.history":
         symbol = str(_get_request_value(request_data, "symbol", "fund_code"))
         return _build_fund_nav_history_standard_result(result, symbol)
     if command_key == "fund.nav.history-batch":
         return _build_fund_nav_history_batch_result(result)
     if command_key in REALTIME_COMMAND_KEYS:
-        return _build_realtime_standard_result(command_key, request_data, result)
+        return _build_realtime_standard_result(
+            command_key, request_data, result
+        )
     if command_key in PROFILE_COMMAND_KEYS:
         data = _standardize_profile_payload(result, request_data)
         return build_standard_result(
@@ -517,14 +634,20 @@ def _standardize_efinance_result(
 def _build_search_standard_result(result: object):
     rows: list[dict[str, object]] = []
     if result is None:
-        return build_standard_result(SEARCH_RESULTS_CONTRACT, rows, raw_payload=result)
+        return build_standard_result(
+            SEARCH_RESULTS_CONTRACT, rows, raw_payload=result
+        )
     items = result if isinstance(result, list) else [result]
     for item in items:
         payload = item._asdict() if hasattr(item, "_asdict") else dict(item)
-        normalized = normalize_contract_mapping(payload, SEARCH_RESULTS_CONTRACT)
+        normalized = normalize_contract_mapping(
+            payload, SEARCH_RESULTS_CONTRACT
+        )
         ensure_mapping_has_required_fields(normalized, SEARCH_RESULTS_CONTRACT)
         rows.append(normalized)
-    return build_standard_result(SEARCH_RESULTS_CONTRACT, rows, raw_payload=result)
+    return build_standard_result(
+        SEARCH_RESULTS_CONTRACT, rows, raw_payload=result
+    )
 
 
 def _build_history_standard_result(
@@ -534,11 +657,13 @@ def _build_history_standard_result(
 ):
     key_options = {
         "stock.price.history": ("symbols", "stock_codes", "symbol"),
-        "bond.price.history": ("bond_codes",),
-        "futures.price.history": ("quote_ids",),
+        "bond.price.history": ("bond_codes", ),
+        "futures.price.history": ("quote_ids", ),
         "quote.price.history": ("symbols", "codes", "symbol"),
     }[command_key]
-    symbols = _coerce_symbol_list(_get_request_value(request_data, *key_options, default=[]))
+    symbols = _coerce_symbol_list(
+        _get_request_value(request_data, *key_options, default=[])
+    )
     frames = _coerce_frame_mapping(result)
     if isinstance(frames, pd.DataFrame):
         symbol = symbols[0] if symbols else ""
@@ -615,10 +740,10 @@ def _build_realtime_standard_result(
     metadata = {"backend": BackendName.EFINANCE.value, "market": market_name}
     requested_limit = _extract_execution_limit(request_data)
     if requested_limit is not None and command_key in {
-        "market.price.live",
-        "bond.price.live",
-        "futures.price.live",
-        "quote.price.latest",
+            "market.price.live",
+            "bond.price.live",
+            "futures.price.live",
+            "quote.price.latest",
     }:
         metadata["execution_limit_requested"] = requested_limit
         metadata["execution_limit_applied"] = True
@@ -631,10 +756,13 @@ def _build_realtime_standard_result(
     )
 
 
-def _extract_market_name(command_key: str, request_data: dict[str, object]) -> str:
+def _extract_market_name(
+    command_key: str, request_data: dict[str, object]
+) -> str:
     if command_key == "market.price.live":
         value = _get_request_value(request_data, "market", "fs")
-    elif command_key in {"stock.price.live", "stock.price.latest", "stock.price.snapshot"}:
+    elif command_key in {"stock.price.live", "stock.price.latest",
+                         "stock.price.snapshot"}:
         value = _get_request_value(request_data, "market", "fs", "market_type")
     else:
         value = _get_request_value(request_data, "market", "market_type")
@@ -656,7 +784,6 @@ def _extract_market_name(command_key: str, request_data: dict[str, object]) -> s
 
 def _looks_like_known_bad_payload(result: object) -> bool:
     """识别已证实的上游坏返回形态，稳定归类为 provider response failure。"""
-
     return isinstance(result, bool) or result is None
 
 
@@ -677,10 +804,9 @@ def _resolve_efinance_market_type(market_name: object):
 
 def _build_efinance_retry_policy() -> ProviderRetryPolicy:
     """返回 efinance 的 provider 级统一重试策略。"""
-
     return ProviderRetryPolicy(
         retryable_exceptions=NETWORK_RELATED_EXCEPTIONS,
-        passthrough_exceptions=(ProviderContractError,),
+        passthrough_exceptions=(ProviderContractError, ),
     )
 
 
@@ -692,11 +818,15 @@ def build_efinance_provider() -> BackendProvider:
         if definition.command_key == "instrument.search":
             handlers[definition.capability] = EfinanceSearchHandler()
         else:
-            handlers[definition.capability] = EfinanceGenericHandler(definition.capability)
+            handlers[definition.capability
+                     ] = EfinanceGenericHandler(definition.capability)
 
-    extension_commands = get_single_backend_command_definitions(BackendName.EFINANCE)
+    extension_commands = get_single_backend_command_definitions(
+        BackendName.EFINANCE
+    )
     for definition in extension_commands:
-        handlers[definition.capability] = EfinanceGenericHandler(definition.capability)
+        handlers[definition.capability
+                 ] = EfinanceGenericHandler(definition.capability)
 
     return BackendProvider(
         backend_name=BackendName.EFINANCE,

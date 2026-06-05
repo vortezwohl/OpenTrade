@@ -1,7 +1,6 @@
 """基础价格序列算子与均线类指标。
 
-这些算子是其他技术指标的底层积木，负责提供不同风格的平滑、窗口极值和典型价格。
-它们保持纯函数形态，只依赖输入序列本身，不感知任何上层交易语义。
+这些算子是其他技术指标的底层积木，负责提供不同风格的平滑、窗口极值和典型价格。 它们保持纯函数形态，只依赖输入序列本身，不感知任何上层交易语义。
 """
 
 from __future__ import annotations
@@ -14,7 +13,11 @@ import pandas as pd
 from opentrade.indicators.utils import rolling_mean, to_series, validate_period
 
 
-def sma(values: pd.Series | Iterable[float], period: int, min_periods: int | None = None) -> pd.Series:
+def sma(
+    values: pd.Series | Iterable[float],
+    period: int,
+    min_periods: int | None = None
+) -> pd.Series:
     """简单移动平均线。
 
     Args:
@@ -29,7 +32,11 @@ def sma(values: pd.Series | Iterable[float], period: int, min_periods: int | Non
     return rolling_mean(series, period, min_periods=min_periods)
 
 
-def ema(values: pd.Series | Iterable[float], period: int, adjust: bool = False) -> pd.Series:
+def ema(
+    values: pd.Series | Iterable[float],
+    period: int,
+    adjust: bool = False
+) -> pd.Series:
     """指数移动平均线。"""
     validate_period(period)
     series = to_series(values)
@@ -40,7 +47,9 @@ def rma(values: pd.Series | Iterable[float], period: int) -> pd.Series:
     """Wilder 平滑均线，也常被视作 RSI 的内部均线。"""
     validate_period(period)
     series = to_series(values)
-    return series.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
+    return series.ewm(
+        alpha=1 / period, adjust=False, min_periods=period
+    ).mean()
 
 
 def wma(values: pd.Series | Iterable[float], period: int) -> pd.Series:
@@ -49,7 +58,9 @@ def wma(values: pd.Series | Iterable[float], period: int) -> pd.Series:
     series = to_series(values)
     weights = pd.Series(range(1, period + 1), dtype="float64")
     divisor = float(weights.sum())
-    return series.rolling(window=period, min_periods=period).apply(
+    return series.rolling(
+        window=period, min_periods=period
+    ).apply(
         lambda window: float((window * weights).sum()) / divisor,
         raw=False,
     )
@@ -109,7 +120,9 @@ def lowest(values: pd.Series | Iterable[float], period: int) -> pd.Series:
     return series.rolling(window=period, min_periods=period).min()
 
 
-def median_price(high: pd.Series | Iterable[float], low: pd.Series | Iterable[float]) -> pd.Series:
+def median_price(
+    high: pd.Series | Iterable[float], low: pd.Series | Iterable[float]
+) -> pd.Series:
     """中价 `(high + low) / 2`。"""
     high_series = to_series(high, name="high")
     low_series = to_series(low, name="low")

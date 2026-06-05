@@ -25,7 +25,17 @@ def pivot_points(
     s2 = pivot - (high_series - low_series)
     r3 = high_series + 2 * (pivot - low_series)
     s3 = low_series - 2 * (high_series - pivot)
-    return to_frame({"pivot": pivot, "r1": r1, "s1": s1, "r2": r2, "s2": s2, "r3": r3, "s3": s3})
+    return to_frame(
+        {
+            "pivot": pivot,
+            "r1": r1,
+            "s1": s1,
+            "r2": r2,
+            "s2": s2,
+            "r3": r3,
+            "s3": s3
+        }
+    )
 
 
 def fibonacci_retracement(
@@ -65,4 +75,10 @@ def rolling_support_resistance(
     resistance = high_series.rolling(period, min_periods=period).max()
     support = low_series.rolling(period, min_periods=period).min()
     middle = (support + resistance) / 2
-    return to_frame({"support": support, "middle": middle, "resistance": resistance})
+    return to_frame(
+        {
+            "support": support,
+            "middle": middle,
+            "resistance": resistance
+        }
+    )

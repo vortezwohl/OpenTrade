@@ -23,7 +23,6 @@ from opentrade.models import (
     RequestSchema,
 )
 
-
 REFERENCE_CATALOG_MODULE = "opentrade.const.command_catalog_data"
 
 _REFERENCE_CATALOG = COMMAND_CATALOG
@@ -56,13 +55,15 @@ JSON_ANNOTATION_TO_TYPE: dict[str, Any] = {
 SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
     "instrument.search": {
         "cli_path": ("instrument", "search"),
-        "help_text": "按关键词搜索可交易标的",
+        "help_text":
+        "按关键词搜索可交易标的",
         "supported_backends": (
             BackendName.EFINANCE,
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": LimitStrategy.ADAPTER_LIGHTWEIGHT.value,
+        "limit_strategy":
+        LimitStrategy.ADAPTER_LIGHTWEIGHT.value,
         "fields": (
             RequestField(
                 name="keyword",
@@ -71,7 +72,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 required=True,
                 help_text="搜索关键词",
                 semantic_type="keyword",
-                legacy_names=("query",),
+                legacy_names=("query", ),
             ),
             RequestField(
                 name="market",
@@ -81,7 +82,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 choices=MARKET_CHOICES,
                 help_text="市场枚举",
                 semantic_type="market",
-                legacy_names=("market_type",),
+                legacy_names=("market_type", ),
             ),
             RequestField(
                 name="result_count",
@@ -90,7 +91,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=5,
                 help_text="返回结果数量",
                 semantic_type="result-count",
-                legacy_names=("count",),
+                legacy_names=("count", ),
             ),
             RequestField(
                 name="use_local_cache",
@@ -99,19 +100,21 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=True,
                 help_text="是否优先使用本地缓存",
                 semantic_type="cache-toggle",
-                legacy_names=("use_local",),
+                legacy_names=("use_local", ),
             ),
         ),
     },
     "stock.price.history": {
         "cli_path": ("stock", "price", "history"),
-        "help_text": "查询股票历史 K 线行情",
+        "help_text":
+        "查询股票历史 K 线行情",
         "supported_backends": (
             BackendName.EFINANCE,
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -122,7 +125,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=(),
                 help_text="股票代码，支持多个",
                 semantic_type="symbols",
-                legacy_names=("stock_codes",),
+                legacy_names=("stock_codes", ),
             ),
             RequestField(
                 name="start_date",
@@ -131,7 +134,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default="19000101",
                 help_text="开始日期，格式 YYYYMMDD",
                 semantic_type="start-date",
-                legacy_names=("beg",),
+                legacy_names=("beg", ),
             ),
             RequestField(
                 name="end_date",
@@ -140,7 +143,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default="20500101",
                 help_text="结束日期，格式 YYYYMMDD",
                 semantic_type="end-date",
-                legacy_names=("end",),
+                legacy_names=("end", ),
             ),
             RequestField(
                 name="timeframe",
@@ -168,7 +171,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 choices=MARKET_CHOICES,
                 help_text="市场枚举",
                 semantic_type="market",
-                legacy_names=("market_type",),
+                legacy_names=("market_type", ),
             ),
             RequestField(
                 name="ignore_errors",
@@ -177,7 +180,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=False,
                 help_text="是否忽略单个标的错误",
                 semantic_type="ignore-errors",
-                legacy_names=("suppress_error",),
+                legacy_names=("suppress_error", ),
             ),
             RequestField(
                 name="use_id_cache",
@@ -191,9 +194,11 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "stock.price.latest": {
         "cli_path": ("stock", "price", "latest"),
-        "help_text": "查询股票最新行情",
+        "help_text":
+        "查询股票最新行情",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -204,7 +209,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=(),
                 help_text="股票代码，支持多个",
                 semantic_type="symbols",
-                legacy_names=("stock_codes",),
+                legacy_names=("stock_codes", ),
             ),
             RequestField(
                 name="market",
@@ -214,15 +219,17 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 choices=MARKET_CHOICES,
                 help_text="市场枚举",
                 semantic_type="market",
-                legacy_names=("market_type",),
+                legacy_names=("market_type", ),
             ),
         ),
     },
     "stock.price.live": {
         "cli_path": ("stock", "price", "live"),
-        "help_text": "查询市场实时行情列表",
+        "help_text":
+        "查询市场实时行情列表",
         "supported_backends": (BackendName.EFINANCE, BackendName.AKSHARE),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="market",
@@ -239,9 +246,11 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "stock.price.snapshot": {
         "cli_path": ("stock", "price", "snapshot"),
-        "help_text": "查询单只股票快照",
+        "help_text":
+        "查询单只股票快照",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -250,7 +259,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 required=True,
                 help_text="股票代码",
                 semantic_type="symbol",
-                legacy_names=("stock_code",),
+                legacy_names=("stock_code", ),
             ),
             RequestField(
                 name="market",
@@ -260,19 +269,21 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 choices=MARKET_CHOICES,
                 help_text="市场枚举",
                 semantic_type="market",
-                legacy_names=("market_type",),
+                legacy_names=("market_type", ),
             ),
         ),
     },
     "stock.profile": {
         "cli_path": ("stock", "profile"),
-        "help_text": "查询单只股票资料",
+        "help_text":
+        "查询单只股票资料",
         "supported_backends": (
             BackendName.EFINANCE,
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -281,8 +292,8 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 required=True,
                 help_text="股票代码",
                 semantic_type="symbol",
-                legacy_names=("stock_code",),
-                cli_aliases=("symbols",),
+                legacy_names=("stock_code", ),
+                cli_aliases=("symbols", ),
             ),
             RequestField(
                 name="market",
@@ -292,19 +303,21 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 choices=MARKET_CHOICES,
                 help_text="市场枚举",
                 semantic_type="market",
-                legacy_names=("market_type",),
+                legacy_names=("market_type", ),
             ),
         ),
     },
     "fund.nav.history": {
         "cli_path": ("fund", "nav", "history"),
-        "help_text": "查询基金历史净值",
+        "help_text":
+        "查询基金历史净值",
         "supported_backends": (
             BackendName.EFINANCE,
             BackendName.AKSHARE,
             BackendName.YFINANCE,
         ),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -313,7 +326,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 required=True,
                 help_text="基金代码或 Yahoo ticker",
                 semantic_type="symbol",
-                legacy_names=("fund_code",),
+                legacy_names=("fund_code", ),
             ),
             RequestField(
                 name="max_pages",
@@ -322,15 +335,17 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=40000,
                 help_text="efinance 最大翻页数",
                 semantic_type="page-limit",
-                legacy_names=("pz",),
+                legacy_names=("pz", ),
             ),
         ),
     },
     "fund.profile": {
         "cli_path": ("fund", "profile"),
-        "help_text": "查询基金资料",
+        "help_text":
+        "查询基金资料",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -339,16 +354,18 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 required=True,
                 help_text="单个基金代码或 Yahoo ticker",
                 semantic_type="symbol",
-                legacy_names=("fund_codes",),
-                cli_aliases=("symbols",),
+                legacy_names=("fund_codes", ),
+                cli_aliases=("symbols", ),
             ),
         ),
     },
     "quote.price.history": {
         "cli_path": ("quote", "price", "history"),
-        "help_text": "查询通用行情历史价格",
+        "help_text":
+        "查询通用行情历史价格",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -359,7 +376,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=(),
                 help_text="共享行情标识，支持多个；不能直接传东方财富 quote_id",
                 semantic_type="symbols",
-                legacy_names=("codes",),
+                legacy_names=("codes", ),
             ),
             RequestField(
                 name="start_date",
@@ -368,7 +385,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default="19000101",
                 help_text="开始日期，格式 YYYYMMDD",
                 semantic_type="start-date",
-                legacy_names=("beg",),
+                legacy_names=("beg", ),
             ),
             RequestField(
                 name="end_date",
@@ -377,7 +394,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default="20500101",
                 help_text="结束日期，格式 YYYYMMDD",
                 semantic_type="end-date",
-                legacy_names=("end",),
+                legacy_names=("end", ),
             ),
             RequestField(
                 name="timeframe",
@@ -405,7 +422,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 choices=MARKET_CHOICES,
                 help_text="市场枚举",
                 semantic_type="market",
-                legacy_names=("market_type",),
+                legacy_names=("market_type", ),
             ),
             RequestField(
                 name="ignore_errors",
@@ -414,7 +431,7 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 default=False,
                 help_text="是否忽略单个标的错误",
                 semantic_type="ignore-errors",
-                legacy_names=("suppress_error",),
+                legacy_names=("suppress_error", ),
             ),
             RequestField(
                 name="use_id_cache",
@@ -428,9 +445,11 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "quote.price.latest": {
         "cli_path": ("quote", "price", "latest"),
-        "help_text": "查询通用行情最新价格",
+        "help_text":
+        "查询通用行情最新价格",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": LimitStrategy.PROVIDER_REQUEST.value,
+        "limit_strategy":
+        LimitStrategy.PROVIDER_REQUEST.value,
         "fields": (
             RequestField(
                 name="symbols",
@@ -442,15 +461,17 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
                 help_text="共享行情标识，支持多个；不能直接传东方财富 quote_id",
                 semantic_type="symbols",
                 legacy_names=("quote_id_list", "quote_ids"),
-                cli_aliases=("quote-ids",),
+                cli_aliases=("quote-ids", ),
             ),
         ),
     },
     "quote.profile": {
         "cli_path": ("quote", "profile"),
-        "help_text": "查询通用行情资料",
+        "help_text":
+        "查询通用行情资料",
         "supported_backends": (BackendName.EFINANCE, BackendName.YFINANCE),
-        "limit_strategy": LimitStrategy.DISPLAY_ONLY.value,
+        "limit_strategy":
+        LimitStrategy.DISPLAY_ONLY.value,
         "fields": (
             RequestField(
                 name="symbol",
@@ -467,24 +488,25 @@ SHARED_COMMAND_CONFIGS: dict[str, dict[str, Any]] = {
 
 def _limit_strategy_for_command_path(command_path: str) -> str:
     """返回单后端命令声明的 `--limit` 策略。"""
-
     return SINGLE_BACKEND_LIMIT_STRATEGIES.get(
         command_path,
         LimitStrategy.DISPLAY_ONLY.value,
     )
 
 
-def _supported_backends_for_command(command_path: str) -> tuple[BackendName, ...]:
+def _supported_backends_for_command(
+    command_path: str
+) -> tuple[BackendName, ...]:
     if command_path in {
-        "stock price history",
-        "stock profile",
-        "fund nav history",
-        "quote price history",
-        "quote price latest",
-        "quote profile",
-        "fund profile",
-        "stock price latest",
-        "stock price snapshot",
+            "stock price history",
+            "stock profile",
+            "fund nav history",
+            "quote price history",
+            "quote price latest",
+            "quote profile",
+            "fund profile",
+            "stock price latest",
+            "stock price snapshot",
     }:
         return (
             BackendName.EFINANCE,
@@ -500,16 +522,17 @@ def _supported_backends_for_command(command_path: str) -> tuple[BackendName, ...
         )
     if command_path == "stock price live":
         return (BackendName.EFINANCE, BackendName.AKSHARE)
-    return (BackendName.EFINANCE,)
+    return (BackendName.EFINANCE, )
 
 
 def is_multi_backend_support(backends: tuple[BackendName, ...]) -> bool:
     """判断当前命令是否属于多 backend shared 能力。"""
-
     return len(backends) >= 2
 
 
-def _result_contract_for_command(command_key: str, cli_path: tuple[str, ...]) -> str:
+def _result_contract_for_command(
+    command_key: str, cli_path: tuple[str, ...]
+) -> str:
     joined = ".".join(cli_path)
     if command_key == "instrument.search" or command_key == "search.local":
         return "search-results"
@@ -536,7 +559,8 @@ def _build_request_field(parameter: dict[str, Any]) -> RequestField:
     legal_values = parameter.get("legal_values")
     choices = tuple(legal_values) if isinstance(legal_values, list) else ()
     if str(parameter.get("name")) == "fs":
-        # `market price live` 的 provider-extension 参数仍使用原生 `fs`，这里不要把它当成 shared market 枚举。
+        # `market price live` 的 provider-extension 参数仍使用原生 `fs`。
+        # 这里不要把它当成 shared market 枚举。
         choices = ()
     default = parameter.get("default")
     if isinstance(default, bool):
@@ -556,7 +580,8 @@ def _build_request_field(parameter: dict[str, Any]) -> RequestField:
         help_text=str(parameter.get("description", "")).strip(),
         choices=choices,
         multiple=bool(parameter.get("multiple", False)),
-        semantic_type=str(parameter.get("semantic_type") or "").strip() or None,
+        semantic_type=str(parameter.get("semantic_type") or "").strip()
+        or None,
     )
 
 
@@ -583,27 +608,30 @@ def _build_command_from_reference(entry: dict[str, Any]) -> CommandDefinition:
         capability=command_key,
         request_schema=RequestSchema(
             schema_name=f"{command_key.replace('.', '-')}-request",
-            fields=tuple(_build_request_field(item) for item in entry.get("parameters", [])),
+            fields=tuple(
+                _build_request_field(item)
+                for item in entry.get("parameters", [])
+            ),
         ),
         help_text=str(entry.get("help_text", "")).strip(),
         kind=(
-            CommandKind.SHARED
-            if is_multi_backend_support(supported_backends)
+            CommandKind.SHARED if is_multi_backend_support(supported_backends)
             else CommandKind.PROVIDER_EXTENSION
         ),
         supported_backends=supported_backends,
         allow_watch=bool(entry.get("watch_supported", True)),
         has_side_effect=bool(entry.get("has_side_effect", False)),
         provider_name=(
-            None
-            if is_multi_backend_support(supported_backends)
-            else supported_backends[0]
+            None if is_multi_backend_support(supported_backends) else
+            supported_backends[0]
         ),
         limit_strategy=_limit_strategy_for_command_path(command_path),
     )
 
 
-def _build_shared_command(command_key: str, payload: dict[str, Any]) -> CommandDefinition:
+def _build_shared_command(
+    command_key: str, payload: dict[str, Any]
+) -> CommandDefinition:
     return CommandDefinition(
         command_key=command_key,
         cli_path=tuple(payload["cli_path"]),
@@ -618,7 +646,9 @@ def _build_shared_command(command_key: str, payload: dict[str, Any]) -> CommandD
         allow_watch=bool(payload.get("allow_watch", True)),
         has_side_effect=bool(payload.get("has_side_effect", False)),
         provider_name=None,
-        limit_strategy=str(payload.get("limit_strategy", LimitStrategy.DISPLAY_ONLY.value)),
+        limit_strategy=str(
+            payload.get("limit_strategy", LimitStrategy.DISPLAY_ONLY.value)
+        ),
     )
 
 
@@ -630,14 +660,19 @@ SHARED_COMMANDS: tuple[CommandDefinition, ...] = tuple(
 SINGLE_BACKEND_COMMANDS: tuple[CommandDefinition, ...] = tuple(
     _build_command_from_reference(entry)
     for entry in _REFERENCE_CATALOG["commands"]
-    if entry["command_path"] != "watch"
-    and not is_multi_backend_support(_supported_backends_for_command(str(entry["command_path"])))
+    if entry["command_path"] != "watch" and not is_multi_backend_support(
+        _supported_backends_for_command(str(entry["command_path"]))
+    )
 )
 
 COMMAND_BINDINGS: dict[str, dict[str, str | None]] = {
-    command.command_key: {"module": "utils", "function": "search_quote"}
-    if command.command_key == "instrument.search"
-    else {"module": None, "function": None}
+    command.command_key: {
+        "module": "utils",
+        "function": "search_quote"
+    } if command.command_key == "instrument.search" else {
+        "module": None,
+        "function": None
+    }
     for command in SHARED_COMMANDS
 }
 for entry in _REFERENCE_CATALOG["commands"]:
@@ -649,21 +684,26 @@ for entry in _REFERENCE_CATALOG["commands"]:
         "function": entry.get("function"),
     }
 
-
 SHARED_CAPABILITIES: dict[str, CapabilityDescriptor] = {
-    command.command_key: CapabilityDescriptor(
+    command.command_key:
+    CapabilityDescriptor(
         capability_name=command.capability,
         description=command.help_text,
-        result_contract=_result_contract_for_command(command.command_key, command.cli_path),
+        result_contract=_result_contract_for_command(
+            command.command_key, command.cli_path
+        ),
     )
     for command in SHARED_COMMANDS
 }
 
 SINGLE_BACKEND_CAPABILITIES: dict[str, CapabilityDescriptor] = {
-    command.command_key: CapabilityDescriptor(
+    command.command_key:
+    CapabilityDescriptor(
         capability_name=command.capability,
         description=command.help_text,
-        result_contract=_result_contract_for_command(command.command_key, command.cli_path),
+        result_contract=_result_contract_for_command(
+            command.command_key, command.cli_path
+        ),
     )
     for command in SINGLE_BACKEND_COMMANDS
 }
@@ -671,7 +711,6 @@ SINGLE_BACKEND_CAPABILITIES: dict[str, CapabilityDescriptor] = {
 
 def list_shared_root_groups() -> list[str]:
     """返回所有共享命令的根分组。"""
-
     roots = sorted(
         {
             command.root_group
@@ -682,18 +721,21 @@ def list_shared_root_groups() -> list[str]:
     return roots
 
 
-def build_shared_command_definitions_for_group(group_name: str) -> list[CommandDefinition]:
+def build_shared_command_definitions_for_group(
+    group_name: str
+) -> list[CommandDefinition]:
     """返回指定分组下的共享命令定义。"""
-
     return sorted(
-        [command for command in SHARED_COMMANDS if command.root_group == group_name],
+        [
+            command
+            for command in SHARED_COMMANDS if command.root_group == group_name
+        ],
         key=lambda item: item.cli_path,
     )
 
 
 def get_shared_command_definition(command_key: str) -> CommandDefinition:
     """按 command_key 获取共享命令定义。"""
-
     for command in SHARED_COMMANDS:
         if command.command_key == command_key:
             return command
@@ -702,7 +744,6 @@ def get_shared_command_definition(command_key: str) -> CommandDefinition:
 
 def get_command_definition(command_key: str) -> CommandDefinition:
     """按 command_key 获取任意命令定义。"""
-
     for command in SHARED_COMMANDS:
         if command.command_key == command_key:
             return command
@@ -716,19 +757,16 @@ def get_single_backend_command_definitions(
     provider_name: BackendName | None = None,
 ) -> tuple[CommandDefinition, ...]:
     """按 provider 过滤单后端命令定义。"""
-
     if provider_name is None:
         return SINGLE_BACKEND_COMMANDS
     return tuple(
-        command
-        for command in SINGLE_BACKEND_COMMANDS
+        command for command in SINGLE_BACKEND_COMMANDS
         if command.provider_name == provider_name
     )
 
 
 def get_capability_descriptor(capability_name: str) -> CapabilityDescriptor:
     """按 capability 获取能力描述。"""
-
     try:
         return SHARED_CAPABILITIES[capability_name]
     except KeyError:
@@ -741,7 +779,6 @@ def get_capability_descriptor(capability_name: str) -> CapabilityDescriptor:
 
 def get_command_binding(command_key: str) -> dict[str, str | None]:
     """按 command_key 获取函数绑定。"""
-
     try:
         return COMMAND_BINDINGS[command_key]
     except KeyError as exc:

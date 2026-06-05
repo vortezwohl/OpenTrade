@@ -44,7 +44,9 @@ SEARCH_RESULTS_CONTRACT = ResultContract(
 PROFILE_INFO_CONTRACT = ResultContract(
     contract_name="profile-info",
     required_fields=("code", "name"),
-    optional_fields=("quote_id", "market", "pe", "pb", "industry", "total_market_value"),
+    optional_fields=(
+        "quote_id", "market", "pe", "pb", "industry", "total_market_value"
+    ),
     field_aliases={
         "code": ("code", "symbol", "股票代码", "代码", "证券代码", "quote_id"),
         "name": ("name", "股票名称", "名称", "证券简称", "cname"),
@@ -108,15 +110,17 @@ REALTIME_QUOTES_CONTRACT = ResultContract(
 
 PROVIDER_RECORDS_CONTRACT = ResultContract(
     contract_name="provider-records",
-    required_fields=("name",),
-    optional_fields=("symbol", "code", "latest", "change_pct", "provider_name"),
+    required_fields=("name", ),
+    optional_fields=(
+        "symbol", "code", "latest", "change_pct", "provider_name"
+    ),
     field_aliases={
         "name": ("name", "板块名称", "名称"),
         "symbol": ("symbol", "symbol"),
         "code": ("code", "代码"),
         "latest": ("latest", "最新价"),
         "change_pct": ("change_pct", "涨跌幅"),
-        "provider_name": ("provider_name",),
+        "provider_name": ("provider_name", ),
     },
 )
 
@@ -132,19 +136,22 @@ SCALAR_VALUE_CONTRACT = ResultContract(
 
 SIDE_EFFECT_STATUS_CONTRACT = ResultContract(
     contract_name="side-effect-status",
-    required_fields=("status",),
+    required_fields=("status", ),
     optional_fields=("message", "command_key"),
     field_aliases={
-        "status": ("status",),
-        "message": ("message",),
-        "command_key": ("command_key",),
+        "status": ("status", ),
+        "message": ("message", ),
+        "command_key": ("command_key", ),
     },
 )
 
 HISTORY_BARS_CONTRACT = ResultContract(
     contract_name="history-bars",
     required_fields=("date", "symbol", "open", "close", "high", "low"),
-    optional_fields=("volume", "turnover", "amplitude", "change_pct", "change_amount", "turnover_rate"),
+    optional_fields=(
+        "volume", "turnover", "amplitude", "change_pct", "change_amount",
+        "turnover_rate"
+    ),
     field_aliases={
         "date": ("date", "日期", "时间"),
         "symbol": ("symbol", "股票代码", "代码"),
@@ -167,8 +174,10 @@ def ensure_mapping_has_required_fields(
     contract: ResultContract,
 ) -> None:
     """校验单条标准记录是否满足契约要求。"""
-
-    missing = [field for field in contract.required_fields if field not in mapping or mapping[field] in (None, "")]
+    missing = [
+        field for field in contract.required_fields
+        if field not in mapping or mapping[field] in (None, "")
+    ]
     if missing:
         joined = ", ".join(missing)
         raise StandardizationError(
@@ -184,7 +193,6 @@ def build_standard_result(
     metadata: dict[str, Any] | None = None,
 ) -> StandardResult:
     """构造统一标准结果封装对象。"""
-
     return StandardResult(
         contract_name=contract.contract_name,
         data=data,
@@ -199,11 +207,10 @@ def normalize_contract_mapping(
     contract: ResultContract,
 ) -> dict[str, Any]:
     """按契约别名表把 provider 原始字段归一化为标准字段。"""
-
     normalized: dict[str, Any] = {}
     target_fields = (*contract.required_fields, *contract.optional_fields)
     for field_name in target_fields:
-        aliases = contract.field_aliases.get(field_name, (field_name,))
+        aliases = contract.field_aliases.get(field_name, (field_name, ))
         for alias in aliases:
             if alias in mapping and mapping[alias] not in (None, ""):
                 normalized[field_name] = mapping[alias]

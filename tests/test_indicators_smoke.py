@@ -22,11 +22,24 @@ def build_sample_frame() -> pd.DataFrame:
     """构造一段稳定的样例行情数据。"""
     return pd.DataFrame(
         {
-            "open": [10, 10.5, 10.8, 11.0, 11.3, 11.1, 11.5, 11.9, 12.2, 12.0, 12.4, 12.8],
-            "high": [10.2, 10.7, 11.0, 11.2, 11.5, 11.4, 11.8, 12.1, 12.4, 12.3, 12.7, 13.0],
-            "low": [9.8, 10.1, 10.5, 10.7, 11.0, 10.9, 11.1, 11.6, 11.9, 11.7, 12.0, 12.4],
-            "close": [10.1, 10.6, 10.9, 11.1, 11.2, 11.3, 11.7, 12.0, 12.1, 12.2, 12.6, 12.9],
-            "volume": [100, 120, 130, 150, 145, 160, 180, 210, 205, 190, 220, 250],
+            "open": [
+                10, 10.5, 10.8, 11.0, 11.3, 11.1, 11.5, 11.9, 12.2, 12.0, 12.4,
+                12.8
+            ],
+            "high": [
+                10.2, 10.7, 11.0, 11.2, 11.5, 11.4, 11.8, 12.1, 12.4, 12.3,
+                12.7, 13.0
+            ],
+            "low": [
+                9.8, 10.1, 10.5, 10.7, 11.0, 10.9, 11.1, 11.6, 11.9, 11.7,
+                12.0, 12.4
+            ],
+            "close": [
+                10.1, 10.6, 10.9, 11.1, 11.2, 11.3, 11.7, 12.0, 12.1, 12.2,
+                12.6, 12.9
+            ],
+            "volume":
+            [100, 120, 130, 150, 145, 160, 180, 210, 205, 190, 220, 250],
         }
     )
 
@@ -55,14 +68,18 @@ class IndicatorSmokeTest(unittest.TestCase):
     def test_macd_returns_expected_columns(self) -> None:
         """MACD 应返回标准列。"""
         frame = build_sample_frame()
-        result = indicators.macd(frame["close"], fast_period=3, slow_period=6, signal_period=3)
+        result = indicators.macd(
+            frame["close"], fast_period=3, slow_period=6, signal_period=3
+        )
         print_observation("MACD 实际结果", result.to_string(index=False))
         self.assertEqual(list(result.columns), ["dif", "dea", "histogram"])
 
     def test_kdj_returns_expected_columns(self) -> None:
         """KDJ 应返回 K/D/J 三列。"""
         frame = build_sample_frame()
-        result = indicators.kdj(frame["high"], frame["low"], frame["close"], k_period=5)
+        result = indicators.kdj(
+            frame["high"], frame["low"], frame["close"], k_period=5
+        )
         print_observation("KDJ 实际结果", result.to_string(index=False))
         self.assertEqual(list(result.columns), ["k", "d", "j"])
 
@@ -71,7 +88,10 @@ class IndicatorSmokeTest(unittest.TestCase):
         frame = build_sample_frame()
         result = indicators.bollinger_bands(frame["close"], period=5)
         print_observation("布林带实际结果", result.to_string(index=False))
-        self.assertEqual(list(result.columns), ["middle", "upper", "lower", "bandwidth", "percent_b"])
+        self.assertEqual(
+            list(result.columns),
+            ["middle", "upper", "lower", "bandwidth", "percent_b"]
+        )
 
     def test_obv_returns_series(self) -> None:
         """OBV 应返回与输入等长的 Series。"""
@@ -84,6 +104,11 @@ class IndicatorSmokeTest(unittest.TestCase):
     def test_pivot_points_returns_expected_columns(self) -> None:
         """枢轴点位应返回七列。"""
         frame = build_sample_frame()
-        result = indicators.pivot_points(frame["high"], frame["low"], frame["close"])
+        result = indicators.pivot_points(
+            frame["high"], frame["low"], frame["close"]
+        )
         print_observation("Pivot Points 实际结果", result.to_string(index=False))
-        self.assertEqual(list(result.columns), ["pivot", "r1", "s1", "r2", "s2", "r3", "s3"])
+        self.assertEqual(
+            list(result.columns),
+            ["pivot", "r1", "s1", "r2", "s2", "r3", "s3"]
+        )

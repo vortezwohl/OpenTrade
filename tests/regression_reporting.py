@@ -1,9 +1,8 @@
-"""
-真实回归报告的共享辅助能力。
+"""真实回归报告的共享辅助能力。
 
-该模块为多个真实回归脚本提供统一的失败分层、路由证据归一化与
-auto fallback 判定逻辑，避免不同脚本继续各自维护一套互相漂移的
-报告口径。
+该模块为多个真实回归脚本提供统一的失败分层、
+路由证据归一化与 auto fallback 判定逻辑，
+避免不同脚本继续各自维护一套互相漂移的报告口径。
 """
 
 from __future__ import annotations
@@ -66,7 +65,15 @@ ADAPTER_HINT_PATTERNS = (
     "shared quote-id",
     "shared quote id",
 )
-ADAPTER_FIELD_HINTS = ("market", "quote-id", "quote id", "quote_ids", "fs", "symbol", "symbols")
+ADAPTER_FIELD_HINTS = (
+    "market",
+    "quote-id",
+    "quote id",
+    "quote_ids",
+    "fs",
+    "symbol",
+    "symbols",
+)
 PROVIDER_FAILURE_PATTERNS = (
     "provider-contract-error",
     "provider-execution-failure",
@@ -77,7 +84,6 @@ ERROR_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception))")
 
 def _to_text(value: Any) -> str | None:
     """把证据字段转成可序列化字符串。"""
-
     if value is None:
         return None
     text = str(value).strip()
@@ -86,7 +92,6 @@ def _to_text(value: Any) -> str | None:
 
 def _to_text_list(value: Any) -> list[str]:
     """把候选链等字段归一化为字符串列表。"""
-
     if not isinstance(value, (list, tuple)):
         return []
     items: list[str] = []
@@ -99,13 +104,15 @@ def _to_text_list(value: Any) -> list[str]:
 
 def normalize_backend_meta(metadata: dict[str, Any] | None) -> dict[str, Any]:
     """把 raw/observation 中的 backend 元数据收敛为统一结构。"""
-
     raw = metadata if isinstance(metadata, dict) else {}
-    planned_candidates = _to_text_list(raw.get("planned_candidates") or raw.get("candidate_chain"))
+    planned_candidates = _to_text_list(
+        raw.get("planned_candidates") or raw.get("candidate_chain")
+    )
     attempted_candidates = _to_text_list(raw.get("attempted_candidates"))
     final_backend = _to_text(raw.get("final_backend"))
     fallback_used = bool(raw.get("fallback_used", False))
-    if not fallback_used and len(planned_candidates) > 1 and final_backend is not None:
+    if not fallback_used and len(planned_candidates
+                                 ) > 1 and final_backend is not None:
         fallback_used = final_backend != planned_candidates[0]
     return {
         "requested_backend": _to_text(raw.get("requested_backend")),
@@ -119,13 +126,13 @@ def normalize_backend_meta(metadata: dict[str, Any] | None) -> dict[str, Any]:
         "limit_value": raw.get("limit_value"),
         "limit_effect": _to_text(raw.get("limit_effect")),
         "display_limit_applied": bool(raw.get("display_limit_applied", False)),
-        "execution_limit_applied": bool(raw.get("execution_limit_applied", False)),
+        "execution_limit_applied":
+        bool(raw.get("execution_limit_applied", False)),
     }
 
 
 def extract_backend_meta_from_payload(payload: Any) -> dict[str, Any]:
     """从 raw/json 载荷中提取并归一化 backend 元数据。"""
-
     if not isinstance(payload, dict):
         return normalize_backend_meta({})
     for key in ("metadata", "meta"):
@@ -137,7 +144,6 @@ def extract_backend_meta_from_payload(payload: Any) -> dict[str, Any]:
 
 def extract_backend_meta_from_stdout(stdout: str) -> dict[str, Any]:
     """从 stdout 的 JSON 文本中提取 backend 元数据。"""
-
     text = stdout.strip()
     if not text:
         return normalize_backend_meta({})
@@ -148,9 +154,10 @@ def extract_backend_meta_from_stdout(stdout: str) -> dict[str, Any]:
     return extract_backend_meta_from_payload(payload)
 
 
-def detect_auto_fallback(requested_backend: str | None, backend_meta: dict[str, Any] | None) -> bool:
+def detect_auto_fallback(
+    requested_backend: str | None, backend_meta: dict[str, Any] | None
+) -> bool:
     """判断 auto 请求是否真实落到了首候选之外的 backend。"""
-
     if requested_backend != "auto":
         return False
     meta = normalize_backend_meta(backend_meta)
@@ -158,12 +165,15 @@ def detect_auto_fallback(requested_backend: str | None, backend_meta: dict[str, 
         return True
     planned_candidates = meta["planned_candidates"]
     final_backend = meta["final_backend"]
-    return bool(planned_candidates) and len(planned_candidates) > 1 and final_backend is not None and final_backend != planned_candidates[0]
+    return bool(planned_candidates) and len(
+        planned_candidates
+    ) > 1 and final_backend is not None and (
+        final_backend != planned_candidates[0]
+    )
 
 
 def summarize_failure_reason(stdout: str, stderr: str) -> str | None:
     """抽取最可读的失败原因摘要。"""
-
     text = "\n".join(part for part in [stderr.strip(), stdout.strip()] if part)
     if not text:
         return None
@@ -200,37 +210,51 @@ def classify_regression_failure(
     Returns:
         二元组，分别为失败分类与原因摘要。
     """
-
     lowered_status = status.lower()
     if lowered_status == "pass":
         return None, None
 
     reason = summarize_failure_reason(stdout, stderr)
-    combined = "\n".join(part for part in [stderr.strip(), stdout.strip()] if part)
+    combined = "\n".join(
+        part for part in [stderr.strip(), stdout.strip()] if part
+    )
     lowered = combined.lower()
 
-    if lowered_status == "timeout" or any(pattern in lowered for pattern in UPSTREAM_PATTERNS):
+    if lowered_status == "timeout" or any(pattern in lowered
+                                          for pattern in UPSTREAM_PATTERNS):
         return "upstream_instability", reason
 
-    if returncode == 2 or any(pattern in lowered for pattern in SAMPLE_PATTERNS):
+    if returncode == 2 or any(pattern in lowered
+                              for pattern in SAMPLE_PATTERNS):
         return "sample_mismatch", reason
 
     if "provider-contract-error" in lowered:
         return "adapter_gap", reason
-    if any(pattern in lowered for pattern in ("provider-execution-failure", "provider-response-failure")):
+    if any(pattern in lowered for pattern in ("provider-execution-failure",
+                                              "provider-response-failure")):
         return "provider_failure", reason
 
     adapter_hint = any(pattern in lowered for pattern in ADAPTER_HINT_PATTERNS)
-    adapter_field_conflict = any(field in lowered for field in ADAPTER_FIELD_HINTS) and any(
-        token in lowered for token in ("unsupported", "not support", "cannot map", "failed to map", "provider")
+    adapter_field_conflict = any(
+        field in lowered for field in ADAPTER_FIELD_HINTS
+    ) and any(
+        token in lowered for token in (
+            "unsupported", "not support", "cannot map", "failed to map",
+            "provider"
+        )
     )
     if adapter_hint or adapter_field_conflict:
         return "adapter_gap", reason
 
-    missing_artifact = any(not item.get("exists", False) for item in (artifact_reports or []))
+    missing_artifact = any(
+        not item.get("exists", False) for item in (artifact_reports or [])
+    )
     meta = normalize_backend_meta(backend_meta)
-    unresolved_auto = requested_backend == "auto" and meta["final_backend"] is None and lowered_status != "pass"
-    if missing_artifact or unresolved_auto or lowered_status in {"fail", "degraded", "timeout"}:
+    unresolved_auto = requested_backend == "auto" and meta[
+        "final_backend"] is None and lowered_status != "pass"
+    if missing_artifact or unresolved_auto or lowered_status in {
+            "fail", "degraded", "timeout"
+    }:
         return "product_defect", reason
 
     return "product_defect", reason

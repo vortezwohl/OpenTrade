@@ -36,12 +36,16 @@ def normalize_history_columns(frame: pd.DataFrame) -> dict[str, pd.Series]:
     for standard_name, candidates in column_map.items():
         for candidate in candidates:
             if candidate in frame.columns:
-                normalized[standard_name] = pd.to_numeric(frame[candidate], errors="coerce")
+                normalized[standard_name] = pd.to_numeric(
+                    frame[candidate], errors="coerce"
+                )
                 break
     return normalized
 
 
-def add_basic_indicators(frame: pd.DataFrame, columns: dict[str, pd.Series]) -> None:
+def add_basic_indicators(
+    frame: pd.DataFrame, columns: dict[str, pd.Series]
+) -> None:
     """附加基础指标。"""
     close = columns["close"]
     frame["ma5"] = indicators.sma(close, 5)
@@ -76,7 +80,9 @@ def add_basic_indicators(frame: pd.DataFrame, columns: dict[str, pd.Series]) -> 
         frame["volume_ratio_5"] = indicators.volume_ratio(volume, 5)
 
 
-def add_advanced_indicators(frame: pd.DataFrame, columns: dict[str, pd.Series]) -> None:
+def add_advanced_indicators(
+    frame: pd.DataFrame, columns: dict[str, pd.Series]
+) -> None:
     """附加进阶指标。"""
     close = columns["close"]
     frame["roc12"] = indicators.roc(close, 12)
@@ -117,14 +123,18 @@ def add_advanced_indicators(frame: pd.DataFrame, columns: dict[str, pd.Series]) 
         volume = columns["volume"]
         frame["mfi14"] = indicators.mfi(high, low, close, volume, 14)
         frame["pvt"] = indicators.price_volume_trend(close, volume)
-        frame["cmf20"] = indicators.chaikin_money_flow(high, low, close, volume, 20)
+        frame["cmf20"] = indicators.chaikin_money_flow(
+            high, low, close, volume, 20
+        )
         frame["force_index13"] = indicators.force_index(close, volume, 13)
         frame["vwap"] = indicators.vwap(high, low, close, volume)
         frame["vr"] = indicators.vr(close, volume, 26)
         frame["psy"] = indicators.psy(close)["psy"]
 
 
-def add_full_indicators(frame: pd.DataFrame, columns: dict[str, pd.Series]) -> None:
+def add_full_indicators(
+    frame: pd.DataFrame, columns: dict[str, pd.Series]
+) -> None:
     """附加全量指标。"""
     close = columns["close"]
     frame["mass_index"] = None
@@ -159,7 +169,11 @@ def add_full_indicators(frame: pd.DataFrame, columns: dict[str, pd.Series]) -> N
         high = columns["high"]
         low = columns["low"]
         volume = columns["volume"]
-        frame["adl"] = indicators.accumulation_distribution(high, low, close, volume)
-        frame["chaikin_osc"] = indicators.chaikin_oscillator(high, low, close, volume)
+        frame["adl"] = indicators.accumulation_distribution(
+            high, low, close, volume
+        )
+        frame["chaikin_osc"] = indicators.chaikin_oscillator(
+            high, low, close, volume
+        )
         frame["chaikin_volatility"] = indicators.chaikin_volatility(high, low)
         frame["emv"] = indicators.emv(high, low, volume)["emv"]
