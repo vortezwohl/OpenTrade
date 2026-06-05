@@ -1,5 +1,8 @@
-﻿## ADDED Requirements
+# provider-handler-gap-coverage Specification
 
+## Purpose
+TBD - created by archiving change improve-test-coverage. Update Purpose after archive.
+## Requirements
 ### Requirement: AkshareStockPriceLiveHandler 数据标准化
 	ests/test_provider_handlers_extended.py SHALL 验证 AkshareStockPriceLiveHandler.execute 对 akshare 实时行情返回值的标准化行为。
 
@@ -42,3 +45,4 @@
 - **WHEN** 以 command_key='bond.catalog' 构造 EfinanceGenericHandler
 - **THEN** handler 调用 efinance.bond.get_all_base_info
 - **AND** 上传调用经过网络重试包装
+

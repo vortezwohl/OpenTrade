@@ -1,5 +1,8 @@
-﻿## ADDED Requirements
+# contracts-unit-tests Specification
 
+## Purpose
+TBD - created by archiving change improve-test-coverage. Update Purpose after archive.
+## Requirements
 ### Requirement: build_standard_result 构建标准结果
 	ests/test_contracts_unit.py SHALL 验证 uild_standard_result 对以下输入场景的正确行为：
 - 传入合法 contract mapping 时返回包含 contract_name、data、provider_fields 的标准结果；
@@ -42,3 +45,4 @@ ormalize_contract_mapping 的行为：
 #### Scenario: 字段缺失
 - **WHEN** 字典缺少至少一个必填字段
 - **THEN** 抛出 StandardizationError，异常消息包含缺失字段名
+

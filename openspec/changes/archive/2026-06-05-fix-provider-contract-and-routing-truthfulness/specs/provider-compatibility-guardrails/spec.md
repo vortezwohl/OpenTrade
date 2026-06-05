@@ -26,6 +26,8 @@ When a third-party provider crashes because of malformed upstream payloads or in
 - **THEN** the failure SHALL remain eligible for failover according to the auto failover policy
 - **THEN** subsequent backend attempts SHALL still be recorded in trace or reporting metadata
 
+## ADDED Requirements
+
 ### Requirement: Unsupported shared request shapes shall be classified as local contract failures
 When a backend cannot truthfully consume a normalized shared request because of identifier shape, unsupported market semantics, or unsupported target cardinality, the system SHALL classify the failure as a local provider contract failure instead of delegating that mismatch to a remote provider crash.
 

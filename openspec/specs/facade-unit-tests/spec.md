@@ -1,5 +1,8 @@
-﻿## ADDED Requirements
+# facade-unit-tests Specification
 
+## Purpose
+TBD - created by archiving change improve-test-coverage. Update Purpose after archive.
+## Requirements
 ### Requirement: CommandFacade.invoke 单后端成功路径
 	ests/test_facade_unit.py SHALL 验证 CommandFacade.invoke 在指定单一后端且该后端成功返回时的行为。
 
@@ -38,3 +41,4 @@
 #### Scenario: 副作用命令不走网络重试
 - **WHEN** 调用 CommandFacade().invoke 处理 und.reports.download 命令
 - **THEN** handler 的 execute 被直接调用（不经过 call_with_network_retry 包装）
+

@@ -4,7 +4,7 @@
 TBD - created by archiving change fix-shared-command-routing-and-adaptation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Shared commands SHALL accept provider-neutral normalized input
-The system SHALL define provider-neutral internal request fields for multi-backend shared commands instead of exposing provider-native parameter names as the primary internal contract. Shared command execution SHALL normalize dates, symbol identifiers, quote identifiers, market semantics, timeframe, and adjustment into stable internal field names before provider selection and provider invocation.
+The system SHALL define provider-neutral internal request fields for multi-backend shared commands instead of exposing provider-native parameter names as the primary internal contract. Shared command execution SHALL normalize dates, symbol identifiers, quote identifiers, market semantics, timeframe, and adjustment into stable internal field names before provider selection and provider invocation. The normalized contract SHALL be the single source of truth consumed consistently by planners, facades, and provider adapters.
 
 #### Scenario: History command normalizes dates and timeframe before provider invocation
 - **WHEN** a shared history command is invoked with CLI inputs for symbols, start date, end date, timeframe, and adjustment
@@ -13,6 +13,16 @@ The system SHALL define provider-neutral internal request fields for multi-backe
 #### Scenario: Shared normalization accepts compact date input
 - **WHEN** a user provides a date input in compact `YYYYMMDD` form for a shared command
 - **THEN** the normalized request SHALL preserve that semantic date value and defer provider-specific formatting to the provider adaptation layer
+
+#### Scenario: Quote latest normalizes to shared symbols rather than provider-native quote identifier fields
+- **WHEN** a shared `quote.price.latest` command is invoked through CLI or internal execution
+- **THEN** the normalized request SHALL expose provider-neutral shared identifier fields such as `symbols`
+- **THEN** downstream planner and adapter code SHALL consume that normalized field instead of relying on provider-native legacy names such as `quote_ids` or `quote_id_list`
+
+#### Scenario: Quote profile normalizes to shared symbol rather than provider-native quote identifier field
+- **WHEN** a shared `quote.profile` command is invoked through CLI or internal execution
+- **THEN** the normalized request SHALL expose a provider-neutral shared identifier field such as `symbol`
+- **THEN** downstream planner and adapter code SHALL treat provider-native identifier translation as an adapter concern
 
 ### Requirement: Shared market semantics SHALL be validated by schema metadata rather than hard-coded field names
 The system SHALL validate shared market semantics based on schema-declared field meaning instead of hard-coding validation only for a field literally named `market`. Any shared field that represents market semantics SHALL use the same validation and normalization path.

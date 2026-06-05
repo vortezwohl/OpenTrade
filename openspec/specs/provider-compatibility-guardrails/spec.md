@@ -29,3 +29,16 @@ When a third-party provider crashes because of malformed upstream payloads or in
 - **THEN** the failure SHALL remain eligible for failover according to the auto failover policy
 - **THEN** subsequent backend attempts SHALL still be recorded in trace or reporting metadata
 
+### Requirement: Unsupported shared request shapes shall be classified as local contract failures
+When a backend cannot truthfully consume a normalized shared request because of identifier shape, unsupported market semantics, or unsupported target cardinality, the system SHALL classify the failure as a local provider contract failure instead of delegating that mismatch to a remote provider crash.
+
+#### Scenario: Unsupported yfinance A-share translation shape fails locally
+- **WHEN** a shared stock request is routed to `yfinance` with an A-share identifier shape that the local adapter cannot translate into a valid Yahoo ticker
+- **THEN** the command SHALL fail locally with a provider contract failure that identifies the backend and command
+- **THEN** the system SHALL NOT forward the untranslated identifier to Yahoo as if it were already valid
+
+#### Scenario: Unsupported batch path fails locally before remote callback
+- **WHEN** a backend only supports a single target for a shared command but receives a normalized multi-target request through explicit backend selection
+- **THEN** the command SHALL fail locally with a readable provider contract failure
+- **THEN** the upstream provider callback SHALL NOT be invoked for that invalid shape
+

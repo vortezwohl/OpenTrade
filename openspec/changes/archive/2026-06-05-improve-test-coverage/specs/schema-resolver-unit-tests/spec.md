@@ -1,4 +1,4 @@
-﻿## ADDED Requirements
+## ADDED Requirements
 
 ### Requirement: build_click_options_for_schema 参数映射正确性
 	ests/test_schema_and_resolver.py SHALL 验证 build_click_options_for_schema 对 RequestSchema 中各字段类型的正确 Click 选项映射。

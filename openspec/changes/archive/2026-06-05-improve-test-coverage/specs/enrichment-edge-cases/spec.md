@@ -1,4 +1,4 @@
-﻿## ADDED Requirements
+## ADDED Requirements
 
 ### Requirement: 空 DataFrame 输入不崩溃
 	ests/test_enrichment_edge.py SHALL 验证 enrich_history_frame 在接收到空 DataFrame 时优雅处理，不抛出未捕获异常。

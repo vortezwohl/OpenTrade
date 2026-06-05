@@ -1,5 +1,8 @@
-﻿## ADDED Requirements
+# indicators-full-coverage Specification
 
+## Purpose
+TBD - created by archiving change improve-test-coverage. Update Purpose after archive.
+## Requirements
 ### Requirement: 所有 indicators 模块导出可调用
 	ests/test_indicators_full.py SHALL 验证 efinance_cli.indicators 子包中每个公开的指标函数均可被正常导入和调用，接受标准 Series/DataFrame 输入后返回预期类型的结果。
 
@@ -45,3 +48,4 @@
 #### Scenario: 导出列表无遗漏
 - **WHEN** 检查 indicators.__all__ 与子包各模块的公开函数名
 - **THEN** __all__ 包含所有在 	rend.py、momentum.py、olume.py、olatility.py、price.py、chinese.py 中定义的公开指标函数
+
