@@ -238,6 +238,13 @@ def _adapt_efinance_shared_request(
                 ),
             ),
         }
+    if command_key == "market.price.live":
+        return {
+            "fs":
+            _resolve_efinance_market_fs(
+                _get_request_value(request_data, "market", "fs"),
+            ),
+        }
     if command_key == "stock.price.snapshot":
         return {
             "stock_code":
@@ -387,11 +394,11 @@ def _resolve_efinance_market_fs(market_name: object) -> str:
     if market in (None, ""):
         raise ValueError("market.price.live 需要明确的 market 参数")
     mapping = {
-        "A_stock": "沪深A股",
-        "US_stock": "美股",
-        "Hongkong": "港股",
-        "bond": "可转债",
-        "futures": "期货",
+        "A_stock": "m:0 t:6,m:0 t:80,m:1 t:2,m:1 t:23",
+        "US_stock": "m:105,m:106,m:107",
+        "Hongkong": "m:128 t:3,m:128 t:4,m:128 t:1,m:128 t:2",
+        "bond": "b:MK0354",
+        "futures": "m:113,m:114,m:115,m:8,m:142,m:225",
     }
     if isinstance(market, str) and market.startswith(("m:", "b:")):
         return market
