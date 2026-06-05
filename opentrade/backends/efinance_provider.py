@@ -293,9 +293,7 @@ def _adapt_efinance_shared_request(
             ),
         }
     if command_key == "quote.price.history":
-        return _adapt_efinance_history_request(
-            request_data, code_field_name="codes"
-        )
+        return _adapt_efinance_quote_history_request(request_data)
     if command_key == "quote.price.latest":
         quote_ids = _resolve_efinance_quote_ids(request_data, command_key)
         if execution_limit is not None:
@@ -368,6 +366,24 @@ def _resolve_efinance_quote_id(
         "symbols",
     )
     return efinance.utils.get_quote_id(symbol)
+
+
+def _looks_like_efinance_quote_id(value: object) -> bool:
+    """判断输入值是否已经是 efinance / 东方财富使用的 quote_id。
+
+    Args:
+        value: 待判断的原始请求值，通常来自 shared request 的 `codes` / `symbols`。
+
+    Returns:
+        当值形如 `105.AAPL`、前缀为数字市场编号且后续带代码段时返回 `True`；否则返回 `False`。
+    """
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    if not text or "." not in text:
+        return False
+    market_prefix, code = text.split(".", 1)
+    return market_prefix.isdigit() and bool(code)
 
 
 def _normalize_efinance_date(
@@ -486,9 +502,9 @@ def _adapt_efinance_history_request(
     *,
     code_field_name: str,
 ) -> dict[str, object]:
+    """将 shared history 请求翻译为 efinance `get_quote_history` 所需参数。"""
     request_keys = (
-        ("symbols", "stock_codes",
-         "symbol") if code_field_name == "stock_codes" else
+        ("symbols", "stock_codes", "symbol") if code_field_name == "stock_codes" else
         ("symbols", "codes", "symbol")
     )
     return {
@@ -533,6 +549,28 @@ def _adapt_efinance_history_request(
         "use_id_cache":
         bool(_get_request_value(request_data, "use_id_cache", default=True)),
     }
+
+
+def _adapt_efinance_quote_history_request(
+    request_data: Mapping[str, object],
+) -> dict[str, object]:
+    """适配 `quote.price.history`，在输入已是 quote_id 时保留原值并显式开启 quote_id 模式。"""
+    codes = _coerce_request_sequence(
+        request_data,
+        "symbols",
+        "codes",
+        "symbol",
+        "code",
+    )
+    adapted_request = _adapt_efinance_history_request(
+        request_data,
+        code_field_name="codes",
+    )
+    if codes:
+        adapted_request["codes"] = _single_or_multi(codes)
+    if codes and all(_looks_like_efinance_quote_id(code) for code in codes):
+        adapted_request["quote_id_mode"] = True
+    return adapted_request
 
 
 def _resolve_efinance_live_fs(market_name: object) -> str | None:
@@ -650,7 +688,7 @@ def _build_history_standard_result(
         "stock.price.history": ("symbols", "stock_codes", "symbol"),
         "bond.price.history": ("bond_codes", ),
         "futures.price.history": ("quote_ids", ),
-        "quote.price.history": ("symbols", "codes", "symbol"),
+        "quote.price.history": ("symbols", "codes", "symbol", "code"),
     }[command_key]
     symbols = _coerce_symbol_list(
         _get_request_value(request_data, *key_options, default=[])

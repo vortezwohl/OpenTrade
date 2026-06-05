@@ -58,6 +58,36 @@ class ProviderContractsFixTest(unittest.TestCase):
 
         self.assertEqual(adapted, {"quote_id": "resolved:000001"})
 
+    def test_efinance_quote_price_history_preserves_quote_ids(self) -> None:
+        adapted = _adapt_efinance_request(
+            "quote.price.history",
+            {
+                "codes": ["105.AAPL"],
+                "start_date": "20250501",
+                "end_date": "20250530",
+                "timeframe": 101,
+                "adjustment": 1,
+            },
+        )
+
+        self.assertEqual(adapted["codes"], "105.AAPL")
+        self.assertTrue(adapted["quote_id_mode"])
+        self.assertEqual(adapted["beg"], "20250501")
+        self.assertEqual(adapted["end"], "20250530")
+
+    def test_efinance_quote_price_history_accepts_single_code_alias(self) -> None:
+        adapted = _adapt_efinance_request(
+            "quote.price.history",
+            {
+                "code": "AAPL",
+                "start_date": "20250501",
+                "end_date": "20250530",
+            },
+        )
+
+        self.assertEqual(adapted["codes"], "AAPL")
+        self.assertNotIn("quote_id_mode", adapted)
+
     def test_efinance_quote_id_helpers_only_consume_shared_symbols(self) -> None:
         with patch(
             "opentrade.backends.efinance_provider.efinance.utils.get_quote_id",
