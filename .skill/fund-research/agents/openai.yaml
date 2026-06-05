@@ -1,7 +1,7 @@
 interface:
   display_name: "Fund Research"
-  short_description: "基于 efinance-cli 与互联网深搜做完整选基、基金经理尽调、买卖点与调仓分析。"
-  default_prompt: "使用 $fund-research 分析一只基金、一个基金池或一位基金经理。优先联动 $efinance-cli 建立基金资料、净值历史、阶段表现、行业暴露与经理基础信息底稿；对基金经理履历、任职区间、基金公告、定期报告、板块/ETF 资金流与监管信息进行互联网深度搜索补充。输出完整的选基逻辑、买点、卖点、调仓条件、风险与置信度，并显式区分事实、推断与未证实项。"
+  short_description: "基于 opentrade 与互联网深搜做完整选基、基金经理尽调、买卖点与调仓分析。"
+  default_prompt: "使用 $fund-research 分析一只基金、一个基金池或一位基金经理。优先联动 $opentrade 建立基金资料、净值历史、阶段表现、行业暴露与经理基础信息底稿；涉及命令路径、默认值、backend 或 observation 输出结构时遵循 $opentrade 的约束；对基金经理履历、任职区间、基金公告、定期报告、板块/ETF 资金流与监管信息进行互联网深度搜索补充。输出完整的选基逻辑、买点、卖点、调仓条件、风险与置信度，并显式区分事实、推断与未证实项。"
 
 policy:
   allow_implicit_invocation: true

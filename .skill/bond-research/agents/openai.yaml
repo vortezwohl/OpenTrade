@@ -1,7 +1,7 @@
 interface:
   display_name: "Bond Research"
-  short_description: "基于 efinance-cli 与互联网深搜做完整选债、可转债、买卖点与调仓分析。"
-  default_prompt: "使用 $bond-research 分析一只债券、一个债券池、可转债或债券 ETF。优先联动 $efinance-cli 建立债券资料、历史价格、资金流与成交底稿；对收益率环境、信用风险、评级变化、发行人公告、可转债条款与政策信息进行互联网深度搜索补充。输出完整的选债逻辑、买点、卖点、调仓条件、风险与置信度，并显式区分事实、推断与未证实项。"
+  short_description: "基于 opentrade 与互联网深搜做完整选债、可转债、买卖点与调仓分析。"
+  default_prompt: "使用 $bond-research 分析一只债券、一个债券池、可转债或债券 ETF。优先联动 $opentrade 建立债券资料、历史价格、资金流与成交底稿；涉及命令路径、默认值、backend 或 observation 输出结构时遵循 $opentrade 的约束；对收益率环境、信用风险、评级变化、发行人公告、可转债条款与政策信息进行互联网深度搜索补充。输出完整的选债逻辑、买点、卖点、调仓条件、风险与置信度，并显式区分事实、推断与未证实项。"
 
 policy:
   allow_implicit_invocation: true
