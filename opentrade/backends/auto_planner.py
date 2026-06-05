@@ -194,7 +194,9 @@ def _supports_request_truthfully(
     if command_key in TRUTHFUL_SINGLE_TARGET_COMMANDS:
         if not _is_single_target_request(command_key, request_data):
             if backend_name == BackendName.YFINANCE and command_key in {
+                "stock.price.history",
                 "stock.price.latest",
+                "quote.price.history",
                 "quote.price.latest",
             }:
                 return False

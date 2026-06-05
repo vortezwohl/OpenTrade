@@ -323,6 +323,31 @@ class SchemaAndResolverTest(unittest.TestCase):
         )
         self.assertEqual(chain, (BackendName.EFINANCE,))
 
+    def test_stock_price_history_us_batch_request_does_not_advertise_yfinance(self) -> None:
+        definition = get_shared_command_definition("stock.price.history")
+        chain = plan_auto_backend_candidates(
+            definition,
+            {
+                "symbols": ["AAPL", "MSFT"],
+                "start_date": "20250501",
+                "end_date": "20250530",
+                "market": "US_stock",
+            },
+        )
+        self.assertEqual(chain, (BackendName.EFINANCE,))
+
+    def test_quote_price_history_us_batch_request_does_not_advertise_yfinance(self) -> None:
+        definition = get_shared_command_definition("quote.price.history")
+        chain = plan_auto_backend_candidates(
+            definition,
+            {
+                "symbols": ["AAPL", "MSFT"],
+                "start_date": "20250501",
+                "end_date": "20250530",
+                "market": "US_stock",
+            },
+        )
+        self.assertEqual(chain, (BackendName.EFINANCE,))
     def test_stock_price_latest_a_share_request_does_not_advertise_batch_yfinance(self) -> None:
         definition = get_shared_command_definition("stock.price.latest")
         chain = plan_auto_backend_candidates(
