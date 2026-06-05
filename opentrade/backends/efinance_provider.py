@@ -370,14 +370,14 @@ def _resolve_efinance_quote_id(
 
 
 def _looks_like_efinance_quote_id(value: object) -> bool:
-    """?????????? efinance / ??????? quote_id?
+    """判断输入值是否已经是 efinance / Eastmoney 使用的 quote_id。
 
     Args:
-        value: ?????????????? shared request ? `codes` / `symbols`?
+        value: 待判断的标识符，通常来自 shared request 中的 `codes` 或 `symbols`。
 
     Returns:
-        ???? `105.AAPL`?????? Eastmoney ????????? `True`?
-        `700.HK`?`000001.SZ`?`600519.SS` ?? Yahoo ticker ?? `False`?
+        如果值类似 `105.AAPL`，并且前缀属于 Eastmoney 市场编号，则返回 `True`。
+        如果值类似 `700.HK`、`000001.SZ`、`600519.SS` 这类 Yahoo ticker，则返回 `False`。
     """
     if not isinstance(value, str):
         return False
@@ -385,7 +385,7 @@ def _looks_like_efinance_quote_id(value: object) -> bool:
     if not text or "." not in text:
         return False
     market_prefix, code = text.split(".", 1)
-    # ??? Eastmoney ???????????? Yahoo ticker ??? quote_id?
+    # 只有 Eastmoney 市场编号前缀才视为 quote_id，避免把 Yahoo ticker 误判成已解析值。
     return market_prefix in MARKET_NUMBER_DICT and bool(code)
 
 
