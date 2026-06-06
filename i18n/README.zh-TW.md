@@ -44,7 +44,7 @@ OpenTrade 也提供面向 Codex、Claude Code 與其他 Agent 的 skill，用於
 
 當你希望 Agent 幫你安裝這些 skill 時，只需要直接說：
 
-> Please install skills from [vortezwohl/OpenTrade](https://github.com/vortezwohl/OpenTrade), and place them in my global user skill directory.
+> Please install skills from `https://github.com/vortezwohl/OpenTrade`, and place them in my global user skill directory.
 
 這些 skill 主要用於股票、基金、債券、期貨與更廣義市場場景下的自動化投研分析。
 

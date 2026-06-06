@@ -44,7 +44,7 @@ OpenTrade also provides agent skills for automated investment research workflows
 
 When you want Codex, Claude Code, or another coding agent to install them, just say:
 
-> Please install skills from [vortezwohl/OpenTrade](https://github.com/vortezwohl/OpenTrade), and place them in my global user skill directory.
+> Please install skills from `https://github.com/vortezwohl/OpenTrade`, and place them in my global user skill directory.
 
 These skills are designed for automated research across stocks, funds, bonds, futures, and broader market workflows.
 
