@@ -74,6 +74,40 @@ opentrade quote price history --symbols AAPL --market us_stock --start-date 2025
 
 需要 K 線、回補、指標或匯出時，進入歷史命令。
 
+## Python API
+
+OpenTrade 也提供可直接 `import` 的物件式 Python API。
+
+```python
+from opentrade import OpenTrade
+
+ot = OpenTrade()
+
+search_result = ot.search.instruments("AAPL", result_count=5)
+latest_quote = ot.quote.price_latest(["AAPL"])
+history = ot.stock.price_history(
+    ["AAPL"],
+    start_date="20250501",
+    end_date="20250601",
+    backend="yfinance",
+)
+quote_id = ot.resolve.quote_id("000001")
+```
+
+實用說明：
+
+- Python API 只提供物件式入口；頂層匯入為 `OpenTrade`。
+- Python API 不暴露 `watch`。
+- 方法會直接回傳 Python 物件，而不是終端渲染文字。
+- shared 命令保持與 CLI 一致的 backend 語義。
+
+技術指標仍透過 indicators 子套件匯入：
+
+```python
+from opentrade.indicators import macd, rsi
+from opentrade.indicators.trend import macd as trend_macd
+```
+
 ## 命令樹
 
 | 命令 | 角色 | 典型用途 |
