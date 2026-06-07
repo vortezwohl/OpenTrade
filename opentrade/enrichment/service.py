@@ -157,7 +157,7 @@ def fetch_standard_history_for_request(
     if request.backend_selection is None:
         return None
 
-    from opentrade.command_catalog import get_shared_command_definition
+    from opentrade.command_catalog import get_command_definition
     from opentrade.facade import CommandFacade
 
     config = LEVELS[level]
@@ -165,7 +165,7 @@ def fetch_standard_history_for_request(
     history_definition = (
         request.command_definition if command_key == history_command_key
         and request.command_definition is not None else
-        get_shared_command_definition(history_command_key)
+        get_command_definition(history_command_key)
     )
     request_data = build_history_lookup_request_data(
         request, history_command_key, code
@@ -216,18 +216,29 @@ def build_history_lookup_request_data(
     code: str,
 ) -> dict[str, object]:
     """为不同资产历史主链构造最小回补请求。"""
+    def request_arg(*names: str, default: object = None) -> object:
+        """按新旧字段名顺序读取运行时请求参数。"""
+        for name in names:
+            if name in request.kwargs:
+                return request.kwargs[name]
+        return default
+
     common_history_fields = {
-        "beg": request.kwargs.get("beg", "19000101"),
-        "end": request.kwargs.get("end", "20500101"),
-        "klt": request.kwargs.get("klt", 101),
-        "fqt": request.kwargs.get("fqt", 1),
-        "suppress_error": request.kwargs.get("suppress_error", False),
-        "use_id_cache": request.kwargs.get("use_id_cache", True),
+        "beg": request_arg("start_date", "beg", default="19000101"),
+        "end": request_arg("end_date", "end", default="20500101"),
+        "klt": request_arg("timeframe", "klt", default=101),
+        "fqt": request_arg("adjustment", "fqt", default=1),
+        "suppress_error": request_arg(
+            "ignore_errors",
+            "suppress_error",
+            default=False,
+        ),
+        "use_id_cache": request_arg("use_id_cache", default=True),
     }
     if history_command_key == "stock.price.history":
         return {
             "stock_codes": [code],
-            "market_type": request.kwargs.get("market_type"),
+            "market_type": request_arg("market", "market_type"),
             **common_history_fields,
         }
     if history_command_key == "bond.price.history":
@@ -248,7 +259,7 @@ def build_history_lookup_request_data(
     if history_command_key == "fund.nav.history":
         return {
             "fund_code": code,
-            "pz": request.kwargs.get("pz", 40000),
+            "pz": request_arg("max_pages", "pz", default=40000),
         }
     raise KeyError(
         f"Unsupported history lookup command: {history_command_key}"
