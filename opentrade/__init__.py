@@ -1,9 +1,16 @@
-"""Opentrade 包的对外入口与版本信息。
+"""OpenTrade 包的公开入口与版本信息。
 
-该包负责把多来源市场数据能力组织成一套面向 Agent 的命令行终端。 核心目标不是重新发明业务抽象，而是在统一的执行管线下提供稳定的命令分发、
-表格渲染、循环刷新和结果导出能力。
+该包同时服务两类主要调用方式：
+
+1. 命令行入口：通过统一命令树暴露市场数据查询、输出渲染与观察视图；
+2. 程序化入口：通过 `OpenTrade` 对象式 SDK 暴露可 import 的 Python API。
+
+技术指标计算函数仍然通过 `opentrade.indicators` 子包单独导入，不混入
+顶层对象式入口。
 """
 
-__all__ = ["__version__"]
+from opentrade.api import OpenTrade
 
-__version__ = "0.1.0"
+__all__ = ["OpenTrade", "__version__"]
+
+__version__ = "1.1.0"

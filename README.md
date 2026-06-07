@@ -74,6 +74,40 @@ opentrade quote price history --symbols AAPL --market us_stock --start-date 2025
 
 Use history commands when you need candles, backfill, indicators, or exports.
 
+## Python API
+
+OpenTrade also exposes an importable object-oriented Python API.
+
+```python
+from opentrade import OpenTrade
+
+ot = OpenTrade()
+
+search_result = ot.search.instruments("AAPL", result_count=5)
+latest_quote = ot.quote.price_latest(["AAPL"])
+history = ot.stock.price_history(
+    ["AAPL"],
+    start_date="20250501",
+    end_date="20250601",
+    backend="yfinance",
+)
+quote_id = ot.resolve.quote_id("000001")
+```
+
+Practical notes:
+
+- The Python API is object-oriented only; the top-level import is `OpenTrade`.
+- The Python API does not expose `watch`.
+- Methods return Python objects directly instead of terminal-rendered text.
+- Shared commands keep the same backend semantics as the CLI.
+
+Technical indicators remain in the indicators subpackage:
+
+```python
+from opentrade.indicators import macd, rsi
+from opentrade.indicators.trend import macd as trend_macd
+```
+
 ## Command Tree
 
 | Command | Role | Typical use |
