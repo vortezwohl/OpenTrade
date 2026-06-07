@@ -1,6 +1,6 @@
 [project]
 name = "opentrade"
-version = "1.0.1"
+version = "1.1.0"
 description = "Market data in your terminal, shaped for humans and agents."
 readme = "README.md"
 requires-python = ">=3.10"
